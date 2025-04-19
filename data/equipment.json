@@ -1,0 +1,12 @@
+[
+  {"name": "Pulse Laser", "type": "weapon", "power": 15, "tech_level": "Renaissance", "price": 1000},
+  {"name": "Beam Laser", "type": "weapon", "power": 25, "tech_level": "Industrial", "price": 3000},
+  {"name": "Military Laser", "type": "weapon", "power": 35, "tech_level": "Hi-tech", "price": 7000},
+  {"name": "Energy Shield", "type": "shield", "protection": 100, "tech_level": "Industrial", "price": 5000},
+  {"name": "Reflective Shield", "type": "shield", "protection": 200, "tech_level": "Post-industrial", "price": 20000},
+  {"name": "Extra Cargo Bays", "type": "gadget", "bonus": 5, "tech_level": "Early Industrial", "price": 2500},
+  {"name": "Auto-Repair System", "type": "gadget", "bonus": "engineer", "tech_level": "Industrial", "price": 7500},
+  {"name": "Navigation System", "type": "gadget", "bonus": "pilot", "tech_level": "Post-industrial", "price": 15000},
+  {"name": "Targeting System", "type": "gadget", "bonus": "fighter", "tech_level": "Post-industrial", "price": 25000},
+  {"name": "Cloaking Device", "type": "gadget", "bonus": "pilot", "tech_level": "Hi-tech", "price": 100000}
+]

@@ -1,0 +1,19 @@
+[
+  {"name": "Anarchy", "description": "No government, no police, high crime."},
+  {"name": "Capitalist State", "description": "Fair trade, minimal interference, strong economy."},
+  {"name": "Communist State", "description": "Society over individual, strong police, corruption."},
+  {"name": "Confederacy", "description": "United states, moderate police, varied tech."},
+  {"name": "Corporate State", "description": "Corporation-owned, strong police, profit-driven."},
+  {"name": "Cybernetic State", "description": "Human-computer integration, strong police/pirates."},
+  {"name": "Democracy", "description": "Majority rule, moderate police, rich population."},
+  {"name": "Dictatorship", "description": "Single ruler, strong police, wealthy elite."},
+  {"name": "Fascist State", "description": "Military rule, strong police, illegal goods harshly punished."},
+  {"name": "Feudal State", "description": "Small countries, no police, pirates thrive."},
+  {"name": "Military State", "description": "Army rule, incorruptible police, robots in demand."},
+  {"name": "Monarchy", "description": "King, moderate police, medicine in demand."},
+  {"name": "Pacifist State", "description": "Peaceful, minimal police, natural resources valued."},
+  {"name": "Socialist State", "description": "Welfare, weak/corrupt police, unofficial illegal trade."},
+  {"name": "State of Satori", "description": "Zen-like, little interest in goods, no crime."},
+  {"name": "Technocracy", "description": "Tech solutions for all problems, strong police."},
+  {"name": "Theocracy", "description": "Religious rule, illegal goods forbidden, slow science."}
+]

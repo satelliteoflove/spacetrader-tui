@@ -1,0 +1,12 @@
+[
+  {"type": "Flea", "size": "Tiny", "cargo_bays": 10, "weapon_slots": 0, "shield_slots": 0, "gadget_slots": 0, "crew_quarters": 1, "range": 20, "fuel_cost": 1, "hull": 25, "repair_cost": 1, "price": 2000, "min_tech": "Early Industrial"},
+  {"type": "Gnat", "size": "Small", "cargo_bays": 15, "weapon_slots": 1, "shield_slots": 0, "gadget_slots": 1, "crew_quarters": 1, "range": 14, "fuel_cost": 1, "hull": 100, "repair_cost": 2, "price": 10000, "min_tech": "Industrial"},
+  {"type": "Firefly", "size": "Small", "cargo_bays": 20, "weapon_slots": 1, "shield_slots": 1, "gadget_slots": 1, "crew_quarters": 1, "range": 17, "fuel_cost": 1, "hull": 100, "repair_cost": 3, "price": 25000, "min_tech": "Industrial"},
+  {"type": "Mosquito", "size": "Small", "cargo_bays": 15, "weapon_slots": 2, "shield_slots": 1, "gadget_slots": 1, "crew_quarters": 1, "range": 13, "fuel_cost": 1, "hull": 100, "repair_cost": 5, "price": 30000, "min_tech": "Industrial"},
+  {"type": "Bumblebee", "size": "Medium", "cargo_bays": 25, "weapon_slots": 1, "shield_slots": 2, "gadget_slots": 2, "crew_quarters": 2, "range": 15, "fuel_cost": 1, "hull": 100, "repair_cost": 7, "price": 60000, "min_tech": "Industrial"},
+  {"type": "Beetle", "size": "Medium", "cargo_bays": 50, "weapon_slots": 0, "shield_slots": 1, "gadget_slots": 1, "crew_quarters": 3, "range": 14, "fuel_cost": 1, "hull": 50, "repair_cost": 10, "price": 80000, "min_tech": "Industrial"},
+  {"type": "Hornet", "size": "Large", "cargo_bays": 20, "weapon_slots": 3, "shield_slots": 2, "gadget_slots": 1, "crew_quarters": 2, "range": 16, "fuel_cost": 2, "hull": 150, "repair_cost": 15, "price": 100000, "min_tech": "Post-industrial"},
+  {"type": "Grasshopper", "size": "Large", "cargo_bays": 30, "weapon_slots": 2, "shield_slots": 2, "gadget_slots": 3, "crew_quarters": 3, "range": 15, "fuel_cost": 3, "hull": 150, "repair_cost": 15, "price": 150000, "min_tech": "Post-industrial"},
+  {"type": "Termite", "size": "Huge", "cargo_bays": 60, "weapon_slots": 1, "shield_slots": 3, "gadget_slots": 2, "crew_quarters": 3, "range": 13, "fuel_cost": 4, "hull": 200, "repair_cost": 20, "price": 225000, "min_tech": "Hi-tech"},
+  {"type": "Wasp", "size": "Huge", "cargo_bays": 35, "weapon_slots": 3, "shield_slots": 2, "gadget_slots": 2, "crew_quarters": 3, "range": 14, "fuel_cost": 5, "hull": 200, "repair_cost": 20, "price": 300000, "min_tech": "Hi-tech"}
+]
