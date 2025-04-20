@@ -1,9 +1,5 @@
-# Main entry point for Space Trader TUI
-from game import GameState
-
-def main():
-    game = GameState()
-    game.run()
+# Main entry point for Space Trader TUI (Textual-native)
+from ui.app import SpaceTraderApp
 
 if __name__ == "__main__":
-    main()
+    SpaceTraderApp().run()
