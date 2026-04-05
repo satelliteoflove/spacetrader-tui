@@ -380,7 +380,7 @@ func (s *GalacticListScreen) View() string {
 	distH := sortedHeader("DIST", colDist, s.sortCol, s.sortDir)
 	techH := sortedHeader("TECH", colTech, s.sortCol, s.sortDir)
 	govH := sortedHeader("GOV", colGov, s.sortCol, s.sortDir)
-	resH := sortedHeader("RESOURCE", colResource, s.sortCol, s.sortDir)
+	resH := sortedHeader("SPECIALTY", colResource, s.sortCol, s.sortDir)
 
 	header := fmt.Sprintf("  %-16s %5s  %-10s %-16s %-8s",
 		sysH, distH, techH, govH, resH)
@@ -415,8 +415,10 @@ func (s *GalacticListScreen) View() string {
 				marker = "@"
 			}
 
-			line := fmt.Sprintf("%-16s %5.1f  %-10s %-16s %-8s %s",
-				e.name, e.dist, e.techStr, e.govStr, e.resStr, marker)
+			coloredRes := colorResource(e.resource, fmt.Sprintf("%-8s", e.resStr))
+			line := fmt.Sprintf("%-16s %5.1f  %-10s %-16s",
+				e.name, e.dist, e.techStr, e.govStr)
+			line += coloredRes + " " + marker
 
 			if i == s.cursor {
 				b.WriteString(SelectedStyle.Render("> ") + line + "\n")

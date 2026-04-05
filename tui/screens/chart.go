@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
@@ -207,7 +208,7 @@ func (s *ChartScreen) View() string {
 		distH := sortedHeader("DIST", colDist, s.sortCol, s.sortDir)
 		techH := sortedHeader("TECH", colTech, s.sortCol, s.sortDir)
 		govH := sortedHeader("GOV", colGov, s.sortCol, s.sortDir)
-		resH := sortedHeader("RESOURCE", colResource, s.sortCol, s.sortDir)
+		resH := sortedHeader("SPECIALTY", colResource, s.sortCol, s.sortDir)
 
 		header := fmt.Sprintf("  %-16s %5s  %-10s %-16s %-8s",
 			sysH, distH, techH, govH, resH)
@@ -223,8 +224,10 @@ func (s *ChartScreen) View() string {
 					marker = "*"
 				}
 
-				line := fmt.Sprintf("%-16s %5.1f  %-10s %-16s %-8s %s",
-					e.name, e.dist, e.techStr, e.govStr, e.resStr, marker)
+				coloredRes := colorResource(e.resource, fmt.Sprintf("%-8s", e.resStr))
+				line := fmt.Sprintf("%-16s %5.1f  %-10s %-16s",
+					e.name, e.dist, e.techStr, e.govStr)
+				line += coloredRes + " " + marker
 
 				if i == s.cursor {
 					b.WriteString(SelectedStyle.Render("> ") + line + "\n")
@@ -260,6 +263,16 @@ func (s *ChartScreen) View() string {
 				availableGoods, eventOrNone(destState.Event))) + "\n")
 		} else {
 			b.WriteString(DimStyle.Render("  Not yet visited") + "\n")
+		}
+
+		if e.resource != gamedata.ResourceNone {
+			cheap, expensive := resourceTradeHints(s.gs.Data.Goods, destDef.Resource)
+			if cheap != "" {
+				b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Buy cheap: %s", cheap)) + "\n")
+			}
+			if expensive != "" {
+				b.WriteString(DangerStyle.Render(fmt.Sprintf("  Sells high: %s", expensive)) + "\n")
+			}
 		}
 	}
 
@@ -320,4 +333,40 @@ func eventOrNone(event string) string {
 		return "none"
 	}
 	return event
+}
+
+var (
+	resourceGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	resourceRedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	resourceYellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+)
+
+func colorResource(r gamedata.Resource, text string) string {
+	switch r {
+	case gamedata.ResourceNone:
+		return text
+	case gamedata.ResourceMineralRich, gamedata.ResourceWaterWorld, gamedata.ResourceRichFauna,
+		gamedata.ResourceRichSoil, gamedata.ResourceGoodClinic, gamedata.ResourceRobotWorkers:
+		return resourceGreenStyle.Render(text)
+	case gamedata.ResourceDesert, gamedata.ResourcePoor, gamedata.ResourceLifeless,
+		gamedata.ResourcePoorSoil, gamedata.ResourcePoorClinic, gamedata.ResourceLackOfWorkers:
+		return resourceRedStyle.Render(text)
+	case gamedata.ResourceIndustrial:
+		return resourceYellowStyle.Render(text)
+	}
+	return text
+}
+
+func resourceTradeHints(goods []gamedata.GoodDef, r gamedata.Resource) (cheap, expensive string) {
+	resName := r.String()
+	var cheapGoods, expensiveGoods []string
+	for _, g := range goods {
+		if g.CheapResource == resName {
+			cheapGoods = append(cheapGoods, g.Name)
+		}
+		if g.ExpensiveResource == resName {
+			expensiveGoods = append(expensiveGoods, g.Name)
+		}
+	}
+	return strings.Join(cheapGoods, ", "), strings.Join(expensiveGoods, ", ")
 }

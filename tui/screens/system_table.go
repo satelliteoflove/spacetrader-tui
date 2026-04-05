@@ -35,6 +35,7 @@ type systemEntry struct {
 	techLvl   gamedata.TechLevel
 	techStr   string
 	govStr    string
+	resource  gamedata.Resource
 	resStr    string
 	visited   bool
 	isCurrent bool
@@ -52,6 +53,7 @@ func buildSystemEntries(gs *game.GameState, indices []int) []systemEntry {
 			techLvl:   sys.TechLevel,
 			techStr:   shortTech(sys.TechLevel),
 			govStr:    sys.PoliticalSystem.String(),
+			resource:  sys.Resource,
 			resStr:    shortResource(sys.Resource),
 			visited:   gs.Systems[idx].Visited,
 			isCurrent: idx == gs.CurrentSystemID,
