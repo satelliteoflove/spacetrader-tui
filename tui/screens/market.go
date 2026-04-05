@@ -152,11 +152,10 @@ func (s *MarketScreen) View() string {
 		s.gs.Player.Credits, s.gs.Player.TotalCargo(),
 		s.gs.Player.CargoCapacity(dp), freeCargo))
 
-	//  header row
-	b.WriteString(DimStyle.Render(fmt.Sprintf(
-		"     %-12s %6s  %4s  %6s  %s",
-		"GOOD", "PRICE", "HELD", "AVG", "TREND")) + "\n")
-	b.WriteString("  " + strings.Repeat("-", 50) + "\n")
+	header := fmt.Sprintf("  %-12s %6s  %4s  %6s  %-2s",
+		"GOOD", "PRICE", "HELD", "AVG", "TREND")
+	b.WriteString(DimStyle.Render(header) + "\n")
+	b.WriteString("  " + strings.Repeat("-", 40) + "\n")
 
 	for i, goodIdx := range s.goods {
 		good := s.gs.Data.Goods[goodIdx]
@@ -164,43 +163,43 @@ func (s *MarketScreen) View() string {
 		owned := s.gs.Player.Cargo[goodIdx]
 		avg := s.avgPrices[goodIdx]
 
-		priceStr := fmt.Sprintf("%d", price)
-		avgStr := fmt.Sprintf("%d", avg)
+		priceStr := fmt.Sprintf("%6d", price)
+		avgStr := fmt.Sprintf("%6d", avg)
 		if price < 0 {
-			priceStr = "--"
-			avgStr = "--"
+			priceStr = fmt.Sprintf("%6s", "--")
+			avgStr = fmt.Sprintf("%6s", "--")
 		}
 
-		trend := ""
+		nameCol := fmt.Sprintf("%-12s", good.Name)
+
+		illegalCol := " "
+		if !good.Legal {
+			illegalCol = DangerStyle.Render("!")
+		}
+
+		heldCol := fmt.Sprintf("%4d", owned)
+		if owned == 0 {
+			heldCol = DimStyle.Render(fmt.Sprintf("%4s", "-"))
+		}
+
+		trendCol := "  "
 		if price > 0 {
 			hint := market.PriceVsAverage(price, avg)
 			switch hint {
 			case "very cheap":
-				trend = SuccessStyle.Render("<<")
+				trendCol = SuccessStyle.Render("<<")
 			case "cheap":
-				trend = SuccessStyle.Render("<")
+				trendCol = SuccessStyle.Render("< ")
 			case "very expensive":
-				trend = DangerStyle.Render(">>")
+				trendCol = DangerStyle.Render(">>")
 			case "expensive":
-				trend = DangerStyle.Render(">")
+				trendCol = DangerStyle.Render("> ")
 			default:
-				trend = DimStyle.Render("=")
+				trendCol = DimStyle.Render("= ")
 			}
 		}
 
-		name := good.Name
-		illegal := ""
-		if !good.Legal {
-			illegal = DangerStyle.Render("!")
-		}
-
-		heldStr := fmt.Sprintf("%d", owned)
-		if owned == 0 {
-			heldStr = DimStyle.Render("-")
-		}
-
-		row := fmt.Sprintf("%-12s%s %6s  %4s  %6s   %s",
-			name, illegal, priceStr, heldStr, avgStr, trend)
+		row := nameCol + illegalCol + priceStr + "  " + heldCol + "  " + avgStr + "  " + trendCol
 
 		if i == s.cursor {
 			b.WriteString(SelectedStyle.Render("> ") + row + "\n")

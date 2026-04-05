@@ -94,4 +94,10 @@ var (
 
 	IllegalStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("9"))
+
+	CyanStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("14"))
+
+	MagentaStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("13"))
 )

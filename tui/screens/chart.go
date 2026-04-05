@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/the4ofus/spacetrader-tui/internal/game"
@@ -14,45 +15,85 @@ import (
 )
 
 type ChartScreen struct {
-	gs      *game.GameState
-	cursor  int
-	systems []travel.ReachableSystem
-	message string
+	gs          *game.GameState
+	cursor      int
+	allEntries  []systemEntry
+	filtered    []systemEntry
+	sortCol     sortColumn
+	sortDir     sortDir
+	filterMode  bool
+	filterInput textinput.Model
+	filterText  string
+	message     string
 }
 
 func NewChartScreen(gs *game.GameState) *ChartScreen {
+	systems := travel.ReachableSystems(gs)
+	indices := make([]int, len(systems))
+	for i, rs := range systems {
+		indices[i] = rs.Index
+	}
+	allEntries := buildSystemEntries(gs, indices)
+	filtered := applyFilterAndSort(allEntries, "", colDist, sortAsc)
 	return &ChartScreen{
-		gs:      gs,
-		systems: travel.ReachableSystems(gs),
+		gs:          gs,
+		allEntries:  allEntries,
+		filtered:    filtered,
+		sortCol:     colDist,
+		sortDir:     sortAsc,
+		filterInput: newFilterInput(),
 	}
 }
 
 func (s *ChartScreen) Init() tea.Cmd { return nil }
 
 func (s *ChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if s.filterMode {
+		return s.updateChartFilter(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, Keys.Up):
-			s.cursor = wrapCursor(s.cursor, -1, len(s.systems))
+			if len(s.filtered) > 0 {
+				s.cursor = wrapCursor(s.cursor, -1, len(s.filtered))
+			}
 		case key.Matches(msg, Keys.Down):
-			s.cursor = wrapCursor(s.cursor, 1, len(s.systems))
+			if len(s.filtered) > 0 {
+				s.cursor = wrapCursor(s.cursor, 1, len(s.filtered))
+			}
 		case key.Matches(msg, Keys.Enter):
-			if len(s.systems) == 0 {
+			if len(s.filtered) == 0 {
 				return s, nil
 			}
-			dest := s.systems[s.cursor]
-			result := travel.ExecuteTravel(s.gs, dest.Index)
+			entry := s.filtered[s.cursor]
+			result := travel.ExecuteTravel(s.gs, entry.sysIdx)
 			if !result.Success {
 				s.message = result.Message
 				return s, nil
 			}
 			s.message = result.Message
-			return s, func() tea.Msg { return TravelMsg{DestIdx: dest.Index} }
+			return s, func() tea.Msg { return TravelMsg{DestIdx: entry.sysIdx} }
+		case msg.String() == "1":
+			s.toggleChartSort(colName)
+		case msg.String() == "2":
+			s.toggleChartSort(colDist)
+		case msg.String() == "3":
+			s.toggleChartSort(colTech)
+		case msg.String() == "4":
+			s.toggleChartSort(colGov)
+		case msg.String() == "5":
+			s.toggleChartSort(colResource)
+		case msg.String() == "/":
+			s.filterMode = true
+			s.filterInput.SetValue(s.filterText)
+			s.filterInput.Focus()
+			return s, textinput.Blink
 		case msg.String() == "r":
 			result := shipyard.Refuel(s.gs)
 			s.message = result.Message
-			s.systems = travel.ReachableSystems(s.gs)
+			s.refreshChartSystems()
 			return s, nil
 		case msg.String() == "w":
 			ok, msg := game.TravelWormhole(s.gs)
@@ -67,6 +108,65 @@ func (s *ChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return s, nil
+}
+
+func (s *ChartScreen) updateChartFilter(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if key.Matches(msg, Keys.Enter) {
+			s.filterMode = false
+			s.filterText = s.filterInput.Value()
+			s.refilterChart()
+			return s, nil
+		}
+		if key.Matches(msg, Keys.Back) {
+			s.filterMode = false
+			s.filterText = ""
+			s.filterInput.SetValue("")
+			s.refilterChart()
+			return s, nil
+		}
+	}
+	var cmd tea.Cmd
+	s.filterInput, cmd = s.filterInput.Update(msg)
+	s.filterText = s.filterInput.Value()
+	s.refilterChart()
+	return s, cmd
+}
+
+func (s *ChartScreen) toggleChartSort(col sortColumn) {
+	if s.sortCol == col {
+		if s.sortDir == sortAsc {
+			s.sortDir = sortDesc
+		} else {
+			s.sortDir = sortAsc
+		}
+	} else {
+		s.sortCol = col
+		s.sortDir = sortAsc
+	}
+	s.refilterChart()
+}
+
+func (s *ChartScreen) refilterChart() {
+	s.filtered = applyFilterAndSort(s.allEntries, s.filterText, s.sortCol, s.sortDir)
+	if s.cursor >= len(s.filtered) {
+		if len(s.filtered) > 0 {
+			s.cursor = len(s.filtered) - 1
+		} else {
+			s.cursor = 0
+		}
+	}
+}
+
+func (s *ChartScreen) refreshChartSystems() {
+	systems := travel.ReachableSystems(s.gs)
+	indices := make([]int, len(systems))
+	for i, rs := range systems {
+		indices[i] = rs.Index
+	}
+	s.allEntries = buildSystemEntries(s.gs, indices)
+	s.refilterChart()
 }
 
 func (s *ChartScreen) View() string {
@@ -89,38 +189,48 @@ func (s *ChartScreen) View() string {
 		b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s available! (press w)", destName)) + "\n")
 	}
 
+	if s.filterMode {
+		b.WriteString("  / " + s.filterInput.View() + "\n")
+	} else if s.filterText != "" {
+		b.WriteString(DimStyle.Render(fmt.Sprintf("  filter: %s  (/ edit, esc clear)", s.filterText)) + "\n")
+	}
+
 	b.WriteString("\n")
 
-	if len(s.systems) == 0 {
+	if len(s.allEntries) == 0 {
 		b.WriteString("  No systems in range.\n")
 		if s.gs.Player.Ship.Fuel < shipDef.Range {
 			b.WriteString("  " + DimStyle.Render("Press r to refuel.") + "\n")
 		}
 	} else {
-		b.WriteString(fmt.Sprintf("  %-16s %4s  %-15s %-16s %s\n",
-			"SYSTEM", "DIST", "TECH", "GOVERNMENT", "RESOURCE"))
-		b.WriteString("  " + strings.Repeat("-", 68) + "\n")
+		sysH := sortedHeader("SYSTEM", colName, s.sortCol, s.sortDir)
+		distH := sortedHeader("DIST", colDist, s.sortCol, s.sortDir)
+		techH := sortedHeader("TECH", colTech, s.sortCol, s.sortDir)
+		govH := sortedHeader("GOV", colGov, s.sortCol, s.sortDir)
+		resH := sortedHeader("RESOURCE", colResource, s.sortCol, s.sortDir)
 
-		for i, sys := range s.systems {
-			sysDef := s.gs.Data.Systems[sys.Index]
-			visited := s.gs.Systems[sys.Index].Visited
+		header := fmt.Sprintf("  %-16s %5s  %-10s %-16s %-8s",
+			sysH, distH, techH, govH, resH)
+		b.WriteString(DimStyle.Render(header) + "\n")
+		b.WriteString("  " + strings.Repeat("-", 60) + "\n")
 
-			visitMark := " "
-			if visited {
-				visitMark = "*"
-			}
+		if len(s.filtered) == 0 {
+			b.WriteString("  No matching systems.\n")
+		} else {
+			for i, e := range s.filtered {
+				marker := " "
+				if e.visited {
+					marker = "*"
+				}
 
-			techStr := shortTech(sysDef.TechLevel)
-			resStr := shortResource(sysDef.Resource)
+				line := fmt.Sprintf("%-16s %5.1f  %-10s %-16s %-8s %s",
+					e.name, e.dist, e.techStr, e.govStr, e.resStr, marker)
 
-			line := fmt.Sprintf("%-16s %4.1f  %-15s %-16s %s %s",
-				sys.Name, sys.Distance, techStr,
-				sysDef.PoliticalSystem, resStr, visitMark)
-
-			if i == s.cursor {
-				b.WriteString(SelectedStyle.Render("> ") + line + "\n")
-			} else {
-				b.WriteString("  " + line + "\n")
+				if i == s.cursor {
+					b.WriteString(SelectedStyle.Render("> ") + line + "\n")
+				} else {
+					b.WriteString("  " + line + "\n")
+				}
 			}
 		}
 
@@ -131,12 +241,12 @@ func (s *ChartScreen) View() string {
 		b.WriteString("\n  " + s.message)
 	}
 
-	if len(s.systems) > 0 && s.cursor < len(s.systems) {
-		b.WriteString("\n")
-		destIdx := s.systems[s.cursor].Index
-		destDef := s.gs.Data.Systems[destIdx]
-		destState := s.gs.Systems[destIdx]
+	if len(s.filtered) > 0 && s.cursor < len(s.filtered) {
+		e := s.filtered[s.cursor]
+		destDef := s.gs.Data.Systems[e.sysIdx]
+		destState := s.gs.Systems[e.sysIdx]
 
+		b.WriteString("\n")
 		b.WriteString(DimStyle.Render(fmt.Sprintf("  --- %s ---", destDef.Name)) + "\n")
 
 		availableGoods := 0
@@ -145,7 +255,7 @@ func (s *ChartScreen) View() string {
 				availableGoods++
 			}
 		}
-		if s.gs.Systems[destIdx].Visited {
+		if s.gs.Systems[e.sysIdx].Visited {
 			b.WriteString(DimStyle.Render(fmt.Sprintf("  %d goods available  |  Event: %s",
 				availableGoods, eventOrNone(destState.Event))) + "\n")
 		} else {
@@ -153,7 +263,7 @@ func (s *ChartScreen) View() string {
 		}
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  enter travel, r refuel, w wormhole, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  enter travel, r refuel, w wormhole, 1-5 sort, / filter, esc back"))
 	return b.String()
 }
 

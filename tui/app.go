@@ -2,6 +2,7 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/the4ofus/spacetrader-tui/internal/encounter"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
@@ -132,5 +133,28 @@ func (m Model) navigate(screen screens.ScreenType) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	return m.screen.View()
+	content := m.screen.View()
+
+	w := m.width
+	h := m.height
+	if w == 0 {
+		w = 80
+	}
+	if h == 0 {
+		h = 24
+	}
+
+	maxW := 80
+	if w-2 < maxW {
+		maxW = w - 2
+	}
+
+	frame := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("8")).
+		Width(maxW).
+		Padding(0, 1)
+
+	rendered := frame.Render(content)
+	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Top, rendered)
 }
