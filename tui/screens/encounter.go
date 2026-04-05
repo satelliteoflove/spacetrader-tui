@@ -1,0 +1,103 @@
+package screens
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/the4ofus/spacetrader-tui/internal/encounter"
+	"github.com/the4ofus/spacetrader-tui/internal/game"
+)
+
+type encounterPhase int
+
+const (
+	phaseChoose encounterPhase = iota
+	phaseResult
+)
+
+type EncounterScreen struct {
+	gs      *game.GameState
+	enc     *encounter.Encounter
+	phase   encounterPhase
+	cursor  int
+	outcome encounter.Outcome
+}
+
+func NewEncounterScreen(gs *game.GameState, enc *encounter.Encounter) *EncounterScreen {
+	return &EncounterScreen{
+		gs:  gs,
+		enc: enc,
+	}
+}
+
+func (s *EncounterScreen) Init() tea.Cmd { return nil }
+
+func (s *EncounterScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if s.phase == phaseResult {
+			if key.Matches(msg, Keys.Enter) || key.Matches(msg, Keys.Back) {
+				return s, func() tea.Msg { return EncounterDoneMsg{Outcome: s.outcome} }
+			}
+			return s, nil
+		}
+
+		switch {
+		case key.Matches(msg, Keys.Up):
+			s.cursor = wrapCursor(s.cursor, -1, len(s.enc.Actions))
+		case key.Matches(msg, Keys.Down):
+			s.cursor = wrapCursor(s.cursor, 1, len(s.enc.Actions))
+		case key.Matches(msg, Keys.Enter):
+			action := s.enc.Actions[s.cursor]
+			s.outcome = encounter.Resolve(s.gs, s.enc, action)
+			s.phase = phaseResult
+		}
+	}
+	return s, nil
+}
+
+func (s *EncounterScreen) View() string {
+	var b strings.Builder
+
+	style := TitleStyle
+	if s.enc.Type == encounter.EncPirate {
+		style = DangerStyle.Bold(true).Padding(1, 0)
+	}
+	b.WriteString(style.Render(fmt.Sprintf("ENCOUNTER: %s", s.enc.Type)) + "\n")
+	b.WriteString("  " + s.enc.Message + "\n\n")
+
+	if s.phase == phaseChoose {
+		for i, action := range s.enc.Actions {
+			if i == s.cursor {
+				b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+action.String())))
+			} else {
+				b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(action.String())))
+			}
+		}
+		b.WriteString("\n" + DimStyle.Render("  j/k to choose, enter to act"))
+	} else {
+		b.WriteString("  " + s.outcome.Message + "\n")
+
+		if s.outcome.CreditsChange != 0 {
+			if s.outcome.CreditsChange > 0 {
+				b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Credits: +%d", s.outcome.CreditsChange)) + "\n")
+			} else {
+				b.WriteString(DangerStyle.Render(fmt.Sprintf("  Credits: %d", s.outcome.CreditsChange)) + "\n")
+			}
+		}
+		if s.outcome.HullDamage > 0 {
+			b.WriteString(DangerStyle.Render(fmt.Sprintf("  Hull damage: %d", s.outcome.HullDamage)) + "\n")
+		}
+
+		if s.gs.EndStatus == game.StatusDead {
+			b.WriteString("\n" + DangerStyle.Render("  YOUR SHIP HAS BEEN DESTROYED") + "\n")
+		}
+
+		b.WriteString("\n" + DimStyle.Render("  press enter to continue"))
+	}
+
+	return b.String()
+}

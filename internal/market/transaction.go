@@ -1,0 +1,112 @@
+package market
+
+import (
+	"fmt"
+
+	"github.com/the4ofus/spacetrader-tui/internal/formula"
+	"github.com/the4ofus/spacetrader-tui/internal/game"
+)
+
+type TransactionResult struct {
+	Success    bool
+	Message    string
+	TotalPrice int
+}
+
+func effectiveTraderSkill(gs *game.GameState) int {
+	crewMercs := make([]formula.Mercenary, len(gs.Player.Crew))
+	for i, m := range gs.Player.Crew {
+		crewMercs[i] = m
+	}
+	return formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], crewMercs, formula.SkillTrader, 0)
+}
+
+func Buy(gs *game.GameState, goodIdx int, qty int) TransactionResult {
+	if goodIdx < 0 || goodIdx >= game.NumGoods {
+		return TransactionResult{Message: "Invalid good."}
+	}
+	if qty <= 0 {
+		return TransactionResult{Message: "Invalid quantity."}
+	}
+
+	sysState := &gs.Systems[gs.CurrentSystemID]
+	basePrice := sysState.Prices[goodIdx]
+	if basePrice < 0 {
+		return TransactionResult{Message: "Good not available in this market."}
+	}
+
+	traderSkill := effectiveTraderSkill(gs)
+	discount := traderSkill
+	if discount > 10 {
+		discount = 10
+	}
+	price := basePrice * (100 - discount) / 100
+	if price < 1 {
+		price = 1
+	}
+
+	totalCost := price * qty
+	if gs.Player.Credits < totalCost {
+		return TransactionResult{Message: "Not enough credits."}
+	}
+
+	dp := &game.GameDataProvider{Data: gs.Data}
+	if gs.Player.FreeCargo(dp) < qty {
+		return TransactionResult{Message: "Not enough cargo space."}
+	}
+
+	gs.Player.Credits -= totalCost
+	gs.Player.Cargo[goodIdx] += qty
+
+	goodName := gs.Data.Goods[goodIdx].Name
+	msg := fmt.Sprintf("Bought %d %s for %d cr", qty, goodName, totalCost)
+	if discount > 0 {
+		msg += fmt.Sprintf(" (%d%% trader discount)", discount)
+	}
+	return TransactionResult{
+		Success:    true,
+		Message:    msg,
+		TotalPrice: totalCost,
+	}
+}
+
+func Sell(gs *game.GameState, goodIdx int, qty int) TransactionResult {
+	if goodIdx < 0 || goodIdx >= game.NumGoods {
+		return TransactionResult{Message: "Invalid good."}
+	}
+	if qty <= 0 {
+		return TransactionResult{Message: "Invalid quantity."}
+	}
+
+	if gs.Player.Cargo[goodIdx] < qty {
+		return TransactionResult{Message: "Not enough goods to sell."}
+	}
+
+	sysState := &gs.Systems[gs.CurrentSystemID]
+	basePrice := sysState.Prices[goodIdx]
+	if basePrice < 0 {
+		return TransactionResult{Message: "Market does not buy this good here."}
+	}
+
+	traderSkill := effectiveTraderSkill(gs)
+	bonus := traderSkill
+	if bonus > 10 {
+		bonus = 10
+	}
+	price := basePrice * (100 + bonus) / 100
+
+	totalPrice := price * qty
+	gs.Player.Credits += totalPrice
+	gs.Player.Cargo[goodIdx] -= qty
+
+	goodName := gs.Data.Goods[goodIdx].Name
+	msg := fmt.Sprintf("Sold %d %s for %d cr", qty, goodName, totalPrice)
+	if bonus > 0 {
+		msg += fmt.Sprintf(" (%d%% trader bonus)", bonus)
+	}
+	return TransactionResult{
+		Success:    true,
+		Message:    msg,
+		TotalPrice: totalPrice,
+	}
+}
