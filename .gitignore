@@ -1,2 +1,10 @@
 spacetrader
 spacetrader-arm
+*.test
+*.out
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
