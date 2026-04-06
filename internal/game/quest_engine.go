@@ -27,7 +27,7 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 			gs.Quests.States[QuestJapori] = QuestAvailable
 			events = append(events, QuestEvent{
 				Title:   "Japori Disease",
-				Message: "A terrible disease is sweeping Japori! 10 bays of medicine are desperately needed.",
+				Message: "A terrible disease is sweeping Japori! 10 bays of medicine are desperately needed.\n\n  Reward: Skill training (+2 random skills)\n  Requires: 10 units of medicine in cargo\n  Deadline: None -- deliver at your own pace",
 				Actions: []string{"Accept mission", "Decline"},
 			})
 		}
@@ -60,7 +60,7 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 			gs.Quests.States[QuestSkillIncrease] = QuestAvailable
 			events = append(events, QuestEvent{
 				Title:   "Skill Training Available",
-				Message: "A renowned trainer offers to improve one of your skills for 3000 credits.",
+				Message: "A renowned trainer offers to improve one of your skills.\n\n  Cost: 3,000 credits\n  Reward: +1 random skill",
 				Actions: []string{"Pay 3000 for training", "Decline"},
 			})
 		}

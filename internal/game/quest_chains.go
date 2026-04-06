@@ -56,21 +56,26 @@ func giveQuestEquipment(gs *GameState, equipName string) string {
 	return ""
 }
 
-var dragonflyPath = []string{"Baratas", "Melina", "Regulas", "Zalkon"}
+var dragonflyPath = []string{"Arouan", "Halley", "Regulus", "Linnet"}
 
 func checkDragonfly(gs *GameState) []QuestEvent {
 	state := gs.Quests.States[QuestDragonfly]
 	progress := gs.Quests.Progress[QuestDragonfly]
 
 	if state == QuestUnavailable && gs.Day > 20 && gs.Rand.Intn(100) < 10 {
-		startSys := findSystem(gs, "Baratas")
+		startSys := findSystem(gs, dragonflyPath[0])
 		if gs.CurrentSystemID == startSys || startSys < 0 {
 			return nil
 		}
+		cur := gs.Data.Systems[gs.CurrentSystemID]
+		dest := gs.Data.Systems[startSys]
+		dist := formula.Distance(cur.X, cur.Y, dest.X, dest.Y)
 		gs.Quests.States[QuestDragonfly] = QuestAvailable
 		return []QuestEvent{{
 			Title:   "Dragonfly",
-			Message: "Reports indicate a stolen experimental ship, the Dragonfly, was last seen near Baratas.",
+			Message: fmt.Sprintf("Reports indicate a stolen experimental ship, the Dragonfly, was last seen near %s.\n\n  First stop: %s (%.1f parsecs)\n  Route: %s -> %s -> %s -> %s\n  Reward: Lightning Shield\n  Deadline: None",
+				dragonflyPath[0], dragonflyPath[0], dist,
+				dragonflyPath[0], dragonflyPath[1], dragonflyPath[2], dragonflyPath[3]),
 		}}
 	}
 
@@ -103,10 +108,17 @@ func checkSpaceMonster(gs *GameState) []QuestEvent {
 	state := gs.Quests.States[QuestSpaceMonster]
 
 	if state == QuestUnavailable && gs.Day > 15 && gs.Rand.Intn(100) < 8 {
+		acamar := findSystem(gs, "Acamar")
+		distStr := ""
+		if acamar >= 0 {
+			cur := gs.Data.Systems[gs.CurrentSystemID]
+			dest := gs.Data.Systems[acamar]
+			distStr = fmt.Sprintf("\n  Location: Acamar (%.1f parsecs)", formula.Distance(cur.X, cur.Y, dest.X, dest.Y))
+		}
 		gs.Quests.States[QuestSpaceMonster] = QuestAvailable
 		return []QuestEvent{{
 			Title:   "Space Monster",
-			Message: "A terrifying Space Monster is attacking ships near Acamar! Bounty offered for its destruction.",
+			Message: fmt.Sprintf("A terrifying Space Monster is attacking ships near Acamar! Bounty offered for its destruction.\n%s\n  Reward: 10,000 credits + reputation\n  Risk: Combat -- strength depends on fighter skill and weapons\n  Deadline: None", distStr),
 		}}
 	}
 
@@ -136,7 +148,7 @@ func checkScarab(gs *GameState) []QuestEvent {
 		gs.Quests.States[QuestScarab] = QuestAvailable
 		return []QuestEvent{{
 			Title:   "Scarab Sighting",
-			Message: "The legendary Scarab ship has been spotted hiding near a wormhole exit. It is said to have an impenetrable hull.",
+			Message: "The legendary Scarab ship has been spotted hiding near a wormhole exit. It is said to have an impenetrable hull.\n\n  Location: Near wormhole exits (chance encounter)\n  Reward: Salvaged hull plating (+20 max hull)\n  Deadline: None",
 		}}
 	}
 
@@ -163,7 +175,7 @@ func checkAlienArtifact(gs *GameState) []QuestEvent {
 		gs.Quests.States[QuestAlienArtifact] = QuestAvailable
 		return []QuestEvent{{
 			Title:   "Alien Artifact",
-			Message: "You've discovered a strange alien artifact! A professor at a Hi-tech system would pay handsomely for it. But beware -- alien Mantis ships may pursue you.",
+			Message: "You've discovered a strange alien artifact! A professor at a Hi-tech system would pay handsomely for it.\n\n  Destination: Any Hi-tech system\n  Reward: 20,000 credits + reputation\n  Risk: Mantis ships may pursue you during travel\n  Deadline: None",
 			Actions: []string{"Take the artifact", "Leave it"},
 		}}
 	}
@@ -187,17 +199,24 @@ func checkJarek(gs *GameState) []QuestEvent {
 	state := gs.Quests.States[QuestJarek]
 
 	if state == QuestUnavailable && gs.Day > 12 && gs.Rand.Intn(100) < 10 {
+		dest := findSystem(gs, "Aldebaran")
+		distStr := ""
+		if dest >= 0 {
+			cur := gs.Data.Systems[gs.CurrentSystemID]
+			d := gs.Data.Systems[dest]
+			distStr = fmt.Sprintf(" (%.1f parsecs)", formula.Distance(cur.X, cur.Y, d.X, d.Y))
+		}
 		gs.Quests.States[QuestJarek] = QuestAvailable
 		return []QuestEvent{{
 			Title:   "Ambassador Jarek",
-			Message: "Ambassador Jarek needs transport to Devidia for urgent diplomatic negotiations.",
+			Message: fmt.Sprintf("Ambassador Jarek needs transport to Aldebaran for urgent diplomatic negotiations.\n\n  Destination: Aldebaran%s\n  Reward: 5,000 credits + reputation\n  Deadline: 10 stops -- he leaves if not delivered in time\n  Failure: No penalty, ambassador departs", distStr),
 			Actions: []string{"Accept passenger", "Decline"},
 		}}
 	}
 
 	if state == QuestActive {
-		devidia := findSystem(gs, "Devidia")
-		if devidia >= 0 && gs.CurrentSystemID == devidia {
+		aldebaran := findSystem(gs, "Aldebaran")
+		if aldebaran >= 0 && gs.CurrentSystemID == aldebaran {
 			gs.Quests.States[QuestJarek] = QuestComplete
 			gs.Player.Credits += 5000
 			gs.Player.Reputation += 2
@@ -224,11 +243,18 @@ func checkGemulon(gs *GameState) []QuestEvent {
 	state := gs.Quests.States[QuestGemulon]
 
 	if state == QuestUnavailable && gs.Day > 35 && gs.Rand.Intn(100) < 6 {
+		gemulon := findSystem(gs, "Gemulon")
+		distStr := ""
+		if gemulon >= 0 {
+			cur := gs.Data.Systems[gs.CurrentSystemID]
+			dest := gs.Data.Systems[gemulon]
+			distStr = fmt.Sprintf(" (%.1f parsecs)", formula.Distance(cur.X, cur.Y, dest.X, dest.Y))
+		}
 		gs.Quests.States[QuestGemulon] = QuestAvailable
 		gs.Quests.Progress[QuestGemulon] = gs.Day
 		return []QuestEvent{{
 			Title:   "Gemulon Invasion!",
-			Message: "Aliens are planning to invade Gemulon! You must warn them within 7 days!",
+			Message: fmt.Sprintf("Aliens are planning to invade Gemulon! You must warn them within 7 days!\n\n  Destination: Gemulon%s\n  Reward: Fuel Compactor\n  Deadline: 7 days -- system is invaded if you're late\n  Failure: Gemulon falls, quest lost", distStr),
 		}}
 	}
 
@@ -259,27 +285,34 @@ func checkFehler(gs *GameState) []QuestEvent {
 	state := gs.Quests.States[QuestFehler]
 
 	if state == QuestUnavailable && gs.Day > 40 && gs.Rand.Intn(100) < 5 {
+		deneb := findSystem(gs, "Deneb")
+		distStr := ""
+		if deneb >= 0 {
+			cur := gs.Data.Systems[gs.CurrentSystemID]
+			dest := gs.Data.Systems[deneb]
+			distStr = fmt.Sprintf(" (%.1f parsecs)", formula.Distance(cur.X, cur.Y, dest.X, dest.Y))
+		}
 		gs.Quests.States[QuestFehler] = QuestAvailable
 		gs.Quests.Progress[QuestFehler] = gs.Day
 		return []QuestEvent{{
 			Title:   "Dr. Fehler's Experiment",
-			Message: "Dr. Fehler's experiment at Daled is about to rip a hole in spacetime! Someone must stop it within 5 days!",
+			Message: fmt.Sprintf("Dr. Fehler's experiment at Deneb is about to rip a hole in spacetime! Someone must stop it within 5 days!\n\n  Destination: Deneb%s\n  Reward: 10,000 credits + reputation\n  Deadline: 5 days -- spacetime distorted if you're late\n  Failure: Quest lost, no penalty", distStr),
 		}}
 	}
 
 	if state == QuestAvailable {
 		startDay := gs.Quests.Progress[QuestFehler]
-		daled := findSystem(gs, "Daled")
+		deneb := findSystem(gs, "Deneb")
 
 		if gs.Day-startDay > 5 {
 			gs.Quests.States[QuestFehler] = QuestUnavailable
 			gs.Quests.Progress[QuestFehler] = 0
 			return []QuestEvent{{
 				Title:   "Experiment Failed",
-				Message: "The experiment went wrong. Spacetime is distorted near Daled.",
+				Message: "The experiment went wrong. Spacetime is distorted near Deneb.",
 			}}
 		}
-		if daled >= 0 && gs.CurrentSystemID == daled {
+		if deneb >= 0 && gs.CurrentSystemID == deneb {
 			gs.Quests.States[QuestFehler] = QuestComplete
 			gs.Player.Credits += 10000
 			gs.Player.Reputation += 3
@@ -298,18 +331,25 @@ func checkWild(gs *GameState) []QuestEvent {
 	if state == QuestUnavailable && gs.Day > 18 && gs.Rand.Intn(100) < 7 {
 		sys := gs.Data.Systems[gs.CurrentSystemID]
 		if sys.PoliticalSystem == gamedata.PolAnarchy || sys.PoliticalSystem == gamedata.PolFeudal {
+			adahn := findSystem(gs, "Adahn")
+			distStr := ""
+			if adahn >= 0 {
+				cur := gs.Data.Systems[gs.CurrentSystemID]
+				dest := gs.Data.Systems[adahn]
+				distStr = fmt.Sprintf(" (%.1f parsecs)", formula.Distance(cur.X, cur.Y, dest.X, dest.Y))
+			}
 			gs.Quests.States[QuestWild] = QuestAvailable
 			return []QuestEvent{{
 				Title:   "Jonathan Wild",
-				Message: "The notorious criminal Jonathan Wild wants passage to Kravat. He'll pay well, but police will be suspicious.",
+				Message: fmt.Sprintf("The notorious criminal Jonathan Wild wants passage to Adahn.\n\n  Destination: Adahn%s\n  Reward: 15,000 credits\n  Risk: Police record worsens (-5)\n  Deadline: None", distStr),
 				Actions: []string{"Take him aboard", "Refuse"},
 			}}
 		}
 	}
 
 	if state == QuestActive {
-		kravat := findSystem(gs, "Kravat")
-		if kravat >= 0 && gs.CurrentSystemID == kravat {
+		adahn := findSystem(gs, "Adahn")
+		if adahn >= 0 && gs.CurrentSystemID == adahn {
 			gs.Quests.States[QuestWild] = QuestComplete
 			gs.Player.Credits += 15000
 			gs.Player.PoliceRecord -= 5
@@ -328,10 +368,17 @@ func checkReactor(gs *GameState) []QuestEvent {
 	if state == QuestUnavailable && gs.Day > 45 && gs.Rand.Intn(100) < 5 {
 		dp := &GameDataProvider{Data: gs.Data}
 		if gs.Player.FreeCargo(dp) >= 5 {
+			eridani := findSystem(gs, "Eridani")
+			distStr := ""
+			if eridani >= 0 {
+				cur := gs.Data.Systems[gs.CurrentSystemID]
+				dest := gs.Data.Systems[eridani]
+				distStr = fmt.Sprintf(" (%.1f parsecs)", formula.Distance(cur.X, cur.Y, dest.X, dest.Y))
+			}
 			gs.Quests.States[QuestReactor] = QuestAvailable
 			return []QuestEvent{{
 				Title:   "Reactor Delivery",
-				Message: "Henry Morgan needs an unstable reactor delivered to Nix. It takes 5 cargo bays and slowly leaks fuel. The reward: Morgan's Laser.",
+				Message: fmt.Sprintf("Henry Morgan needs an unstable reactor delivered to Eridani.\n\n  Destination: Eridani%s\n  Reward: Morgan's Laser\n  Cost: 5 cargo bays while carrying\n  Risk: Reactor leaks fuel (-1 per stop)\n  Deadline: None", distStr),
 				Actions: []string{"Accept the reactor", "Decline"},
 			}}
 		}
@@ -343,8 +390,8 @@ func checkReactor(gs *GameState) []QuestEvent {
 			gs.Player.Ship.Fuel = 0
 		}
 
-		nix := findSystem(gs, "Nix")
-		if nix >= 0 && gs.CurrentSystemID == nix {
+		eridani := findSystem(gs, "Eridani")
+		if eridani >= 0 && gs.CurrentSystemID == eridani {
 			gs.Quests.States[QuestReactor] = QuestComplete
 			gs.Quests.Progress[QuestReactor] = 0
 			reward := giveQuestEquipment(gs, "Morgan's Laser")
@@ -405,7 +452,7 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 		if actionIdx == 0 {
 			gs.Quests.States[QuestJarek] = QuestActive
 			gs.Quests.Progress[QuestJarek] = 0
-			return "Ambassador Jarek boards your ship. Deliver him to Devidia."
+			return "Ambassador Jarek boards your ship. Deliver him to Aldebaran."
 		}
 		gs.Quests.States[QuestJarek] = QuestUnavailable
 		return "Declined."
@@ -413,7 +460,7 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 	case "Jonathan Wild":
 		if actionIdx == 0 {
 			gs.Quests.States[QuestWild] = QuestActive
-			return "Jonathan Wild is now aboard. Deliver him to Kravat -- but watch out for police."
+			return "Jonathan Wild is now aboard. Deliver him to Adahn -- but watch out for police."
 		}
 		gs.Quests.States[QuestWild] = QuestUnavailable
 		return "You refuse to smuggle a criminal."
@@ -426,7 +473,7 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 			}
 			gs.Quests.States[QuestReactor] = QuestActive
 			gs.Quests.Progress[QuestReactor] = 5
-			return "Reactor loaded (5 cargo bays). It will slowly leak fuel. Deliver to Nix."
+			return "Reactor loaded (5 cargo bays). It will slowly leak fuel. Deliver to Eridani."
 		}
 		gs.Quests.States[QuestReactor] = QuestUnavailable
 		return "Declined."

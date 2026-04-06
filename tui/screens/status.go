@@ -150,16 +150,16 @@ func getActiveQuests(gs *game.GameState) []string {
 		hint string
 	}
 	checks := []questInfo{
-		{game.QuestDragonfly, "Dragonfly", "Chase through Baratas, Melina, Regulas, Zalkon"},
+		{game.QuestDragonfly, "Dragonfly", "Chase through Arouan, Halley, Regulus, Linnet"},
 		{game.QuestSpaceMonster, "Space Monster", "Destroy at Acamar"},
 		{game.QuestScarab, "Scarab", "Find near a wormhole exit"},
 		{game.QuestAlienArtifact, "Alien Artifact", "Deliver to a Hi-tech system"},
-		{game.QuestJarek, "Ambassador Jarek", "Transport to Devidia"},
+		{game.QuestJarek, "Ambassador Jarek", "Transport to Aldebaran"},
 		{game.QuestJapori, "Japori Disease", "Deliver 10 medicine"},
 		{game.QuestGemulon, "Gemulon Invasion", "Warn Gemulon (timed!)"},
-		{game.QuestFehler, "Dr. Fehler", "Stop experiment at Daled (timed!)"},
-		{game.QuestWild, "Jonathan Wild", "Smuggle to Kravat"},
-		{game.QuestReactor, "Reactor Delivery", "Deliver to Nix (fuel leak!)"},
+		{game.QuestFehler, "Dr. Fehler", "Stop experiment at Deneb (timed!)"},
+		{game.QuestWild, "Jonathan Wild", "Smuggle to Adahn"},
+		{game.QuestReactor, "Reactor Delivery", "Deliver to Eridani (fuel leak!)"},
 	}
 	for _, c := range checks {
 		state := gs.Quests.States[c.id]
