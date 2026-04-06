@@ -42,6 +42,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		var cmd tea.Cmd
+		m.screen, cmd = m.screen.Update(msg)
+		return m, cmd
 	case screens.NavigateMsg:
 		m.systemHubCursor = msg.RestoreCursor
 		return m.navigate(msg)

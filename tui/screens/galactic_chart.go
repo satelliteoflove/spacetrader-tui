@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
@@ -20,6 +21,8 @@ const (
 	chartHeight = 28
 )
 
+const gridChrome = 17
+
 type GalacticChartScreen struct {
 	gs          *game.GameState
 	curX        int
@@ -32,6 +35,8 @@ type GalacticChartScreen struct {
 	searchInput textinput.Model
 	message     string
 	confirming  bool
+	vp          viewport.Model
+	termHeight  int
 }
 
 func NewGalacticChartScreen(gs *game.GameState) *GalacticChartScreen {
@@ -69,6 +74,8 @@ func NewGalacticChartScreenWithSelection(gs *game.GameState, selectedSys int) *G
 		startSys = gs.CurrentSystemID
 	}
 
+	vp := viewport.New(chartWidth+4, chartHeight)
+
 	return &GalacticChartScreen{
 		gs:          gs,
 		curX:        sysPos[startSys][0],
@@ -78,6 +85,7 @@ func NewGalacticChartScreenWithSelection(gs *game.GameState, selectedSys int) *G
 		maxX:        maxX,
 		maxY:        maxY,
 		searchInput: newFilterInput(),
+		vp:          vp,
 	}
 }
 
@@ -104,6 +112,7 @@ func (s *GalacticChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				}
+				s.scrollToCursor()
 				return s, nil
 			}
 			if key.Matches(msg, Keys.Back) {
@@ -139,16 +148,22 @@ func (s *GalacticChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		s.termHeight = msg.Height
+		s.updateViewportHeight()
+		return s, nil
 	case tea.KeyMsg:
 		switch {
 		case msg.String() == "up" || msg.String() == "k":
 			if s.curY > 0 {
 				s.curY--
 			}
+			s.scrollToCursor()
 		case msg.String() == "down" || msg.String() == "j":
 			if s.curY < chartHeight-1 {
 				s.curY++
 			}
+			s.scrollToCursor()
 		case msg.String() == "left" || msg.String() == "h":
 			if s.curX > 0 {
 				s.curX--
@@ -189,6 +204,37 @@ func (s *GalacticChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return s, nil
+}
+
+func (s *GalacticChartScreen) gridViewHeight() int {
+	if s.termHeight <= 0 {
+		return chartHeight
+	}
+	h := s.termHeight - gridChrome
+	if h > chartHeight {
+		h = chartHeight
+	}
+	if h < 5 {
+		h = 5
+	}
+	return h
+}
+
+func (s *GalacticChartScreen) updateViewportHeight() {
+	s.vp.Height = s.gridViewHeight()
+}
+
+func (s *GalacticChartScreen) scrollToCursor() {
+	vpH := s.vp.Height
+	if vpH >= chartHeight {
+		return
+	}
+	offset := s.vp.YOffset
+	if s.curY < offset {
+		s.vp.SetYOffset(s.curY)
+	} else if s.curY >= offset+vpH {
+		s.vp.SetYOffset(s.curY - vpH + 1)
+	}
 }
 
 func (s *GalacticChartScreen) View() string {
@@ -310,36 +356,50 @@ func (s *GalacticChartScreen) View() string {
 		}
 	}
 
+	var gridBuf strings.Builder
 	for y := range grid {
-		var line strings.Builder
-		line.WriteString("  ")
+		gridBuf.WriteString("  ")
 		for x := range grid[y] {
 			c := grid[y][x]
-			s := string(c.ch)
+			ch := string(c.ch)
 			switch c.style {
 			case styleCurrent:
-				line.WriteString(SelectedStyle.Render(s))
+				gridBuf.WriteString(SelectedStyle.Render(ch))
 			case styleSelected:
-				line.WriteString(CyanStyle.Render(s))
+				gridBuf.WriteString(CyanStyle.Render(ch))
 			case styleCursor:
-				line.WriteString(DimStyle.Render(s))
+				gridBuf.WriteString(DimStyle.Render(ch))
 			case styleVisited:
-				line.WriteString(DimStyle.Render(s))
+				gridBuf.WriteString(DimStyle.Render(ch))
 			case styleInRange:
-				line.WriteString(SuccessStyle.Render(s))
+				gridBuf.WriteString(SuccessStyle.Render(ch))
 			case styleWormhole:
-				line.WriteString(MagentaStyle.Render(s))
+				gridBuf.WriteString(MagentaStyle.Render(ch))
 			case styleBookmarked:
-				line.WriteString(SelectedStyle.Render(s))
+				gridBuf.WriteString(SelectedStyle.Render(ch))
 			default:
-				line.WriteString(s)
+				gridBuf.WriteString(ch)
 			}
 		}
-		b.WriteString(line.String() + "\n")
+		if y < chartHeight-1 {
+			gridBuf.WriteString("\n")
+		}
 	}
 
-	b.WriteString("\n")
-	b.WriteString(DimStyle.Render("  @ you  + selected  ! bookmarked  green = in range") + "\n")
+	s.updateViewportHeight()
+	s.vp.SetContent(gridBuf.String())
+	s.scrollToCursor()
+
+	b.WriteString(s.vp.View() + "\n\n")
+	if s.vp.Height < chartHeight {
+		scrollPct := 0
+		if chartHeight-s.vp.Height > 0 {
+			scrollPct = s.vp.YOffset * 100 / (chartHeight - s.vp.Height)
+		}
+		b.WriteString(DimStyle.Render(fmt.Sprintf("  @ you  + selected  ! bookmarked  green = in range  [scroll %d%%]", scrollPct)) + "\n")
+	} else {
+		b.WriteString(DimStyle.Render("  @ you  + selected  ! bookmarked  green = in range") + "\n")
+	}
 
 	if hasSel {
 		sel := s.gs.Data.Systems[selIdx]
