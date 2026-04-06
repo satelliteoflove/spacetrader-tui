@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
@@ -138,4 +139,118 @@ func sortedHeader(label string, col, activeCol sortColumn, dir sortDir) string {
 		return label + "v"
 	}
 	return label
+}
+
+func shortTech(t gamedata.TechLevel) string {
+	switch t {
+	case gamedata.TechPreAgricultural:
+		return "Pre-ag"
+	case gamedata.TechAgricultural:
+		return "Agri"
+	case gamedata.TechMedieval:
+		return "Medieval"
+	case gamedata.TechRenaissance:
+		return "Renais"
+	case gamedata.TechEarlyIndustrial:
+		return "Early Ind"
+	case gamedata.TechIndustrial:
+		return "Industrial"
+	case gamedata.TechPostIndustrial:
+		return "Post-ind"
+	case gamedata.TechHiTech:
+		return "Hi-tech"
+	}
+	return t.String()
+}
+
+func shortResource(r gamedata.Resource) string {
+	switch r {
+	case gamedata.ResourceNone:
+		return ""
+	case gamedata.ResourceMineralRich:
+		return "+Minerals"
+	case gamedata.ResourceWaterWorld:
+		return "+Water"
+	case gamedata.ResourceRichFauna:
+		return "+Fauna"
+	case gamedata.ResourceRichSoil:
+		return "+Soil"
+	case gamedata.ResourceGoodClinic:
+		return "+Good med"
+	case gamedata.ResourceRobotWorkers:
+		return "+Robots"
+	case gamedata.ResourceDesert:
+		return "-Desert"
+	case gamedata.ResourcePoor:
+		return "-Poor"
+	case gamedata.ResourceLifeless:
+		return "-Lifeless"
+	case gamedata.ResourcePoorSoil:
+		return "-Poor soil"
+	case gamedata.ResourcePoorClinic:
+		return "-Poor med"
+	case gamedata.ResourceLackOfWorkers:
+		return "-Low labor"
+	case gamedata.ResourceIndustrial:
+		return "~Industrial"
+	}
+	return r.String()
+}
+
+func eventOrNone(event string) string {
+	if event == "" {
+		return "none"
+	}
+	return event
+}
+
+var (
+	resourceGreenStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	resourceRedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	resourceYellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+)
+
+func colorResource(r gamedata.Resource, text string) string {
+	switch r {
+	case gamedata.ResourceNone:
+		return text
+	case gamedata.ResourceMineralRich, gamedata.ResourceWaterWorld, gamedata.ResourceRichFauna,
+		gamedata.ResourceRichSoil, gamedata.ResourceGoodClinic, gamedata.ResourceRobotWorkers:
+		return resourceGreenStyle.Render(text)
+	case gamedata.ResourceDesert, gamedata.ResourcePoor, gamedata.ResourceLifeless,
+		gamedata.ResourcePoorSoil, gamedata.ResourcePoorClinic, gamedata.ResourceLackOfWorkers:
+		return resourceRedStyle.Render(text)
+	case gamedata.ResourceIndustrial:
+		return resourceYellowStyle.Render(text)
+	}
+	return text
+}
+
+func resourceTradeHints(goods []gamedata.GoodDef, r gamedata.Resource) (cheap, expensive string) {
+	resName := r.String()
+	var cheapGoods, expensiveGoods []string
+	for _, g := range goods {
+		if g.CheapResource == resName {
+			cheapGoods = append(cheapGoods, g.Name)
+		}
+		if g.ExpensiveResource == resName {
+			expensiveGoods = append(expensiveGoods, g.Name)
+		}
+	}
+	return strings.Join(cheapGoods, ", "), strings.Join(expensiveGoods, ", ")
+}
+
+func autoBookmarkNote(gs *game.GameState, sysIdx int) string {
+	sys := gs.Data.Systems[sysIdx]
+	sysState := gs.Systems[sysIdx]
+	var parts []string
+	if sysState.Event != "" {
+		parts = append(parts, sysState.Event)
+	}
+	res := shortResource(sys.Resource)
+	if res != "" {
+		parts = append(parts, res)
+	}
+	parts = append(parts, shortTech(sys.TechLevel))
+	return strings.Join(parts, ", ")
 }

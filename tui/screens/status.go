@@ -38,6 +38,8 @@ func (s *StatusScreen) View() string {
 
 	b.WriteString(HeaderStyle.Render("  COMMANDER STATUS  ") + "\n\n")
 
+	div := DimStyle.Render("  " + strings.Repeat("-", 40)) + "\n"
+
 	b.WriteString(fmt.Sprintf("  Name: %s\n", p.Name))
 	b.WriteString(fmt.Sprintf("  Difficulty: %s\n", s.gs.Difficulty))
 	b.WriteString(fmt.Sprintf("  Day: %d\n", s.gs.Day))
@@ -45,25 +47,22 @@ func (s *StatusScreen) View() string {
 	if p.LoanBalance > 0 {
 		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Debt: %d", p.LoanBalance)) + "\n")
 	}
-	b.WriteString("\n")
 
 	skillNames := []string{"Pilot", "Fighter", "Trader", "Engineer"}
 	b.WriteString("  Skills:\n")
 	for i, name := range skillNames {
 		b.WriteString(fmt.Sprintf("    %-10s %d\n", name, p.Skills[i]))
 	}
-	b.WriteString("\n")
 
 	record := gamedata.PoliceRecordToTier(p.PoliceRecord)
 	rep := gamedata.ReputationToTier(p.Reputation)
-	b.WriteString(fmt.Sprintf("  Police Record: %s (%d)\n", record, p.PoliceRecord))
-	b.WriteString(fmt.Sprintf("  Reputation: %s (%d)\n", rep, p.Reputation))
-	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf("  Record: %s (%d)  |  Rep: %s (%d)\n", record, p.PoliceRecord, rep, p.Reputation))
+
+	b.WriteString("\n" + div + "\n")
 
 	b.WriteString(fmt.Sprintf("  Ship: %s\n", shipDef.Name))
-	b.WriteString(fmt.Sprintf("  Hull: %d/%d\n", p.Ship.Hull, shipDef.Hull))
-	b.WriteString(fmt.Sprintf("  Fuel: %d/%d\n", p.Ship.Fuel, shipDef.Range))
-	b.WriteString(fmt.Sprintf("  Cargo: %d/%d\n", p.TotalCargo(), shipDef.CargoBays))
+	b.WriteString(fmt.Sprintf("  Hull: %d/%d  |  Fuel: %d/%d  |  Cargo: %d/%d\n",
+		p.Ship.Hull, shipDef.Hull, p.Ship.Fuel, shipDef.Range, p.TotalCargo(), shipDef.CargoBays))
 
 	if len(p.Ship.Weapons) > 0 {
 		b.WriteString("  Weapons:")
@@ -87,26 +86,8 @@ func (s *StatusScreen) View() string {
 		b.WriteString("\n")
 	}
 
-	if p.TotalCargo() > 0 {
-		b.WriteString("\n  Cargo hold:\n")
-		for i := 0; i < game.NumGoods; i++ {
-			if p.Cargo[i] > 0 {
-				good := s.gs.Data.Goods[i]
-				name := good.Name
-				if !good.Legal {
-					name = IllegalStyle.Render(name)
-				}
-				b.WriteString(fmt.Sprintf("    %-12s %d\n", name, p.Cargo[i]))
-			}
-		}
-	}
-
-	if s.gs.Quests.TribbleQty > 0 {
-		b.WriteString(fmt.Sprintf("\n  Tribbles: %d\n", s.gs.Quests.TribbleQty))
-	}
-
 	if p.HasEscapePod {
-		b.WriteString("\n  Escape pod: installed")
+		b.WriteString("  Escape pod: installed")
 		if p.HasInsurance {
 			b.WriteString("  |  Insurance: active")
 		}
@@ -114,15 +95,44 @@ func (s *StatusScreen) View() string {
 	}
 
 	if len(p.Crew) > 0 {
-		b.WriteString("\n  Crew:\n")
+		b.WriteString("  Crew:")
 		for _, m := range p.Crew {
-			b.WriteString(fmt.Sprintf("    %s (wage: %d/day)\n", m.Name, m.Wage))
+			b.WriteString(fmt.Sprintf(" %s (%d/d)", m.Name, m.Wage))
 		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n" + div + "\n")
+
+	if p.TotalCargo() > 0 {
+		b.WriteString(CyanStyle.Render("  Cargo Hold") + "\n")
+		for i := 0; i < game.NumGoods; i++ {
+			if p.Cargo[i] > 0 {
+				good := s.gs.Data.Goods[i]
+				name := good.Name
+				if !good.Legal {
+					name = IllegalStyle.Render(name)
+				}
+				avgCost := ""
+				if p.CargoCost[i] > 0 {
+					avg := p.CargoCost[i] / p.Cargo[i]
+					avgCost = DimStyle.Render(fmt.Sprintf("  (avg %d cr/ea)", avg))
+				}
+				b.WriteString(fmt.Sprintf("    %-12s %4d%s\n", name, p.Cargo[i], avgCost))
+			}
+		}
+	} else {
+		b.WriteString(DimStyle.Render("  Cargo hold empty") + "\n")
+	}
+
+	if s.gs.Quests.TribbleQty > 0 {
+		b.WriteString(fmt.Sprintf("  Tribbles: %d\n", s.gs.Quests.TribbleQty))
 	}
 
 	activeQuests := getActiveQuests(s.gs)
 	if len(activeQuests) > 0 {
-		b.WriteString("\n  Active quests:\n")
+		b.WriteString("\n" + div + "\n")
+		b.WriteString(CyanStyle.Render("  Active Quests") + "\n")
 		for _, q := range activeQuests {
 			b.WriteString("    " + q + "\n")
 		}

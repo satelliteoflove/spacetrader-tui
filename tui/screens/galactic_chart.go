@@ -10,6 +10,8 @@ import (
 
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
+	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
+	"github.com/the4ofus/spacetrader-tui/internal/shipyard"
 	"github.com/the4ofus/spacetrader-tui/internal/travel"
 )
 
@@ -393,6 +395,9 @@ type GalacticListScreen struct {
 	filterMode  bool
 	filterInput textinput.Model
 	filterText  string
+	message     string
+	confirming  bool
+	inRangeOnly bool
 }
 
 func NewGalacticListScreen(gs *game.GameState) *GalacticListScreen {
@@ -400,26 +405,37 @@ func NewGalacticListScreen(gs *game.GameState) *GalacticListScreen {
 }
 
 func NewGalacticListScreenWithSelection(gs *game.GameState, selectedSys int) *GalacticListScreen {
-	entries := buildAllSystemEntries(gs)
-	filtered := applyFilterAndSort(entries, "", colName, sortAsc)
-	cursor := 0
+	s := &GalacticListScreen{
+		gs:          gs,
+		sortCol:     colDist,
+		sortDir:     sortAsc,
+		filterInput: newFilterInput(),
+		inRangeOnly: true,
+	}
+	s.rebuildEntries()
 	if selectedSys >= 0 {
-		for i, e := range filtered {
+		for i, e := range s.filtered {
 			if e.sysIdx == selectedSys {
-				cursor = i
+				s.cursor = i
 				break
 			}
 		}
 	}
-	return &GalacticListScreen{
-		gs:          gs,
-		cursor:      cursor,
-		allEntries:  entries,
-		filtered:    filtered,
-		sortCol:     colName,
-		sortDir:     sortAsc,
-		filterInput: newFilterInput(),
+	return s
+}
+
+func (s *GalacticListScreen) rebuildEntries() {
+	if s.inRangeOnly {
+		systems := travel.ReachableSystems(s.gs)
+		indices := make([]int, len(systems))
+		for i, rs := range systems {
+			indices[i] = rs.Index
+		}
+		s.allEntries = buildSystemEntries(s.gs, indices)
+	} else {
+		s.allEntries = buildAllSystemEntries(s.gs)
 	}
+	s.refilter()
 }
 
 func (s *GalacticListScreen) Init() tea.Cmd { return nil }
@@ -427,6 +443,27 @@ func (s *GalacticListScreen) Init() tea.Cmd { return nil }
 func (s *GalacticListScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if s.filterMode {
 		return s.updateFilter(msg)
+	}
+
+	if s.confirming {
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "y":
+				s.confirming = false
+				entry := s.filtered[s.cursor]
+				result := travel.ExecuteTravel(s.gs, entry.sysIdx)
+				if !result.Success {
+					s.message = result.Message
+					return s, nil
+				}
+				s.message = result.Message
+				return s, func() tea.Msg { return TravelMsg{DestIdx: entry.sysIdx} }
+			default:
+				s.confirming = false
+				s.message = ""
+			}
+		}
+		return s, nil
 	}
 
 	switch msg := msg.(type) {
@@ -455,12 +492,38 @@ func (s *GalacticListScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.filterInput.SetValue(s.filterText)
 			s.filterInput.Focus()
 			return s, textinput.Blink
+		case msg.String() == "a":
+			s.inRangeOnly = !s.inRangeOnly
+			s.rebuildEntries()
+		case msg.String() == "r":
+			result := shipyard.Refuel(s.gs)
+			s.message = result.Message
+			s.rebuildEntries()
+		case msg.String() == "w":
+			ok, msg := game.TravelWormhole(s.gs)
+			if ok {
+				s.message = msg
+				return s, func() tea.Msg { return TravelMsg{DestIdx: s.gs.CurrentSystemID} }
+			}
+			s.message = msg
 		case msg.String() == "b":
 			if len(s.filtered) > 0 {
 				entry := s.filtered[s.cursor]
 				s.gs.ToggleBookmark(entry.sysIdx, autoBookmarkNote(s.gs, entry.sysIdx))
-				s.allEntries = buildAllSystemEntries(s.gs)
-				s.refilter()
+				s.rebuildEntries()
+			}
+		case key.Matches(msg, Keys.Enter):
+			if len(s.filtered) > 0 {
+				entry := s.filtered[s.cursor]
+				cur := s.gs.Data.Systems[s.gs.CurrentSystemID]
+				dest := s.gs.Data.Systems[entry.sysIdx]
+				dist := formula.Distance(cur.X, cur.Y, dest.X, dest.Y)
+				if dist > float64(s.gs.Player.Ship.Fuel) {
+					s.message = DangerStyle.Render(fmt.Sprintf("Out of range (%.1f parsecs, fuel: %d)", dist, s.gs.Player.Ship.Fuel))
+				} else {
+					s.message = SelectedStyle.Render(fmt.Sprintf("Travel to %s? (y/n)", dest.Name))
+					s.confirming = true
+				}
 			}
 		case msg.String() == "m":
 			sysIdx := -1
@@ -527,7 +590,26 @@ func (s *GalacticListScreen) refilter() {
 func (s *GalacticListScreen) View() string {
 	var b strings.Builder
 
-	b.WriteString(HeaderStyle.Render("  ALL SYSTEMS  ") + "\n")
+	shipDef := s.gs.PlayerShipDef()
+	cur := s.gs.CurrentSystem()
+
+	if s.inRangeOnly {
+		b.WriteString(HeaderStyle.Render("  NAVIGATION  ") + "\n")
+	} else {
+		b.WriteString(HeaderStyle.Render("  NAVIGATION - ALL SYSTEMS  ") + "\n")
+	}
+	b.WriteString(fmt.Sprintf("  Current: %s  |  Fuel: %d/%d parsecs\n",
+		cur.Name, s.gs.Player.Ship.Fuel, shipDef.Range))
+
+	fuelCost := shipyard.RefuelCost(s.gs)
+	if fuelCost > 0 {
+		b.WriteString(DimStyle.Render(fmt.Sprintf("  Refuel cost: %d credits (press r)", fuelCost)) + "\n")
+	}
+
+	if dest, ok := game.WormholeDestination(s.gs, s.gs.CurrentSystemID); ok {
+		destName := s.gs.Data.Systems[dest].Name
+		b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s available! (press w)", destName)) + "\n")
+	}
 
 	if s.filterMode {
 		b.WriteString("  / " + s.filterInput.View() + "\n")
@@ -602,14 +684,30 @@ func (s *GalacticListScreen) View() string {
 		sysState := s.gs.Systems[e.sysIdx]
 
 		b.WriteString("\n" + DimStyle.Render(fmt.Sprintf("  --- %s ---", sys.Name)) + "\n")
-		b.WriteString(DimStyle.Render(fmt.Sprintf("  Coordinates: (%d, %d)", sys.X, sys.Y)) + "\n")
-		if sysState.Visited {
-			if sysState.Event != "" {
-				b.WriteString(DangerStyle.Render(fmt.Sprintf("  Event: %s", sysState.Event)) + "\n")
+
+		availableGoods := 0
+		for g := 0; g < game.NumGoods; g++ {
+			if sysState.Prices[g] > 0 {
+				availableGoods++
 			}
+		}
+		if sysState.Visited {
+			b.WriteString(DimStyle.Render(fmt.Sprintf("  %d goods available  |  Event: %s",
+				availableGoods, eventOrNone(sysState.Event))) + "\n")
 		} else {
 			b.WriteString(DimStyle.Render("  Not yet visited") + "\n")
 		}
+
+		if e.resource != gamedata.ResourceNone {
+			cheap, expensive := resourceTradeHints(s.gs.Data.Goods, sys.Resource)
+			if cheap != "" {
+				b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Buy cheap: %s", cheap)) + "\n")
+			}
+			if expensive != "" {
+				b.WriteString(DangerStyle.Render(fmt.Sprintf("  Sells high: %s", expensive)) + "\n")
+			}
+		}
+
 		for _, wh := range s.gs.Wormholes {
 			if wh.SystemA == e.sysIdx {
 				b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s", s.gs.Data.Systems[wh.SystemB].Name)) + "\n")
@@ -622,6 +720,10 @@ func (s *GalacticListScreen) View() string {
 		}
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  j/k scroll, b bookmark, 1-5 sort, / filter, m map, esc back"))
+	if s.message != "" {
+		b.WriteString("\n  " + s.message + "\n")
+	}
+
+	b.WriteString("\n" + DimStyle.Render("  enter travel, r refuel, w wormhole, b bookmark, a all/range, 1-5 sort, / filter, m map, esc back"))
 	return b.String()
 }

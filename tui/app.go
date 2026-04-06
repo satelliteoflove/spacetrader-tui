@@ -110,8 +110,6 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 		s = screens.NewSystemScreenWithCursor(m.gs, m.systemHubCursor)
 	case screens.ScreenMarket:
 		s = screens.NewMarketScreen(m.gs)
-	case screens.ScreenChart:
-		s = screens.NewChartScreen(m.gs)
 	case screens.ScreenShipyard:
 		s = screens.NewShipyardScreen(m.gs)
 	case screens.ScreenBank:

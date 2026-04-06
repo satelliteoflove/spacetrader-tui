@@ -30,11 +30,10 @@ func NewSystemScreen(gs *game.GameState) *SystemScreen {
 func NewSystemScreenWithCursor(gs *game.GameState, cursor int) *SystemScreen {
 	items := []menuItem{
 		{"Market", ScreenMarket},
-		{"Short-Range Chart", ScreenChart},
+		{"Navigation", ScreenGalacticList},
 		{"Shipyard", ScreenShipyard},
 		{"Bank", ScreenBank},
 		{"Personnel", ScreenPersonnel},
-		{"Galactic Chart", ScreenGalacticChart},
 		{"Status", ScreenStatus},
 		{"Recent News", ScreenNews},
 		{"Trader's Guide", ScreenGuide},
