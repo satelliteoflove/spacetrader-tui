@@ -111,13 +111,11 @@ func (s *SystemScreen) View() string {
 
 	b.WriteString("\n")
 
+	labels := make([]string, len(s.items))
 	for i, item := range s.items {
-		if i == s.cursor {
-			b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+item.label)))
-		} else {
-			b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(item.label)))
-		}
+		labels[i] = item.label
 	}
+	RenderMenuItems(&b, labels, s.cursor)
 
 	b.WriteString("\n" + DimStyle.Render("  j/k navigate, enter select, s save, ctrl+c quit"))
 	return b.String()

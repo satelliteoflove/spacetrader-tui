@@ -74,13 +74,11 @@ func (s *EncounterScreen) View() string {
 	b.WriteString("\n")
 
 	if s.phase == phaseChoose {
-		for i, action := range s.enc.Actions {
-			if i == s.cursor {
-				b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+action.String())))
-			} else {
-				b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(action.String())))
-			}
+		actionLabels := make([]string, len(s.enc.Actions))
+		for i, a := range s.enc.Actions {
+			actionLabels[i] = a.String()
 		}
+		RenderMenuItems(&b, actionLabels, s.cursor)
 		b.WriteString("\n" + DimStyle.Render("  j/k to choose, enter to act"))
 	} else {
 		b.WriteString("  " + s.outcome.Message + "\n")

@@ -87,13 +87,7 @@ func (s *QuestEventScreen) View() string {
 		b.WriteString("  " + SuccessStyle.Render(s.result) + "\n")
 		b.WriteString("\n" + DimStyle.Render("  press enter to continue"))
 	} else if len(evt.Actions) > 0 {
-		for i, action := range evt.Actions {
-			if i == s.cursor {
-				b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+action)))
-			} else {
-				b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(action)))
-			}
-		}
+		RenderMenuItems(&b, evt.Actions, s.cursor)
 		b.WriteString("\n" + DimStyle.Render("  j/k choose, enter select"))
 	} else {
 		b.WriteString(DimStyle.Render("  press enter to continue"))

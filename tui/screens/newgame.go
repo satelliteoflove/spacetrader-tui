@@ -24,9 +24,8 @@ type NewGameScreen struct {
 	stage      newGameStage
 	nameInput  textinput.Model
 	name       string
-	skills     [formula.NumSkills]int
-	skillNames [formula.NumSkills]string
-	skillIdx   int
+	skills   [formula.NumSkills]int
+	skillIdx int
 	remaining  int
 	difficulty gamedata.Difficulty
 	diffIdx    int
@@ -42,7 +41,6 @@ func NewNewGameScreen() *NewGameScreen {
 	return &NewGameScreen{
 		stage:      stageNameInput,
 		nameInput:  ti,
-		skillNames: [formula.NumSkills]string{"Pilot", "Fighter", "Trader", "Engineer"},
 		skills:     [formula.NumSkills]int{1, 1, 1, 1},
 		remaining:  12,
 		difficulty: gamedata.DiffNormal,
@@ -176,7 +174,7 @@ func (s *NewGameScreen) View() string {
 		b.WriteString(fmt.Sprintf("Commander %s [%s] - Allocate skill points (%d remaining)\n\n",
 			s.name, s.difficulty, s.remaining))
 
-		for i, name := range s.skillNames {
+		for i, name := range formula.SkillNames {
 			bar := strings.Repeat("|", s.skills[i]) + strings.Repeat(".", formula.SkillMax-s.skills[i])
 			line := fmt.Sprintf("  %-10s [%s] %d", name, bar, s.skills[i])
 			if i == s.skillIdx {
@@ -187,7 +185,7 @@ func (s *NewGameScreen) View() string {
 		}
 
 		b.WriteString("\n")
-		b.WriteString(CyanStyle.Render("  "+s.skillNames[s.skillIdx]) + "\n")
+		b.WriteString(CyanStyle.Render("  "+formula.SkillNames[s.skillIdx]) + "\n")
 		b.WriteString("  " + skillDescription(s.skillIdx, s.skills[s.skillIdx]) + "\n")
 
 		b.WriteString("\n" + DimStyle.Render("j/k to select, h/l to adjust, enter when done, esc back"))

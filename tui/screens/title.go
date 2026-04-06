@@ -1,7 +1,6 @@
 package screens
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -61,13 +60,7 @@ func (s *TitleScreen) View() string {
 	b.WriteString(title + "\n")
 	b.WriteString(subtitle + "\n\n")
 
-	for i, item := range s.items {
-		if i == s.cursor {
-			b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+item)))
-		} else {
-			b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(item)))
-		}
-	}
+	RenderMenuItems(&b, s.items, s.cursor)
 
 	b.WriteString("\n" + DimStyle.Render("j/k to move, enter to select"))
 

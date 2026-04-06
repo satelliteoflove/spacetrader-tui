@@ -14,11 +14,7 @@ type TransactionResult struct {
 }
 
 func effectiveTraderSkill(gs *game.GameState) int {
-	crewMercs := make([]formula.Mercenary, len(gs.Player.Crew))
-	for i, m := range gs.Player.Crew {
-		crewMercs[i] = m
-	}
-	return formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], crewMercs, formula.SkillTrader, 0)
+	return formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], gs.Player.CrewMercs(), formula.SkillTrader, 0)
 }
 
 func Buy(gs *game.GameState, goodIdx int, qty int) TransactionResult {

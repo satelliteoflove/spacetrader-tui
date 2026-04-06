@@ -40,3 +40,11 @@ func (p *Player) CargoCapacity(data ShipDataProvider) int {
 func (p *Player) FreeCargo(data ShipDataProvider) int {
 	return p.CargoCapacity(data) - p.TotalCargo()
 }
+
+func (p *Player) CrewMercs() []formula.Mercenary {
+	mercs := make([]formula.Mercenary, len(p.Crew))
+	for i, m := range p.Crew {
+		mercs[i] = m
+	}
+	return mercs
+}

@@ -140,15 +140,12 @@ func (s *PersonnelScreen) View() string {
 		if len(s.gs.Player.Crew) == 0 {
 			b.WriteString("  No crew members.\n")
 		}
+		crewLines := make([]string, len(s.gs.Player.Crew))
 		for i, m := range s.gs.Player.Crew {
-			line := fmt.Sprintf("%-10s %4d %4d %4d %4d %5d/d",
+			crewLines[i] = fmt.Sprintf("%-10s %4d %4d %4d %4d %5d/d",
 				m.Name, m.Skills[0], m.Skills[1], m.Skills[2], m.Skills[3], m.Wage)
-			if i == s.cursor {
-				b.WriteString("  " + SelectedStyle.Render("> "+line) + "\n")
-			} else {
-				b.WriteString("    " + NormalStyle.Render(line) + "\n")
-			}
 		}
+		RenderMenuItems(&b, crewLines, s.cursor)
 		if len(s.gs.Player.Crew) > 0 {
 			b.WriteString("\n" + DimStyle.Render("  enter to fire"))
 		}
@@ -156,15 +153,12 @@ func (s *PersonnelScreen) View() string {
 		if len(s.available) == 0 {
 			b.WriteString("  No mercenaries available here.\n")
 		}
+		hireLines := make([]string, len(s.available))
 		for i, m := range s.available {
-			line := fmt.Sprintf("%-10s %4d %4d %4d %4d %5d/d",
+			hireLines[i] = fmt.Sprintf("%-10s %4d %4d %4d %4d %5d/d",
 				m.Name, m.Skills[0], m.Skills[1], m.Skills[2], m.Skills[3], m.Wage)
-			if i == s.cursor {
-				b.WriteString("  " + SelectedStyle.Render("> "+line) + "\n")
-			} else {
-				b.WriteString("    " + NormalStyle.Render(line) + "\n")
-			}
 		}
+		RenderMenuItems(&b, hireLines, s.cursor)
 		if len(s.available) > 0 {
 			b.WriteString("\n" + DimStyle.Render("  enter to hire (signing bonus = daily wage)"))
 		}
@@ -176,11 +170,4 @@ func (s *PersonnelScreen) View() string {
 
 	b.WriteString("\n\n" + DimStyle.Render("  1/2 tabs, j/k navigate, enter select, esc back"))
 	return b.String()
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

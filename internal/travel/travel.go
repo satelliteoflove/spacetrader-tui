@@ -120,11 +120,7 @@ func applyDailyCosts(gs *game.GameState) {
 }
 
 func applyEngineerRepair(gs *game.GameState) {
-	crewMercs := make([]formula.Mercenary, len(gs.Player.Crew))
-	for i, m := range gs.Player.Crew {
-		crewMercs[i] = m
-	}
-	engSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillEngineer], crewMercs, formula.SkillEngineer, 0)
+	engSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillEngineer], gs.Player.CrewMercs(), formula.SkillEngineer, 0)
 
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
 	if gs.Player.Ship.Hull < shipDef.Hull {

@@ -17,7 +17,7 @@ func TakeLoan(gs *game.GameState, amount int) BankResult {
 		return BankResult{Message: "Invalid amount."}
 	}
 
-	maxLoan := formula.MaxLoanForDifficulty(gs.Difficulty)
+	maxLoan := formula.MaxLoan
 	available := maxLoan - gs.Player.LoanBalance
 	if available <= 0 {
 		return BankResult{Message: "You already have the maximum loan."}

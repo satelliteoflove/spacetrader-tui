@@ -48,10 +48,9 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 			if gs.Player.Skills[skill2] > formula.SkillMax {
 				gs.Player.Skills[skill2] = formula.SkillMax
 			}
-			skillNames := []string{"Pilot", "Fighter", "Trader", "Engineer"}
 			events = append(events, QuestEvent{
 				Title:   "Japori Disease - Complete!",
-				Message: fmt.Sprintf("The medicine was delivered! Your %s and %s skills improved.", skillNames[skill1], skillNames[skill2]),
+				Message: fmt.Sprintf("The medicine was delivered! Your %s and %s skills improved.", formula.SkillNames[skill1], formula.SkillNames[skill2]),
 			})
 		}
 	}
@@ -157,8 +156,7 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 				gs.Player.Skills[skill] = formula.SkillMax
 			}
 			gs.Quests.States[QuestSkillIncrease] = QuestComplete
-			skillNames := []string{"Pilot", "Fighter", "Trader", "Engineer"}
-			return fmt.Sprintf("Your %s skill improved!", skillNames[skill])
+			return fmt.Sprintf("Your %s skill improved!", formula.SkillNames[skill])
 		} else if actionIdx == 0 {
 			return "Not enough credits."
 		}

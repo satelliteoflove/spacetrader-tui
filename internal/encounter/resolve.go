@@ -80,11 +80,7 @@ func policeBribe(gs *game.GameState) Outcome {
 		}
 	}
 
-	crewMercs := make([]formula.Mercenary, len(gs.Player.Crew))
-	for i, m := range gs.Player.Crew {
-		crewMercs[i] = m
-	}
-	traderSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], crewMercs, formula.SkillTrader, 0)
+	traderSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], gs.Player.CrewMercs(), formula.SkillTrader, 0)
 	successChance := 20 + traderSkill*5
 
 	gs.Player.Credits -= bribeAmount
@@ -105,11 +101,7 @@ func policeBribe(gs *game.GameState) Outcome {
 }
 
 func policeFlee(gs *game.GameState) Outcome {
-	crewMercs := make([]formula.Mercenary, len(gs.Player.Crew))
-	for i, m := range gs.Player.Crew {
-		crewMercs[i] = m
-	}
-	pilotSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillPilot], crewMercs, formula.SkillPilot, 0)
+	pilotSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillPilot], gs.Player.CrewMercs(), formula.SkillPilot, 0)
 	fleeChance := 30 + pilotSkill*5
 
 	if gs.Rand.Intn(100) < fleeChance {
@@ -190,11 +182,7 @@ func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
 }
 
 func pirateFlee(gs *game.GameState) Outcome {
-	crewMercs := make([]formula.Mercenary, len(gs.Player.Crew))
-	for i, m := range gs.Player.Crew {
-		crewMercs[i] = m
-	}
-	pilotSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillPilot], crewMercs, formula.SkillPilot, 0)
+	pilotSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillPilot], gs.Player.CrewMercs(), formula.SkillPilot, 0)
 	fleeChance := 30 + pilotSkill*5
 
 	if gs.Rand.Intn(100) < fleeChance {
@@ -279,11 +267,7 @@ func traderTrade(gs *game.GameState) Outcome {
 	goodIdx := available[gs.Rand.Intn(len(available))]
 	good := gs.Data.Goods[goodIdx]
 
-	crewMercs := make([]formula.Mercenary, len(gs.Player.Crew))
-	for i, m := range gs.Player.Crew {
-		crewMercs[i] = m
-	}
-	traderSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], crewMercs, formula.SkillTrader, 0)
+	traderSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], gs.Player.CrewMercs(), formula.SkillTrader, 0)
 
 	discount := 90 + traderSkill
 	if discount > 98 {
@@ -344,7 +328,6 @@ func resolveBottle(gs *game.GameState, action Action) Outcome {
 		return Outcome{Message: "You leave the bottle floating in space."}
 	}
 	skill := gs.Rand.Intn(4)
-	skillNames := []string{"Pilot", "Fighter", "Trader", "Engineer"}
 	gs.Player.Skills[skill]++
 	if gs.Player.Skills[skill] > 10 {
 		gs.Player.Skills[skill] = 10
@@ -353,12 +336,12 @@ func resolveBottle(gs *game.GameState, action Action) Outcome {
 	if gs.Rand.Intn(100) < 20 && gs.Quests.TribbleQty == 0 {
 		gs.Quests.TribbleQty = 1
 		return Outcome{
-			Message: fmt.Sprintf("The tonic improved your %s skill! But... what's this furry thing in the bottle?", skillNames[skill]),
+			Message: fmt.Sprintf("The tonic improved your %s skill! But... what's this furry thing in the bottle?", formula.SkillNames[skill]),
 		}
 	}
 
 	return Outcome{
-		Message: fmt.Sprintf("The tonic improved your %s skill!", skillNames[skill]),
+		Message: fmt.Sprintf("The tonic improved your %s skill!", formula.SkillNames[skill]),
 	}
 }
 
@@ -438,18 +421,4 @@ func checkShipDestroyed(gs *game.GameState) (destroyed bool, message string) {
 
 	gs.EndStatus = game.StatusDead
 	return true, "Ship destroyed!"
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

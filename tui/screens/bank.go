@@ -107,17 +107,11 @@ func (s *BankScreen) View() string {
 	b.WriteString(HeaderStyle.Render("  BANK  ") + "\n")
 	b.WriteString(fmt.Sprintf("  Credits: %d\n", s.gs.Player.Credits))
 	b.WriteString(fmt.Sprintf("  Loan balance: %d\n", s.gs.Player.LoanBalance))
-	b.WriteString(fmt.Sprintf("  Max loan: %d\n", formula.MaxLoanForDifficulty(s.gs.Difficulty)))
+	b.WriteString(fmt.Sprintf("  Max loan: %d\n", formula.MaxLoan))
 	b.WriteString(fmt.Sprintf("  Interest rate: 10%% per warp\n\n"))
 
 	items := []string{"Borrow credits", "Repay loan"}
-	for i, item := range items {
-		if i == s.cursor {
-			b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+item)))
-		} else {
-			b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(item)))
-		}
-	}
+	RenderMenuItems(&b, items, s.cursor)
 
 	if s.mode == bankBorrow || s.mode == bankRepay {
 		label := "Borrow"

@@ -20,6 +20,8 @@ const (
 	SkillEngineer = 3
 )
 
+var SkillNames = [NumSkills]string{"Pilot", "Fighter", "Trader", "Engineer"}
+
 func SkillPointsForDifficulty(d gamedata.Difficulty) int {
 	switch d {
 	case gamedata.DiffBeginner:
@@ -34,20 +36,4 @@ func SkillPointsForDifficulty(d gamedata.Difficulty) int {
 		return 12
 	}
 	return 16
-}
-
-func MaxLoanForDifficulty(d gamedata.Difficulty) int {
-	switch d {
-	case gamedata.DiffBeginner:
-		return 25_000
-	case gamedata.DiffEasy:
-		return 25_000
-	case gamedata.DiffNormal:
-		return 25_000
-	case gamedata.DiffHard:
-		return 25_000
-	case gamedata.DiffImpossible:
-		return 25_000
-	}
-	return 25_000
 }

@@ -1,6 +1,8 @@
 package screens
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -12,7 +14,6 @@ const (
 	ScreenNewGame
 	ScreenSystem
 	ScreenMarket
-	ScreenChart
 	ScreenEncounter
 	ScreenShipyard
 	ScreenBank
@@ -104,3 +105,13 @@ var (
 	MagentaStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("13"))
 )
+
+func RenderMenuItems(b *strings.Builder, items []string, cursor int) {
+	for i, item := range items {
+		if i == cursor {
+			b.WriteString("  " + SelectedStyle.Render("> "+item) + "\n")
+		} else {
+			b.WriteString("    " + NormalStyle.Render(item) + "\n")
+		}
+	}
+}

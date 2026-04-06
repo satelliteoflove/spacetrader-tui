@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
@@ -48,9 +49,8 @@ func (s *StatusScreen) View() string {
 		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Debt: %d", p.LoanBalance)) + "\n")
 	}
 
-	skillNames := []string{"Pilot", "Fighter", "Trader", "Engineer"}
 	b.WriteString("  Skills:\n")
-	for i, name := range skillNames {
+	for i, name := range formula.SkillNames {
 		b.WriteString(fmt.Sprintf("    %-10s %d\n", name, p.Skills[i]))
 	}
 

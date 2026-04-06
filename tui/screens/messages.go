@@ -3,7 +3,6 @@ package screens
 import (
 	"github.com/the4ofus/spacetrader-tui/internal/encounter"
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
-	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
@@ -22,7 +21,3 @@ type EncounterDoneMsg struct {
 }
 
 type LoadGameMsg struct{}
-
-type QuestEventMsg struct {
-	Events []game.QuestEvent
-}

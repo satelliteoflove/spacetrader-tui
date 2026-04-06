@@ -3,6 +3,7 @@ package market
 import (
 	"math/rand"
 
+	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
@@ -11,41 +12,7 @@ func CalculatePrice(good gamedata.GoodDef, sys gamedata.SystemDef, event string,
 		return -1
 	}
 
-	price := good.BasePrice
-
-	techRange := int(good.MaxTech - good.MinTech)
-	if techRange > 0 {
-		techPos := int(sys.TechLevel - good.MinTech)
-		price = price + (price * techPos / techRange / 2) - (price / 4)
-	}
-
-	if good.ExpensiveResource != "" && sys.Resource.String() == good.ExpensiveResource {
-		price = price * 150 / 100
-	}
-	if good.CheapResource != "" && sys.Resource.String() == good.CheapResource {
-		price = price * 70 / 100
-	}
-
-	if (sys.PoliticalSystem == gamedata.PolDictatorship ||
-		sys.PoliticalSystem == gamedata.PolFascist ||
-		sys.PoliticalSystem == gamedata.PolMilitary) && !good.Legal {
-		price = price * 150 / 100
-	}
-
-	if event != "" {
-		if event == good.PriceIncreaseEvent {
-			price = price * 150 / 100
-		}
-		if event == good.PriceDecreaseEvent {
-			price = price * 70 / 100
-		}
-	}
-
-	variance := good.Variance
-	if variance > 0 && rng != nil {
-		delta := rng.Intn(2*variance+1) - variance
-		price += delta
-	}
+	price := formula.BasePrice(good, sys, event, rng)
 
 	if traderSkill > 0 {
 		discount := traderSkill
@@ -68,19 +35,7 @@ func AveragePrice(good gamedata.GoodDef, systems []gamedata.SystemDef) int {
 		if good.MinTech > sys.TechLevel || sys.TechLevel > good.MaxTech {
 			continue
 		}
-		price := good.BasePrice
-		techRange := int(good.MaxTech - good.MinTech)
-		if techRange > 0 {
-			techPos := int(sys.TechLevel - good.MinTech)
-			price = price + (price * techPos / techRange / 2) - (price / 4)
-		}
-		if good.ExpensiveResource != "" && sys.Resource.String() == good.ExpensiveResource {
-			price = price * 150 / 100
-		}
-		if good.CheapResource != "" && sys.Resource.String() == good.CheapResource {
-			price = price * 70 / 100
-		}
-		total += price
+		total += formula.BasePrice(good, sys, "", nil)
 		count++
 	}
 	if count == 0 {

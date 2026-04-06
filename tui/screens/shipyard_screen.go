@@ -148,17 +148,15 @@ func (s *ShipyardScreen) View() string {
 
 	switch s.tab {
 	case tabShips:
+		lines := make([]string, len(s.ships))
 		for i, ship := range s.ships {
-			line := fmt.Sprintf("%-14s %6d cr  cargo:%d  wpn:%d  shd:%d  gdt:%d",
+			lines[i] = fmt.Sprintf("%-14s %6d cr  cargo:%d  wpn:%d  shd:%d  gdt:%d",
 				ship.Name, ship.Price, ship.CargoBays, ship.WeaponSlots,
 				ship.ShieldSlots, ship.GadgetSlots)
-			if i == s.cursor {
-				b.WriteString("  " + SelectedStyle.Render("> "+line) + "\n")
-			} else {
-				b.WriteString("    " + NormalStyle.Render(line) + "\n")
-			}
 		}
+		RenderMenuItems(&b, lines, s.cursor)
 	case tabEquipment:
+		eqLines := make([]string, len(s.equip))
 		for i, eq := range s.equip {
 			var stat string
 			switch eq.Category {
@@ -173,13 +171,9 @@ func (s *ShipyardScreen) View() string {
 					stat = fmt.Sprintf("+%s", eq.SkillBonus)
 				}
 			}
-			line := fmt.Sprintf("%-20s %6d cr  %s", eq.Name, eq.Price, stat)
-			if i == s.cursor {
-				b.WriteString("  " + SelectedStyle.Render("> "+line) + "\n")
-			} else {
-				b.WriteString("    " + NormalStyle.Render(line) + "\n")
-			}
+			eqLines[i] = fmt.Sprintf("%-20s %6d cr  %s", eq.Name, eq.Price, stat)
 		}
+		RenderMenuItems(&b, eqLines, s.cursor)
 	case tabRepair:
 		repairCost := shipyard.RepairCost(s.gs)
 		refuelCost := shipyard.RefuelCost(s.gs)
@@ -197,13 +191,7 @@ func (s *ShipyardScreen) View() string {
 		} else {
 			items = append(items, fmt.Sprintf("Buy insurance (%d credits)", shipyard.InsurancePrice))
 		}
-		for i, item := range items {
-			if i == s.cursor {
-				b.WriteString("  " + SelectedStyle.Render("> "+item) + "\n")
-			} else {
-				b.WriteString("    " + NormalStyle.Render(item) + "\n")
-			}
-		}
+		RenderMenuItems(&b, items, s.cursor)
 	}
 
 	if s.message != "" {
