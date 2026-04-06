@@ -7,34 +7,24 @@ Trade goods between star systems, upgrade your ship, dodge pirates, and earn eno
 ## Features
 
 - Full trading economy with 10 goods across 78 star systems
+- Profit/loss tracking on cargo with cost basis per good
 - Ship upgrades, weapons, shields, and gadgets via the shipyard
 - Encounters with pirates, police, and traders during warp travel
+- Threat assessment before combat (scanner readout of enemy strength)
 - Banking system with loans and interest
 - Crew hiring and management
-- Galactic chart with visual star map and sortable/filterable system list
+- Galactic chart with free-moving grid cursor and visual star map
+- Sortable/filterable system lists with color-coded specialties
+- Bookmark systems from news or charts, searchable via /
+- Recent News screen tracking event headlines with age
+- Trader's Guide with in-game reference for tech, government, and specialties
 - 10 unique quest lines (Dragonfly, Space Monster, Alien Artifact, and more)
 - Wormhole travel network
+- Persistent status bar showing credits, cargo, hull, fuel, and day
+- Confirmation prompts for travel, ship purchases, and crew changes
+- Difficulty affects skill point pool, pirate strength, and score multiplier
 - Save/load game support
 - Runs great on a Raspberry Pi Zero W
-
-## Screenshots
-
-```
-+------------------------------------------------------+
-|  Beteigeuze                                          |
-|  ____________                                        |
-|  Tech: Early Industrial  |  Gov: Monarchy            |
-|  Credits: 1000  |  Ship: Gnat  |  Hull: 100/100      |
-|                                                      |
-|  > Market                                            |
-|    Short-Range Chart                                 |
-|    Shipyard                                          |
-|    Bank                                              |
-|    Personnel                                         |
-|    Galactic Chart                                    |
-|    Status                                            |
-+------------------------------------------------------+
-```
 
 ## Requirements
 
@@ -63,18 +53,21 @@ go run .
 
 ## Controls
 
-| Key       | Action                        |
-|-----------|-------------------------------|
-| j / k     | Navigate up/down              |
-| Enter     | Select / confirm              |
-| Esc       | Back / cancel                 |
-| 1-5       | Sort by column (charts)       |
-| /         | Filter systems (charts)       |
-| b / s     | Buy / sell (market)           |
-| r         | Refuel (short-range chart)    |
-| w         | Use wormhole                  |
-| s         | Save game (system hub)        |
-| Ctrl+C    | Quit                          |
+| Key           | Action                                      |
+|---------------|---------------------------------------------|
+| j / k         | Navigate up/down                            |
+| h / l         | Navigate left/right (galactic map, skills)  |
+| Arrow keys    | Navigate (all directions on galactic map)   |
+| Enter         | Select / confirm / travel                   |
+| Esc           | Back / cancel                               |
+| 1-5           | Sort by column (charts)                     |
+| /             | Filter systems (charts) / search (map)      |
+| b             | Buy (market) / toggle bookmark (charts/news)|
+| s             | Sell (market) / save game (system hub)      |
+| r             | Refuel (short-range chart)                  |
+| w             | Use wormhole                                |
+| L             | Switch to list view (galactic map)          |
+| Ctrl+C        | Quit                                        |
 
 ## Project Structure
 
@@ -86,16 +79,18 @@ tui/
     shared.go            Shared styles, key bindings, helpers
     system_table.go      Sort/filter logic for system lists
     system.go            System hub (main menu per system)
-    market.go            Buy/sell goods
+    market.go            Buy/sell goods with profit tracking
     chart.go             Short-range chart (travel)
-    galactic_chart.go    Galactic map and system list
+    galactic_chart.go    Galactic map with grid cursor and system list
     shipyard_screen.go   Ships, equipment, repairs
     bank.go              Loans
     personnel.go         Crew management
     status.go            Commander status
-    encounter.go         Combat and encounters
+    encounter.go         Combat and encounters with threat assessment
     quest_event.go       Quest narrative events
-    newgame.go           Character creation
+    newgame.go           Character creation (difficulty, skills, descriptions)
+    guide.go             Trader's Guide reference screen
+    news.go              Recent News with headline tracking
     gameover.go          Retirement/death screen
     save.go              Save game
 internal/
