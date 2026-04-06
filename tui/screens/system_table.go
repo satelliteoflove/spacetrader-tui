@@ -29,16 +29,18 @@ const (
 )
 
 type systemEntry struct {
-	sysIdx    int
-	name      string
-	dist      float64
-	techLvl   gamedata.TechLevel
-	techStr   string
-	govStr    string
-	resource  gamedata.Resource
-	resStr    string
-	visited   bool
-	isCurrent bool
+	sysIdx       int
+	name         string
+	dist         float64
+	techLvl      gamedata.TechLevel
+	techStr      string
+	govStr       string
+	resource     gamedata.Resource
+	resStr       string
+	visited      bool
+	isCurrent    bool
+	bookmarked   bool
+	bookmarkNote string
 }
 
 func buildSystemEntries(gs *game.GameState, indices []int) []systemEntry {
@@ -46,17 +48,20 @@ func buildSystemEntries(gs *game.GameState, indices []int) []systemEntry {
 	entries := make([]systemEntry, len(indices))
 	for i, idx := range indices {
 		sys := gs.Data.Systems[idx]
+		bm, hasBM := gs.GetBookmark(idx)
 		entries[i] = systemEntry{
-			sysIdx:    idx,
-			name:      sys.Name,
-			dist:      formula.Distance(cur.X, cur.Y, sys.X, sys.Y),
-			techLvl:   sys.TechLevel,
-			techStr:   shortTech(sys.TechLevel),
-			govStr:    sys.PoliticalSystem.String(),
-			resource:  sys.Resource,
-			resStr:    shortResource(sys.Resource),
-			visited:   gs.Systems[idx].Visited,
-			isCurrent: idx == gs.CurrentSystemID,
+			sysIdx:       idx,
+			name:         sys.Name,
+			dist:         formula.Distance(cur.X, cur.Y, sys.X, sys.Y),
+			techLvl:      sys.TechLevel,
+			techStr:      shortTech(sys.TechLevel),
+			govStr:       sys.PoliticalSystem.String(),
+			resource:     sys.Resource,
+			resStr:       shortResource(sys.Resource),
+			visited:      gs.Systems[idx].Visited,
+			isCurrent:    idx == gs.CurrentSystemID,
+			bookmarked:   hasBM,
+			bookmarkNote: bm.Note,
 		}
 	}
 	return entries
@@ -88,7 +93,8 @@ func filterSystemEntries(entries []systemEntry, text string) []systemEntry {
 		if strings.Contains(strings.ToLower(e.name), f) ||
 			strings.Contains(strings.ToLower(e.techStr), f) ||
 			strings.Contains(strings.ToLower(e.govStr), f) ||
-			strings.Contains(strings.ToLower(e.resStr), f) {
+			strings.Contains(strings.ToLower(e.resStr), f) ||
+			strings.Contains(strings.ToLower(e.bookmarkNote), f) {
 			result = append(result, e)
 		}
 	}

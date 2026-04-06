@@ -26,6 +26,7 @@ type ChartScreen struct {
 	filterInput textinput.Model
 	filterText  string
 	message     string
+	confirming  bool
 }
 
 func NewChartScreen(gs *game.GameState) *ChartScreen {
@@ -53,6 +54,27 @@ func (s *ChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return s.updateChartFilter(msg)
 	}
 
+	if s.confirming {
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "y":
+				s.confirming = false
+				entry := s.filtered[s.cursor]
+				result := travel.ExecuteTravel(s.gs, entry.sysIdx)
+				if !result.Success {
+					s.message = result.Message
+					return s, nil
+				}
+				s.message = result.Message
+				return s, func() tea.Msg { return TravelMsg{DestIdx: entry.sysIdx} }
+			default:
+				s.confirming = false
+				s.message = ""
+			}
+		}
+		return s, nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -69,13 +91,8 @@ func (s *ChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return s, nil
 			}
 			entry := s.filtered[s.cursor]
-			result := travel.ExecuteTravel(s.gs, entry.sysIdx)
-			if !result.Success {
-				s.message = result.Message
-				return s, nil
-			}
-			s.message = result.Message
-			return s, func() tea.Msg { return TravelMsg{DestIdx: entry.sysIdx} }
+			s.message = SelectedStyle.Render(fmt.Sprintf("Travel to %s? (y/n)", entry.name))
+			s.confirming = true
 		case msg.String() == "1":
 			s.toggleChartSort(colName)
 		case msg.String() == "2":
@@ -91,6 +108,17 @@ func (s *ChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.filterInput.SetValue(s.filterText)
 			s.filterInput.Focus()
 			return s, textinput.Blink
+		case msg.String() == "b":
+			if len(s.filtered) > 0 {
+				entry := s.filtered[s.cursor]
+				added := s.gs.ToggleBookmark(entry.sysIdx, autoBookmarkNote(s.gs, entry.sysIdx))
+				if added {
+					s.message = SuccessStyle.Render(fmt.Sprintf("Bookmarked %s", entry.name))
+				} else {
+					s.message = DimStyle.Render(fmt.Sprintf("Removed bookmark for %s", entry.name))
+				}
+				s.refreshChartSystems()
+			}
 		case msg.String() == "r":
 			result := shipyard.Refuel(s.gs)
 			s.message = result.Message
@@ -210,21 +238,23 @@ func (s *ChartScreen) View() string {
 		govH := sortedHeader("GOV", colGov, s.sortCol, s.sortDir)
 		resH := sortedHeader("SPECIALTY", colResource, s.sortCol, s.sortDir)
 
-		header := fmt.Sprintf("  %-16s %5s  %-10s %-16s %-8s",
+		header := fmt.Sprintf("  %-16s %5s  %-10s %-16s %-12s",
 			sysH, distH, techH, govH, resH)
 		b.WriteString(DimStyle.Render(header) + "\n")
-		b.WriteString("  " + strings.Repeat("-", 60) + "\n")
+		b.WriteString("  " + strings.Repeat("-", 64) + "\n")
 
 		if len(s.filtered) == 0 {
 			b.WriteString("  No matching systems.\n")
 		} else {
 			for i, e := range s.filtered {
 				marker := " "
-				if e.visited {
+				if e.bookmarked {
+					marker = SelectedStyle.Render("!")
+				} else if e.visited {
 					marker = "*"
 				}
 
-				coloredRes := colorResource(e.resource, fmt.Sprintf("%-8s", e.resStr))
+				coloredRes := colorResource(e.resource, fmt.Sprintf("%-12s", e.resStr))
 				line := fmt.Sprintf("%-16s %5.1f  %-10s %-16s",
 					e.name, e.dist, e.techStr, e.govStr)
 				line += coloredRes + " " + marker
@@ -237,7 +267,7 @@ func (s *ChartScreen) View() string {
 			}
 		}
 
-		b.WriteString("\n" + DimStyle.Render("  * = visited"))
+		b.WriteString("\n" + DimStyle.Render("  * = visited  ! = bookmarked"))
 	}
 
 	if s.message != "" {
@@ -274,9 +304,13 @@ func (s *ChartScreen) View() string {
 				b.WriteString(DangerStyle.Render(fmt.Sprintf("  Sells high: %s", expensive)) + "\n")
 			}
 		}
+
+		if e.bookmarked && e.bookmarkNote != "" {
+			b.WriteString(SelectedStyle.Render(fmt.Sprintf("  Bookmarked: %s", e.bookmarkNote)) + "\n")
+		}
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  enter travel, r refuel, w wormhole, 1-5 sort, / filter, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  enter travel, r refuel, w wormhole, b bookmark, 1-5 sort, / filter, esc back"))
 	return b.String()
 }
 
@@ -307,23 +341,31 @@ func shortResource(r gamedata.Resource) string {
 	case gamedata.ResourceNone:
 		return ""
 	case gamedata.ResourceMineralRich:
-		return "Minerals"
+		return "+Minerals"
 	case gamedata.ResourceWaterWorld:
-		return "Water"
+		return "+Water"
 	case gamedata.ResourceRichFauna:
-		return "Fauna"
+		return "+Fauna"
 	case gamedata.ResourceRichSoil:
-		return "Soil"
-	case gamedata.ResourcePoorSoil:
-		return "Poor soil"
-	case gamedata.ResourcePoorClinic:
-		return "Poor med"
+		return "+Soil"
 	case gamedata.ResourceGoodClinic:
-		return "Good med"
-	case gamedata.ResourceLackOfWorkers:
-		return "Low labor"
+		return "+Good med"
 	case gamedata.ResourceRobotWorkers:
-		return "Robots"
+		return "+Robots"
+	case gamedata.ResourceDesert:
+		return "-Desert"
+	case gamedata.ResourcePoor:
+		return "-Poor"
+	case gamedata.ResourceLifeless:
+		return "-Lifeless"
+	case gamedata.ResourcePoorSoil:
+		return "-Poor soil"
+	case gamedata.ResourcePoorClinic:
+		return "-Poor med"
+	case gamedata.ResourceLackOfWorkers:
+		return "-Low labor"
+	case gamedata.ResourceIndustrial:
+		return "~Industrial"
 	}
 	return r.String()
 }
@@ -369,4 +411,19 @@ func resourceTradeHints(goods []gamedata.GoodDef, r gamedata.Resource) (cheap, e
 		}
 	}
 	return strings.Join(cheapGoods, ", "), strings.Join(expensiveGoods, ", ")
+}
+
+func autoBookmarkNote(gs *game.GameState, sysIdx int) string {
+	sys := gs.Data.Systems[sysIdx]
+	sysState := gs.Systems[sysIdx]
+	var parts []string
+	if sysState.Event != "" {
+		parts = append(parts, sysState.Event)
+	}
+	res := shortResource(sys.Resource)
+	if res != "" {
+		parts = append(parts, res)
+	}
+	parts = append(parts, shortTech(sys.TechLevel))
+	return strings.Join(parts, ", ")
 }

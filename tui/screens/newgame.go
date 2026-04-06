@@ -16,8 +16,8 @@ type newGameStage int
 
 const (
 	stageNameInput newGameStage = iota
-	stageSkills
 	stageDifficulty
+	stageSkills
 )
 
 type NewGameScreen struct {
@@ -76,8 +76,7 @@ func (s *NewGameScreen) updateName(msg tea.Msg) (tea.Model, tea.Cmd) {
 				name = "Commander"
 			}
 			s.name = name
-			s.stage = stageSkills
-			s.remaining = formula.SkillPointsForDifficulty(s.difficulty) - 4
+			s.stage = stageDifficulty
 			return s, nil
 		}
 		if key.Matches(msg, Keys.Back) {
@@ -109,12 +108,16 @@ func (s *NewGameScreen) updateSkills(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, Keys.Enter):
 			if s.remaining == 0 {
-				s.stage = stageDifficulty
+				return s, func() tea.Msg {
+					return StartGameMsg{
+						Name:       s.name,
+						Skills:     s.skills,
+						Difficulty: s.difficulty,
+					}
+				}
 			}
 		case key.Matches(msg, Keys.Back):
-			s.stage = stageNameInput
-			s.nameInput.Focus()
-			return s, textinput.Blink
+			s.stage = stageDifficulty
 		}
 	}
 	return s, nil
@@ -130,15 +133,14 @@ func (s *NewGameScreen) updateDifficulty(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.diffIdx = wrapCursor(s.diffIdx, 1, len(s.diffNames))
 		case key.Matches(msg, Keys.Enter):
 			s.difficulty = gamedata.Difficulty(s.diffIdx)
-			return s, func() tea.Msg {
-				return StartGameMsg{
-					Name:       s.name,
-					Skills:     s.skills,
-					Difficulty: s.difficulty,
-				}
-			}
-		case key.Matches(msg, Keys.Back):
+			s.skills = [formula.NumSkills]int{1, 1, 1, 1}
+			s.remaining = formula.SkillPointsForDifficulty(s.difficulty) - 4
+			s.skillIdx = 0
 			s.stage = stageSkills
+		case key.Matches(msg, Keys.Back):
+			s.stage = stageNameInput
+			s.nameInput.Focus()
+			return s, textinput.Blink
 		}
 	}
 	return s, nil
@@ -155,9 +157,24 @@ func (s *NewGameScreen) View() string {
 		b.WriteString(s.nameInput.View() + "\n\n")
 		b.WriteString(DimStyle.Render("enter to continue, esc to go back"))
 
+	case stageDifficulty:
+		b.WriteString(fmt.Sprintf("Commander %s - Select difficulty:\n\n", s.name))
+		for i, name := range s.diffNames {
+			if i == s.diffIdx {
+				b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+name)))
+			} else {
+				b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(name)))
+			}
+		}
+
+		b.WriteString("\n")
+		b.WriteString(difficultyDescription(gamedata.Difficulty(s.diffIdx)))
+
+		b.WriteString("\n" + DimStyle.Render("j/k to select, enter to confirm, esc back"))
+
 	case stageSkills:
-		b.WriteString(fmt.Sprintf("Commander %s - Allocate skill points (%d remaining)\n\n",
-			s.name, s.remaining))
+		b.WriteString(fmt.Sprintf("Commander %s [%s] - Allocate skill points (%d remaining)\n\n",
+			s.name, s.difficulty, s.remaining))
 
 		for i, name := range s.skillNames {
 			bar := strings.Repeat("|", s.skills[i]) + strings.Repeat(".", formula.SkillMax-s.skills[i])
@@ -169,19 +186,62 @@ func (s *NewGameScreen) View() string {
 			}
 		}
 
-		b.WriteString("\n" + DimStyle.Render("j/k to select, h/l to adjust, enter when done"))
+		b.WriteString("\n")
+		b.WriteString(CyanStyle.Render("  "+s.skillNames[s.skillIdx]) + "\n")
+		b.WriteString("  " + skillDescription(s.skillIdx, s.skills[s.skillIdx]) + "\n")
 
-	case stageDifficulty:
-		b.WriteString("Select difficulty:\n\n")
-		for i, name := range s.diffNames {
-			if i == s.diffIdx {
-				b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+name)))
-			} else {
-				b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(name)))
-			}
-		}
-		b.WriteString("\n" + DimStyle.Render("j/k to select, enter to confirm"))
+		b.WriteString("\n" + DimStyle.Render("j/k to select, h/l to adjust, enter when done, esc back"))
 	}
 
 	return b.String()
+}
+
+func skillDescription(idx, level int) string {
+	switch idx {
+	case formula.SkillPilot:
+		chance := 30 + level*5
+		return fmt.Sprintf("Flee from encounters. Current: %d%% escape chance.", chance)
+	case formula.SkillFighter:
+		return fmt.Sprintf("Combat damage and accuracy. Level %d.", level)
+	case formula.SkillTrader:
+		discount := level
+		if discount > 10 {
+			discount = 10
+		}
+		chance := 20 + level*5
+		return fmt.Sprintf("Price discount: %d%%. Negotiate: %d%% success.", discount, chance)
+	case formula.SkillEngineer:
+		repair := level / 2
+		if repair < 1 {
+			repair = 1
+		}
+		return fmt.Sprintf("Auto-repairs %d hull per warp.", repair)
+	}
+	return ""
+}
+
+func difficultyDescription(d gamedata.Difficulty) string {
+	points := formula.SkillPointsForDifficulty(d)
+	var pirates, scoreMult string
+	switch d {
+	case gamedata.DiffBeginner:
+		pirates = "Very weak"
+		scoreMult = "x0.5"
+	case gamedata.DiffEasy:
+		pirates = "Weak"
+		scoreMult = "x0.75"
+	case gamedata.DiffNormal:
+		pirates = "Average"
+		scoreMult = "x1.0"
+	case gamedata.DiffHard:
+		pirates = "Strong"
+		scoreMult = "x1.3"
+	case gamedata.DiffImpossible:
+		pirates = "Very strong"
+		scoreMult = "x1.6"
+	}
+	return fmt.Sprintf("  %s  %d skill points\n  %s  Pirates: %s\n  %s  Score: %s\n",
+		CyanStyle.Render("Skills:"), points,
+		CyanStyle.Render("Danger:"), pirates,
+		CyanStyle.Render("Score: "), scoreMult)
 }

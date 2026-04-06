@@ -18,11 +18,12 @@ const (
 )
 
 type PersonnelScreen struct {
-	gs        *game.GameState
-	tab       personnelTab
-	cursor    int
-	message   string
-	available []game.Mercenary
+	gs         *game.GameState
+	tab        personnelTab
+	cursor     int
+	message    string
+	available  []game.Mercenary
+	confirming bool
 }
 
 func NewPersonnelScreen(gs *game.GameState) *PersonnelScreen {
@@ -35,6 +36,26 @@ func NewPersonnelScreen(gs *game.GameState) *PersonnelScreen {
 func (s *PersonnelScreen) Init() tea.Cmd { return nil }
 
 func (s *PersonnelScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if s.confirming {
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "y":
+				s.confirming = false
+				if s.cursor < len(s.gs.Player.Crew) {
+					ok, msg := game.FireMercenary(s.gs, s.cursor)
+					s.message = msg
+					if ok && s.cursor >= len(s.gs.Player.Crew) {
+						s.cursor = max(0, len(s.gs.Player.Crew)-1)
+					}
+				}
+			default:
+				s.confirming = false
+				s.message = ""
+			}
+		}
+		return s, nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -71,11 +92,10 @@ func (s *PersonnelScreen) handleSelect() {
 	switch s.tab {
 	case tabCrew:
 		if s.cursor < len(s.gs.Player.Crew) {
-			ok, msg := game.FireMercenary(s.gs, s.cursor)
-			s.message = msg
-			if ok && s.cursor >= len(s.gs.Player.Crew) {
-				s.cursor = max(0, len(s.gs.Player.Crew)-1)
-			}
+			name := s.gs.Player.Crew[s.cursor].Name
+			s.message = SelectedStyle.Render(fmt.Sprintf("Fire %s? (y/n)", name))
+			s.confirming = true
+			return
 		}
 	case tabHire:
 		if s.cursor < len(s.available) {

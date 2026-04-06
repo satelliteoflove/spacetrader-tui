@@ -11,6 +11,7 @@ type Player struct {
 	Reputation    int             `json:"reputation"`
 	Ship          Ship            `json:"ship"`
 	Cargo         [10]int         `json:"cargo"`
+	CargoCost     [10]int         `json:"cargo_cost"`
 	Crew          []Mercenary     `json:"crew"`
 	HasEscapePod  bool            `json:"has_escape_pod"`
 	HasInsurance  bool            `json:"has_insurance"`

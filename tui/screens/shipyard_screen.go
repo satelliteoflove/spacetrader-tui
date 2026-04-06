@@ -21,12 +21,13 @@ const (
 )
 
 type ShipyardScreen struct {
-	gs      *game.GameState
-	tab     shipyardTab
-	cursor  int
-	message string
-	ships   []gamedata.ShipDef
-	equip   []gamedata.EquipDef
+	gs         *game.GameState
+	tab        shipyardTab
+	cursor     int
+	message    string
+	ships      []gamedata.ShipDef
+	equip      []gamedata.EquipDef
+	confirming bool
 }
 
 func NewShipyardScreen(gs *game.GameState) *ShipyardScreen {
@@ -40,6 +41,24 @@ func NewShipyardScreen(gs *game.GameState) *ShipyardScreen {
 func (s *ShipyardScreen) Init() tea.Cmd { return nil }
 
 func (s *ShipyardScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if s.confirming {
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "y":
+				s.confirming = false
+				if s.cursor < len(s.ships) {
+					result := shipyard.BuyShip(s.gs, s.ships[s.cursor].ID)
+					s.message = result.Message
+					s.ships = shipyard.AvailableShips(s.gs)
+				}
+			default:
+				s.confirming = false
+				s.message = ""
+			}
+		}
+		return s, nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -81,9 +100,10 @@ func (s *ShipyardScreen) handleSelect() {
 	switch s.tab {
 	case tabShips:
 		if s.cursor < len(s.ships) {
-			result := shipyard.BuyShip(s.gs, s.ships[s.cursor].ID)
-			s.message = result.Message
-			s.ships = shipyard.AvailableShips(s.gs)
+			ship := s.ships[s.cursor]
+			s.message = SelectedStyle.Render(fmt.Sprintf("Buy %s for %d cr? (y/n)", ship.Name, ship.Price))
+			s.confirming = true
+			return
 		}
 	case tabEquipment:
 		if s.cursor < len(s.equip) {

@@ -2,7 +2,6 @@ package screens
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
+	"github.com/the4ofus/spacetrader-tui/internal/travel"
 )
 
 const (
@@ -19,14 +19,24 @@ const (
 )
 
 type GalacticChartScreen struct {
-	gs       *game.GameState
-	cursor   int
-	byDist   []int
-	maxX     int
-	maxY     int
+	gs          *game.GameState
+	curX        int
+	curY        int
+	sysAt       map[[2]int]int
+	sysPos      [][2]int
+	maxX        int
+	maxY        int
+	searchMode  bool
+	searchInput textinput.Model
+	message     string
+	confirming  bool
 }
 
 func NewGalacticChartScreen(gs *game.GameState) *GalacticChartScreen {
+	return NewGalacticChartScreenWithSelection(gs, -1)
+}
+
+func NewGalacticChartScreenWithSelection(gs *game.GameState, selectedSys int) *GalacticChartScreen {
 	maxX, maxY := 0, 0
 	for _, sys := range gs.Data.Systems {
 		if sys.X > maxX {
@@ -37,41 +47,141 @@ func NewGalacticChartScreen(gs *game.GameState) *GalacticChartScreen {
 		}
 	}
 
-	cur := gs.Data.Systems[gs.CurrentSystemID]
-	byDist := make([]int, len(gs.Data.Systems))
-	for i := range byDist {
-		byDist[i] = i
+	sysAt := make(map[[2]int]int)
+	sysPos := make([][2]int, len(gs.Data.Systems))
+	for i, sys := range gs.Data.Systems {
+		px := sys.X * (chartWidth - 2) / (maxX + 1)
+		py := sys.Y * (chartHeight - 1) / (maxY + 1)
+		if px >= chartWidth {
+			px = chartWidth - 1
+		}
+		if py >= chartHeight {
+			py = chartHeight - 1
+		}
+		sysPos[i] = [2]int{px, py}
+		sysAt[[2]int{px, py}] = i
 	}
-	sort.Slice(byDist, func(i, j int) bool {
-		a := gs.Data.Systems[byDist[i]]
-		b := gs.Data.Systems[byDist[j]]
-		da := formula.Distance(cur.X, cur.Y, a.X, a.Y)
-		db := formula.Distance(cur.X, cur.Y, b.X, b.Y)
-		return da < db
-	})
+
+	startSys := selectedSys
+	if startSys < 0 {
+		startSys = gs.CurrentSystemID
+	}
 
 	return &GalacticChartScreen{
-		gs:   gs,
-		byDist: byDist,
-		maxX: maxX,
-		maxY: maxY,
+		gs:          gs,
+		curX:        sysPos[startSys][0],
+		curY:        sysPos[startSys][1],
+		sysAt:       sysAt,
+		sysPos:      sysPos,
+		maxX:        maxX,
+		maxY:        maxY,
+		searchInput: newFilterInput(),
 	}
+}
+
+func (s *GalacticChartScreen) selectedSystem() (int, bool) {
+	idx, ok := s.sysAt[[2]int{s.curX, s.curY}]
+	return idx, ok
 }
 
 func (s *GalacticChartScreen) Init() tea.Cmd { return nil }
 
 func (s *GalacticChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if s.searchMode {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			if key.Matches(msg, Keys.Enter) {
+				s.searchMode = false
+				query := strings.ToLower(s.searchInput.Value())
+				if query != "" {
+					for i, sys := range s.gs.Data.Systems {
+						if strings.Contains(strings.ToLower(sys.Name), query) {
+							s.curX = s.sysPos[i][0]
+							s.curY = s.sysPos[i][1]
+							break
+						}
+					}
+				}
+				return s, nil
+			}
+			if key.Matches(msg, Keys.Back) {
+				s.searchMode = false
+				return s, nil
+			}
+		}
+		var cmd tea.Cmd
+		s.searchInput, cmd = s.searchInput.Update(msg)
+		return s, cmd
+	}
+
+	if s.confirming {
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "y":
+				s.confirming = false
+				if selIdx, ok := s.selectedSystem(); ok {
+					result := travel.ExecuteTravel(s.gs, selIdx)
+					if !result.Success {
+						s.message = result.Message
+						return s, nil
+					}
+					s.message = result.Message
+					return s, func() tea.Msg { return TravelMsg{DestIdx: selIdx} }
+				}
+			default:
+				s.confirming = false
+				s.message = ""
+			}
+		}
+		return s, nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, Keys.Up), key.Matches(msg, Keys.Down):
-			delta := 1
-			if key.Matches(msg, Keys.Up) {
-				delta = -1
+		case msg.String() == "up" || msg.String() == "k":
+			if s.curY > 0 {
+				s.curY--
 			}
-			s.cursor = wrapCursor(s.cursor, delta, len(s.byDist))
-		case msg.String() == "l":
-			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenGalacticList} }
+		case msg.String() == "down" || msg.String() == "j":
+			if s.curY < chartHeight-1 {
+				s.curY++
+			}
+		case msg.String() == "left" || msg.String() == "h":
+			if s.curX > 0 {
+				s.curX--
+			}
+		case msg.String() == "right" || msg.String() == "l":
+			if s.curX < chartWidth-1 {
+				s.curX++
+			}
+		case msg.String() == "b":
+			if selIdx, ok := s.selectedSystem(); ok {
+				s.gs.ToggleBookmark(selIdx, autoBookmarkNote(s.gs, selIdx))
+			}
+		case msg.String() == "/":
+			s.searchMode = true
+			s.searchInput.SetValue("")
+			s.searchInput.Focus()
+			return s, textinput.Blink
+		case key.Matches(msg, Keys.Enter):
+			if selIdx, ok := s.selectedSystem(); ok {
+				cur := s.gs.Data.Systems[s.gs.CurrentSystemID]
+				dest := s.gs.Data.Systems[selIdx]
+				dist := formula.Distance(cur.X, cur.Y, dest.X, dest.Y)
+				if dist > float64(s.gs.Player.Ship.Fuel) {
+					s.message = DangerStyle.Render(fmt.Sprintf("Out of range (%.1f parsecs, fuel: %d)", dist, s.gs.Player.Ship.Fuel))
+				} else {
+					s.message = SelectedStyle.Render(fmt.Sprintf("Travel to %s? (y/n)", dest.Name))
+					s.confirming = true
+				}
+			}
+		case msg.String() == "L":
+			selIdx := -1
+			if idx, ok := s.selectedSystem(); ok {
+				selIdx = idx
+			}
+			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenGalacticList, SelectedSystem: selIdx} }
 		case key.Matches(msg, Keys.Back):
 			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 		}
@@ -83,28 +193,34 @@ func (s *GalacticChartScreen) View() string {
 	var b strings.Builder
 
 	cur := s.gs.Data.Systems[s.gs.CurrentSystemID]
-	selIdx := s.byDist[s.cursor]
-	sel := s.gs.Data.Systems[selIdx]
+	selIdx, hasSel := s.selectedSystem()
 
 	b.WriteString(HeaderStyle.Render("  GALACTIC CHART  ") + "\n")
 
-	selDist := formula.Distance(cur.X, cur.Y, sel.X, sel.Y)
-	b.WriteString(fmt.Sprintf("  You: %s  |  Selected: %s (%.1f parsecs)\n\n",
-		cur.Name, sel.Name, selDist))
+	if hasSel {
+		sel := s.gs.Data.Systems[selIdx]
+		selDist := formula.Distance(cur.X, cur.Y, sel.X, sel.Y)
+		b.WriteString(fmt.Sprintf("  You: %s  |  Cursor: %s (%.1f parsecs)\n\n",
+			cur.Name, sel.Name, selDist))
+	} else {
+		b.WriteString(fmt.Sprintf("  You: %s  |  Cursor: (%d, %d)\n\n",
+			cur.Name, s.curX, s.curY))
+	}
 
 	type cell struct {
 		ch    rune
 		style int
-		label string
 	}
 	const (
 		styleNone = iota
 		styleCurrent
 		styleSelected
+		styleCursor
 		styleVisited
 		styleInRange
 		styleUnvisited
 		styleWormhole
+		styleBookmarked
 	)
 
 	grid := make([][]cell, chartHeight)
@@ -115,19 +231,10 @@ func (s *GalacticChartScreen) View() string {
 		}
 	}
 
-	sysPos := make([][2]int, len(s.gs.Data.Systems))
 	fuelRange := float64(s.gs.Player.Ship.Fuel)
 
 	for i, sys := range s.gs.Data.Systems {
-		px := sys.X * (chartWidth - 2) / (s.maxX + 1)
-		py := sys.Y * (chartHeight - 1) / (s.maxY + 1)
-		if px >= chartWidth {
-			px = chartWidth - 1
-		}
-		if py >= chartHeight {
-			py = chartHeight - 1
-		}
-		sysPos[i] = [2]int{px, py}
+		px, py := s.sysPos[i][0], s.sysPos[i][1]
 
 		dist := formula.Distance(cur.X, cur.Y, sys.X, sys.Y)
 
@@ -141,11 +248,15 @@ func (s *GalacticChartScreen) View() string {
 			st = styleInRange
 			ch = 'o'
 		}
+		if s.gs.IsBookmarked(i) {
+			st = styleBookmarked
+			ch = '!'
+		}
 		if i == s.gs.CurrentSystemID {
 			st = styleCurrent
 			ch = '@'
 		}
-		if i == selIdx && i != s.gs.CurrentSystemID {
+		if hasSel && i == selIdx && i != s.gs.CurrentSystemID {
 			st = styleSelected
 			ch = '+'
 		}
@@ -153,9 +264,13 @@ func (s *GalacticChartScreen) View() string {
 		grid[py][px] = cell{ch: ch, style: st}
 	}
 
+	if !hasSel && s.curY >= 0 && s.curY < chartHeight && s.curX >= 0 && s.curX < chartWidth {
+		grid[s.curY][s.curX] = cell{ch: 'x', style: styleCursor}
+	}
+
 	labelSystem := func(sysIdx int, labelStyle int) {
 		name := s.gs.Data.Systems[sysIdx].Name
-		px, py := sysPos[sysIdx][0], sysPos[sysIdx][1]
+		px, py := s.sysPos[sysIdx][0], s.sysPos[sysIdx][1]
 
 		lx := px + 2
 		if lx+len(name) >= chartWidth {
@@ -178,13 +293,15 @@ func (s *GalacticChartScreen) View() string {
 	}
 
 	labelSystem(s.gs.CurrentSystemID, styleCurrent)
-	if selIdx != s.gs.CurrentSystemID {
+	if hasSel && selIdx != s.gs.CurrentSystemID {
 		labelSystem(selIdx, styleSelected)
 	}
 
 	for _, wh := range s.gs.Wormholes {
-		isRelevant := wh.SystemA == s.gs.CurrentSystemID || wh.SystemB == s.gs.CurrentSystemID ||
-			wh.SystemA == selIdx || wh.SystemB == selIdx
+		isRelevant := wh.SystemA == s.gs.CurrentSystemID || wh.SystemB == s.gs.CurrentSystemID
+		if hasSel {
+			isRelevant = isRelevant || wh.SystemA == selIdx || wh.SystemB == selIdx
+		}
 		if isRelevant {
 			labelSystem(wh.SystemA, styleWormhole)
 			labelSystem(wh.SystemB, styleWormhole)
@@ -202,12 +319,16 @@ func (s *GalacticChartScreen) View() string {
 				line.WriteString(SelectedStyle.Render(s))
 			case styleSelected:
 				line.WriteString(CyanStyle.Render(s))
+			case styleCursor:
+				line.WriteString(DimStyle.Render(s))
 			case styleVisited:
 				line.WriteString(DimStyle.Render(s))
 			case styleInRange:
 				line.WriteString(SuccessStyle.Render(s))
 			case styleWormhole:
 				line.WriteString(MagentaStyle.Render(s))
+			case styleBookmarked:
+				line.WriteString(SelectedStyle.Render(s))
 			default:
 				line.WriteString(s)
 			}
@@ -216,34 +337,49 @@ func (s *GalacticChartScreen) View() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(DimStyle.Render("  @ you  + selected  green = in range  magenta = wormhole") + "\n")
+	b.WriteString(DimStyle.Render("  @ you  + selected  ! bookmarked  green = in range") + "\n")
 
-	selState := s.gs.Systems[selIdx]
-	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("  %s", CyanStyle.Render(sel.Name)))
-	b.WriteString(fmt.Sprintf("  |  Tech: %s  |  Gov: %s", shortTech(sel.TechLevel), sel.PoliticalSystem))
-	if sel.Resource.String() != "No Special Resources" {
-		b.WriteString(fmt.Sprintf("  |  %s", shortResource(sel.Resource)))
-	}
-	b.WriteString("\n")
-
-	if selState.Visited {
-		if selState.Event != "" {
-			b.WriteString(DangerStyle.Render(fmt.Sprintf("  Event: %s", selState.Event)) + "\n")
+	if hasSel {
+		sel := s.gs.Data.Systems[selIdx]
+		selState := s.gs.Systems[selIdx]
+		b.WriteString("\n")
+		b.WriteString(fmt.Sprintf("  %s", CyanStyle.Render(sel.Name)))
+		b.WriteString(fmt.Sprintf("  |  Tech: %s  |  Gov: %s", shortTech(sel.TechLevel), sel.PoliticalSystem))
+		if sel.Resource.String() != "No Special Resources" {
+			b.WriteString(fmt.Sprintf("  |  %s", shortResource(sel.Resource)))
 		}
-	} else {
-		b.WriteString(DimStyle.Render("  Not yet visited") + "\n")
-	}
+		b.WriteString("\n")
 
-	for _, wh := range s.gs.Wormholes {
-		if wh.SystemA == selIdx {
-			b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s", s.gs.Data.Systems[wh.SystemB].Name)) + "\n")
-		} else if wh.SystemB == selIdx {
-			b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s", s.gs.Data.Systems[wh.SystemA].Name)) + "\n")
+		if selState.Visited {
+			if selState.Event != "" {
+				b.WriteString(DangerStyle.Render(fmt.Sprintf("  Event: %s", selState.Event)) + "\n")
+			}
+		} else {
+			b.WriteString(DimStyle.Render("  Not yet visited") + "\n")
+		}
+
+		for _, wh := range s.gs.Wormholes {
+			if wh.SystemA == selIdx {
+				b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s", s.gs.Data.Systems[wh.SystemB].Name)) + "\n")
+			} else if wh.SystemB == selIdx {
+				b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s", s.gs.Data.Systems[wh.SystemA].Name)) + "\n")
+			}
+		}
+
+		if bm, ok := s.gs.GetBookmark(selIdx); ok && bm.Note != "" {
+			b.WriteString(SelectedStyle.Render(fmt.Sprintf("  Bookmarked: %s", bm.Note)) + "\n")
 		}
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  j/k cycle systems, l = list view, esc back"))
+	if s.message != "" {
+		b.WriteString("\n  " + s.message + "\n")
+	}
+
+	if s.searchMode {
+		b.WriteString("  / " + s.searchInput.View() + "\n")
+	}
+
+	b.WriteString("\n" + DimStyle.Render("  arrows/hjkl move, / search, enter travel, b bookmark, L list, esc back"))
 	return b.String()
 }
 
@@ -260,10 +396,24 @@ type GalacticListScreen struct {
 }
 
 func NewGalacticListScreen(gs *game.GameState) *GalacticListScreen {
+	return NewGalacticListScreenWithSelection(gs, -1)
+}
+
+func NewGalacticListScreenWithSelection(gs *game.GameState, selectedSys int) *GalacticListScreen {
 	entries := buildAllSystemEntries(gs)
 	filtered := applyFilterAndSort(entries, "", colName, sortAsc)
+	cursor := 0
+	if selectedSys >= 0 {
+		for i, e := range filtered {
+			if e.sysIdx == selectedSys {
+				cursor = i
+				break
+			}
+		}
+	}
 	return &GalacticListScreen{
 		gs:          gs,
+		cursor:      cursor,
 		allEntries:  entries,
 		filtered:    filtered,
 		sortCol:     colName,
@@ -305,8 +455,19 @@ func (s *GalacticListScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.filterInput.SetValue(s.filterText)
 			s.filterInput.Focus()
 			return s, textinput.Blink
+		case msg.String() == "b":
+			if len(s.filtered) > 0 {
+				entry := s.filtered[s.cursor]
+				s.gs.ToggleBookmark(entry.sysIdx, autoBookmarkNote(s.gs, entry.sysIdx))
+				s.allEntries = buildAllSystemEntries(s.gs)
+				s.refilter()
+			}
 		case msg.String() == "m":
-			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenGalacticChart} }
+			sysIdx := -1
+			if len(s.filtered) > 0 {
+				sysIdx = s.filtered[s.cursor].sysIdx
+			}
+			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenGalacticChart, SelectedSystem: sysIdx} }
 		case key.Matches(msg, Keys.Back):
 			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 		}
@@ -382,10 +543,10 @@ func (s *GalacticListScreen) View() string {
 	govH := sortedHeader("GOV", colGov, s.sortCol, s.sortDir)
 	resH := sortedHeader("SPECIALTY", colResource, s.sortCol, s.sortDir)
 
-	header := fmt.Sprintf("  %-16s %5s  %-10s %-16s %-8s",
+	header := fmt.Sprintf("  %-16s %5s  %-10s %-16s %-12s",
 		sysH, distH, techH, govH, resH)
 	b.WriteString(DimStyle.Render(header) + "\n")
-	b.WriteString("  " + strings.Repeat("-", 60) + "\n")
+	b.WriteString("  " + strings.Repeat("-", 64) + "\n")
 
 	if len(s.filtered) == 0 {
 		b.WriteString("  No matching systems.\n")
@@ -408,14 +569,15 @@ func (s *GalacticListScreen) View() string {
 			e := s.filtered[i]
 
 			marker := " "
-			if e.visited {
+			if e.bookmarked {
+				marker = SelectedStyle.Render("!")
+			} else if e.isCurrent {
+				marker = "@"
+			} else if e.visited {
 				marker = "*"
 			}
-			if e.isCurrent {
-				marker = "@"
-			}
 
-			coloredRes := colorResource(e.resource, fmt.Sprintf("%-8s", e.resStr))
+			coloredRes := colorResource(e.resource, fmt.Sprintf("%-12s", e.resStr))
 			line := fmt.Sprintf("%-16s %5.1f  %-10s %-16s",
 				e.name, e.dist, e.techStr, e.govStr)
 			line += coloredRes + " " + marker
@@ -455,8 +617,11 @@ func (s *GalacticListScreen) View() string {
 				b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s", s.gs.Data.Systems[wh.SystemA].Name)) + "\n")
 			}
 		}
+		if e.bookmarked && e.bookmarkNote != "" {
+			b.WriteString(SelectedStyle.Render(fmt.Sprintf("  Bookmarked: %s", e.bookmarkNote)) + "\n")
+		}
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  j/k scroll, 1-5 sort, / filter, m map, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  j/k scroll, b bookmark, 1-5 sort, / filter, m map, esc back"))
 	return b.String()
 }

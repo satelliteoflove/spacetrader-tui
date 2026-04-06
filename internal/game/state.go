@@ -14,6 +14,19 @@ const (
 	StatusDead
 )
 
+type NewsEntry struct {
+	Headline  string `json:"headline"`
+	System    string `json:"system"`
+	SystemIdx int    `json:"system_idx"`
+	Day       int    `json:"day"`
+}
+
+type Bookmark struct {
+	SystemIdx int    `json:"system_idx"`
+	Note      string `json:"note"`
+	Day       int    `json:"day"`
+}
+
 type GameState struct {
 	Player          Player            `json:"player"`
 	Systems         []SystemState     `json:"systems"`
@@ -24,9 +37,44 @@ type GameState struct {
 	Quests          QuestData         `json:"quests"`
 	Wormholes       []Wormhole        `json:"wormholes"`
 	Seed            int64             `json:"seed"`
+	NewsLog         []NewsEntry       `json:"news_log"`
+	Bookmarks       []Bookmark        `json:"bookmarks"`
 
 	Rand *rand.Rand       `json:"-"`
 	Data *gamedata.GameData `json:"-"`
+}
+
+func (gs *GameState) IsBookmarked(sysIdx int) bool {
+	for _, b := range gs.Bookmarks {
+		if b.SystemIdx == sysIdx {
+			return true
+		}
+	}
+	return false
+}
+
+func (gs *GameState) GetBookmark(sysIdx int) (Bookmark, bool) {
+	for _, b := range gs.Bookmarks {
+		if b.SystemIdx == sysIdx {
+			return b, true
+		}
+	}
+	return Bookmark{}, false
+}
+
+func (gs *GameState) ToggleBookmark(sysIdx int, note string) bool {
+	for i, b := range gs.Bookmarks {
+		if b.SystemIdx == sysIdx {
+			gs.Bookmarks = append(gs.Bookmarks[:i], gs.Bookmarks[i+1:]...)
+			return false
+		}
+	}
+	gs.Bookmarks = append(gs.Bookmarks, Bookmark{
+		SystemIdx: sysIdx,
+		Note:      note,
+		Day:       gs.Day,
+	})
+	return true
 }
 
 func (gs *GameState) CurrentSystem() gamedata.SystemDef {

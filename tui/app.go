@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -41,7 +44,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 	case screens.NavigateMsg:
 		m.systemHubCursor = msg.RestoreCursor
-		return m.navigate(msg.Screen)
+		return m.navigate(msg)
 	case screens.LoadGameMsg:
 		path, err := game.DefaultSavePath()
 		if err != nil {
@@ -96,9 +99,9 @@ func (m Model) arriveAtSystem() (tea.Model, tea.Cmd) {
 	return m, s.Init()
 }
 
-func (m Model) navigate(screen screens.ScreenType) (tea.Model, tea.Cmd) {
+func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 	var s tea.Model
-	switch screen {
+	switch msg.Screen {
 	case screens.ScreenTitle:
 		s = screens.NewTitleScreen()
 	case screens.ScreenNewGame:
@@ -116,20 +119,62 @@ func (m Model) navigate(screen screens.ScreenType) (tea.Model, tea.Cmd) {
 	case screens.ScreenPersonnel:
 		s = screens.NewPersonnelScreen(m.gs)
 	case screens.ScreenGalacticChart:
-		s = screens.NewGalacticChartScreen(m.gs)
+		s = screens.NewGalacticChartScreenWithSelection(m.gs, msg.SelectedSystem)
 	case screens.ScreenGalacticList:
-		s = screens.NewGalacticListScreen(m.gs)
+		s = screens.NewGalacticListScreenWithSelection(m.gs, msg.SelectedSystem)
 	case screens.ScreenStatus:
 		s = screens.NewStatusScreen(m.gs)
 	case screens.ScreenSave:
 		s = screens.NewSaveScreen(m.gs)
 	case screens.ScreenGameOver:
 		s = screens.NewGameOverScreen(m.gs)
+	case screens.ScreenGuide:
+		s = screens.NewGuideScreen()
+	case screens.ScreenNews:
+		s = screens.NewNewsScreen(m.gs)
 	default:
 		return m, nil
 	}
 	m.screen = s
 	return m, s.Init()
+}
+
+var (
+	statusBarStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
+	statusDimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	statusDangerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+)
+
+func (m Model) statusBar(width int) string {
+	if m.gs == nil {
+		return ""
+	}
+	shipDef := m.gs.PlayerShipDef()
+	cargo := m.gs.Player.TotalCargo()
+	dp := &game.GameDataProvider{Data: m.gs.Data}
+	cap := m.gs.Player.CargoCapacity(dp)
+
+	hullPct := m.gs.Player.Ship.Hull * 100 / shipDef.Hull
+	hullStr := fmt.Sprintf("Hull:%d%%", hullPct)
+	if hullPct < 50 {
+		hullStr = statusDangerStyle.Render(hullStr)
+	} else {
+		hullStr = statusBarStyle.Render(hullStr)
+	}
+
+	parts := []string{
+		statusBarStyle.Render(fmt.Sprintf("Cr:%d", m.gs.Player.Credits)),
+		statusBarStyle.Render(fmt.Sprintf("Cargo:%d/%d", cargo, cap)),
+		hullStr,
+		statusBarStyle.Render(fmt.Sprintf("Fuel:%d/%d", m.gs.Player.Ship.Fuel, shipDef.Range)),
+		statusDimStyle.Render(fmt.Sprintf("Day %d", m.gs.Day)),
+	}
+
+	if m.gs.Player.LoanBalance > 0 {
+		parts = append(parts, statusDangerStyle.Render(fmt.Sprintf("Debt:%d", m.gs.Player.LoanBalance)))
+	}
+
+	return "\n  " + strings.Join(parts, statusDimStyle.Render(" | "))
 }
 
 func (m Model) View() string {
@@ -148,6 +193,8 @@ func (m Model) View() string {
 	if w-2 < maxW {
 		maxW = w - 2
 	}
+
+	content += m.statusBar(maxW)
 
 	frame := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

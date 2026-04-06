@@ -56,6 +56,7 @@ func Buy(gs *game.GameState, goodIdx int, qty int) TransactionResult {
 	}
 
 	gs.Player.Credits -= totalCost
+	gs.Player.CargoCost[goodIdx] += totalCost
 	gs.Player.Cargo[goodIdx] += qty
 
 	goodName := gs.Data.Goods[goodIdx].Name
@@ -96,11 +97,29 @@ func Sell(gs *game.GameState, goodIdx int, qty int) TransactionResult {
 	price := basePrice * (100 + bonus) / 100
 
 	totalPrice := price * qty
-	gs.Player.Credits += totalPrice
-	gs.Player.Cargo[goodIdx] -= qty
 
+	costBasis := 0
+	if gs.Player.Cargo[goodIdx] > 0 {
+		costBasis = gs.Player.CargoCost[goodIdx] * qty / gs.Player.Cargo[goodIdx]
+	}
+
+	gs.Player.Credits += totalPrice
+	gs.Player.CargoCost[goodIdx] -= costBasis
+	gs.Player.Cargo[goodIdx] -= qty
+	if gs.Player.Cargo[goodIdx] == 0 {
+		gs.Player.CargoCost[goodIdx] = 0
+	}
+
+	profit := totalPrice - costBasis
 	goodName := gs.Data.Goods[goodIdx].Name
 	msg := fmt.Sprintf("Sold %d %s for %d cr", qty, goodName, totalPrice)
+	if costBasis > 0 {
+		if profit >= 0 {
+			msg += fmt.Sprintf(" (profit: +%d)", profit)
+		} else {
+			msg += fmt.Sprintf(" (loss: %d)", profit)
+		}
+	}
 	if bonus > 0 {
 		msg += fmt.Sprintf(" (%d%% trader bonus)", bonus)
 	}

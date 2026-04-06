@@ -12,7 +12,7 @@ func Resolve(gs *game.GameState, enc *Encounter, action Action) Outcome {
 	case EncPolice:
 		return resolvePolice(gs, action)
 	case EncPirate:
-		return resolvePirate(gs, action)
+		return resolvePirate(gs, enc, action)
 	case EncTrader:
 		return resolveTrader(gs, action)
 	case EncFamousCaptain:
@@ -128,10 +128,10 @@ func policeFlee(gs *game.GameState) Outcome {
 	}
 }
 
-func resolvePirate(gs *game.GameState, action Action) Outcome {
+func resolvePirate(gs *game.GameState, enc *Encounter, action Action) Outcome {
 	switch action {
 	case ActionFight:
-		return pirateFight(gs)
+		return pirateFight(gs, enc)
 	case ActionFlee:
 		return pirateFlee(gs)
 	case ActionSurrender:
@@ -140,20 +140,13 @@ func resolvePirate(gs *game.GameState, action Action) Outcome {
 	return Outcome{Message: "Invalid action."}
 }
 
-func pirateFight(gs *game.GameState) Outcome {
-	crewMercs := make([]formula.Mercenary, len(gs.Player.Crew))
-	for i, m := range gs.Player.Crew {
-		crewMercs[i] = m
+func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
+	pp := playerCombatPower(gs)
+	piratePower := enc.EnemyPower
+	if piratePower == 0 {
+		piratePower = piratePowerForDifficulty(gs)
 	}
-	fighterSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillFighter], crewMercs, formula.SkillFighter, 0)
-
-	weaponPower := 0
-	for _, wID := range gs.Player.Ship.Weapons {
-		weaponPower += gs.Data.Equipment[wID].Power
-	}
-
-	playerPower := fighterSkill*2 + weaponPower
-	piratePower := piratePowerForDifficulty(gs)
+	playerPower := pp
 
 	if playerPower >= piratePower {
 		loot := 200 + gs.Rand.Intn(1800)

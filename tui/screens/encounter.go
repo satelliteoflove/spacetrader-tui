@@ -67,7 +67,11 @@ func (s *EncounterScreen) View() string {
 		style = DangerStyle.Bold(true).Padding(1, 0)
 	}
 	b.WriteString(style.Render(fmt.Sprintf("ENCOUNTER: %s", s.enc.Type)) + "\n")
-	b.WriteString("  " + s.enc.Message + "\n\n")
+	b.WriteString("  " + s.enc.Message + "\n")
+	if s.enc.ThreatNote != "" && s.phase == phaseChoose {
+		b.WriteString("  " + DimStyle.Render(s.enc.ThreatNote) + "\n")
+	}
+	b.WriteString("\n")
 
 	if s.phase == phaseChoose {
 		for i, action := range s.enc.Actions {

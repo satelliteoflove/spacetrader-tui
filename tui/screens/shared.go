@@ -22,11 +22,14 @@ const (
 	ScreenGalacticList
 	ScreenSave
 	ScreenGameOver
+	ScreenGuide
+	ScreenNews
 )
 
 type NavigateMsg struct {
-	Screen     ScreenType
-	RestoreCursor int
+	Screen         ScreenType
+	RestoreCursor  int
+	SelectedSystem int
 }
 
 func wrapCursor(cursor, delta, length int) int {

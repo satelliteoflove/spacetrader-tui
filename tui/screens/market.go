@@ -243,7 +243,17 @@ func (s *MarketScreen) View() string {
 						fmt.Sprintf("  Revenue: %d cr  |  Only have %d", total, held)) + "\n")
 				} else {
 					after := s.gs.Player.Credits + total
-					b.WriteString(fmt.Sprintf("  Revenue: %d cr  |  After: %d cr\n", total, after))
+					profitLine := ""
+					if held > 0 && s.gs.Player.CargoCost[goodIdx] > 0 {
+						costBasis := s.gs.Player.CargoCost[goodIdx] * qty / held
+						profit := total - costBasis
+						if profit >= 0 {
+							profitLine = "  " + SuccessStyle.Render(fmt.Sprintf("Profit: +%d", profit))
+						} else {
+							profitLine = "  " + DangerStyle.Render(fmt.Sprintf("Loss: %d", profit))
+						}
+					}
+					b.WriteString(fmt.Sprintf("  Revenue: %d cr  |  After: %d cr%s\n", total, after, profitLine))
 				}
 			}
 		}

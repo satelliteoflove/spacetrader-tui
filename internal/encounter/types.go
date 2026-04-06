@@ -62,9 +62,11 @@ func (a Action) String() string {
 }
 
 type Encounter struct {
-	Type    EncounterType
-	Actions []Action
-	Message string
+	Type       EncounterType
+	Actions    []Action
+	Message    string
+	ThreatNote string
+	EnemyPower int
 }
 
 type Outcome struct {
@@ -92,6 +94,7 @@ func NewPirateEncounter() *Encounter {
 		Message: "Pirates block your path!",
 	}
 }
+
 
 func NewTraderEncounter() *Encounter {
 	return &Encounter{

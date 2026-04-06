@@ -37,7 +37,9 @@ func GenerateNewspaper(gs *GameState) []string {
 	var headlines []string
 
 	if sysState.Event != "" {
-		headlines = append(headlines, eventHeadline(sysState.Event, sys.Name))
+		h := eventHeadline(sysState.Event, sys.Name)
+		headlines = append(headlines, h)
+		addNewsEntry(gs, h, sys.Name, gs.CurrentSystemID)
 	}
 
 	for i, neighbor := range gs.Data.Systems {
@@ -47,7 +49,9 @@ func GenerateNewspaper(gs *GameState) []string {
 		if gs.Systems[i].Event != "" {
 			dist := formula.Distance(sys.X, sys.Y, neighbor.X, neighbor.Y)
 			if dist < 20 {
-				headlines = append(headlines, eventHeadline(gs.Systems[i].Event, neighbor.Name))
+				h := eventHeadline(gs.Systems[i].Event, neighbor.Name)
+				headlines = append(headlines, h)
+				addNewsEntry(gs, h, neighbor.Name, i)
 			}
 		}
 	}
@@ -59,6 +63,23 @@ func GenerateNewspaper(gs *GameState) []string {
 	}
 
 	return headlines
+}
+
+func addNewsEntry(gs *GameState, headline, system string, sysIdx int) {
+	for _, e := range gs.NewsLog {
+		if e.Headline == headline && e.Day == gs.Day {
+			return
+		}
+	}
+	gs.NewsLog = append(gs.NewsLog, NewsEntry{
+		Headline:  headline,
+		System:    system,
+		SystemIdx: sysIdx,
+		Day:       gs.Day,
+	})
+	if len(gs.NewsLog) > 50 {
+		gs.NewsLog = gs.NewsLog[len(gs.NewsLog)-50:]
+	}
 }
 
 func eventHeadline(event string, systemName string) string {

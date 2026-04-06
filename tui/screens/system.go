@@ -36,6 +36,8 @@ func NewSystemScreenWithCursor(gs *game.GameState, cursor int) *SystemScreen {
 		{"Personnel", ScreenPersonnel},
 		{"Galactic Chart", ScreenGalacticChart},
 		{"Status", ScreenStatus},
+		{"Recent News", ScreenNews},
+		{"Trader's Guide", ScreenGuide},
 	}
 
 	if gs.Player.Credits >= 500000 && gs.Player.LoanBalance == 0 {
@@ -84,19 +86,29 @@ func (s *SystemScreen) View() string {
 	shipDef := s.gs.PlayerShipDef()
 
 	b.WriteString(HeaderStyle.Render(fmt.Sprintf("  %s  ", sys.Name)) + "\n")
-	b.WriteString(fmt.Sprintf("  Tech: %s  |  Gov: %s  |  Resource: %s\n",
-		sys.TechLevel, sys.PoliticalSystem, sys.Resource))
-	b.WriteString(fmt.Sprintf("  Credits: %d  |  Ship: %s  |  Hull: %d/%d  |  Fuel: %d/%d  |  Day: %d\n",
-		s.gs.Player.Credits, shipDef.Name, s.gs.Player.Ship.Hull, shipDef.Hull,
-		s.gs.Player.Ship.Fuel, shipDef.Range, s.gs.Day))
 
-	if s.gs.Player.LoanBalance > 0 {
-		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Debt: %d", s.gs.Player.LoanBalance)) + "\n")
+	resLabel := shortResource(sys.Resource)
+	if resLabel == "" {
+		resLabel = "None"
 	}
+	b.WriteString(fmt.Sprintf("  Tech: %s  |  Gov: %s  |  Specialty: %s\n",
+		sys.TechLevel, sys.PoliticalSystem, resLabel))
 
 	record := gamedata.PoliceRecordToTier(s.gs.Player.PoliceRecord)
 	rep := gamedata.ReputationToTier(s.gs.Player.Reputation)
-	b.WriteString(fmt.Sprintf("  Record: %s  |  Reputation: %s\n", record, rep))
+	b.WriteString(fmt.Sprintf("  Ship: %s  |  Record: %s  |  Rep: %s\n",
+		shipDef.Name, record, rep))
+
+	if s.gs.Player.LoanBalance > 0 {
+		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Debt: %d cr (10%% interest per warp)", s.gs.Player.LoanBalance)) + "\n")
+	}
+
+	if len(s.headlines) > 0 {
+		b.WriteString("\n" + CyanStyle.Render("  --- News ---") + "\n")
+		for _, h := range s.headlines {
+			b.WriteString("  " + h + "\n")
+		}
+	}
 
 	b.WriteString("\n")
 
@@ -105,13 +117,6 @@ func (s *SystemScreen) View() string {
 			b.WriteString(fmt.Sprintf("  %s\n", SelectedStyle.Render("> "+item.label)))
 		} else {
 			b.WriteString(fmt.Sprintf("    %s\n", NormalStyle.Render(item.label)))
-		}
-	}
-
-	if len(s.headlines) > 0 {
-		b.WriteString("\n" + DimStyle.Render("  --- News ---") + "\n")
-		for _, h := range s.headlines {
-			b.WriteString("  " + DimStyle.Render(h) + "\n")
 		}
 	}
 
