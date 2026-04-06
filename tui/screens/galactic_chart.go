@@ -294,7 +294,7 @@ func (s *GalacticChartScreen) View() string {
 		}
 		if dist <= fuelRange {
 			st = styleInRange
-			ch = 'o'
+			ch = 'O'
 		}
 		if s.gs.IsBookmarked(i) {
 			st = styleBookmarked
@@ -396,9 +396,9 @@ func (s *GalacticChartScreen) View() string {
 		if chartHeight-s.vp.Height > 0 {
 			scrollPct = s.vp.YOffset * 100 / (chartHeight - s.vp.Height)
 		}
-		b.WriteString(DimStyle.Render(fmt.Sprintf("  @ you  + selected  ! bookmarked  green = in range  [scroll %d%%]", scrollPct)) + "\n")
+		b.WriteString(DimStyle.Render(fmt.Sprintf("  @ you  + selected  ! bookmarked  O = in range  [scroll %d%%]", scrollPct)) + "\n")
 	} else {
-		b.WriteString(DimStyle.Render("  @ you  + selected  ! bookmarked  green = in range") + "\n")
+		b.WriteString(DimStyle.Render("  @ you  + selected  ! bookmarked  O = in range") + "\n")
 	}
 
 	if hasSel {

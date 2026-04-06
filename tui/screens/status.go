@@ -111,7 +111,7 @@ func (s *StatusScreen) View() string {
 				good := s.gs.Data.Goods[i]
 				name := good.Name
 				if !good.Legal {
-					name = IllegalStyle.Render(name)
+					name = IllegalStyle.Render("! " + name)
 				}
 				avgCost := ""
 				if p.CargoCost[i] > 0 {

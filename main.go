@@ -8,7 +8,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/the4ofus/spacetrader-tui/internal/data"
+	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/tui"
+	"github.com/the4ofus/spacetrader-tui/tui/screens"
 )
 
 //go:embed data/*.json
@@ -21,7 +23,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	m := tui.NewModel(gd)
+	cfg := game.LoadConfig()
+	screens.InitStyles(cfg.ColorblindMode)
+	tui.InitStatusStyles(cfg.ColorblindMode)
+
+	m := tui.NewModel(gd, cfg.ColorblindMode)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {

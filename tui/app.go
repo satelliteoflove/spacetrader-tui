@@ -20,12 +20,14 @@ type Model struct {
 	width           int
 	height          int
 	systemHubCursor int
+	colorblind      bool
 }
 
-func NewModel(data *gamedata.GameData) Model {
+func NewModel(data *gamedata.GameData, colorblind bool) Model {
 	return Model{
-		data:   data,
-		screen: screens.NewTitleScreen(),
+		data:       data,
+		colorblind: colorblind,
+		screen:     screens.NewTitleScreenWithConfig(colorblind),
 	}
 }
 
@@ -83,6 +85,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.systemHubCursor = 1
 		return m.arriveAtSystem()
+	case screens.ToggleColorblindMsg:
+		m.colorblind = !m.colorblind
+		screens.InitStyles(m.colorblind)
+		InitStatusStyles(m.colorblind)
+		cfg := game.LoadConfig()
+		cfg.ColorblindMode = m.colorblind
+		game.SaveConfig(cfg)
+		s := screens.NewTitleScreenWithConfig(m.colorblind)
+		m.screen = s
+		return m, s.Init()
 	}
 
 	var cmd tea.Cmd
@@ -106,7 +118,7 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 	var s tea.Model
 	switch msg.Screen {
 	case screens.ScreenTitle:
-		s = screens.NewTitleScreen()
+		s = screens.NewTitleScreenWithConfig(m.colorblind)
 	case screens.ScreenNewGame:
 		s = screens.NewNewGameScreen()
 	case screens.ScreenSystem:
@@ -141,10 +153,31 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 }
 
 var (
-	statusBarStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
-	statusDimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	statusDangerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	statusBarStyle        lipgloss.Style
+	statusDimStyle        lipgloss.Style
+	statusDangerStyle     lipgloss.Style
+	statusQuestFreshStyle lipgloss.Style
+	statusQuestStaleStyle lipgloss.Style
 )
+
+func InitStatusStyles(colorblind bool) {
+	dangerColor := lipgloss.Color("9")
+	successColor := lipgloss.Color("10")
+	if colorblind {
+		dangerColor = lipgloss.Color("208")
+		successColor = lipgloss.Color("14")
+	}
+
+	statusBarStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
+	statusDimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	statusDangerStyle = lipgloss.NewStyle().Foreground(dangerColor).Bold(true)
+	statusQuestFreshStyle = lipgloss.NewStyle().Foreground(successColor).Bold(true)
+	statusQuestStaleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+}
+
+func init() {
+	InitStatusStyles(false)
+}
 
 func (m Model) statusBar(width int) string {
 	if m.gs == nil {
@@ -175,6 +208,15 @@ func (m Model) statusBar(width int) string {
 		parts = append(parts, statusDangerStyle.Render(fmt.Sprintf("Debt:%d", m.gs.Player.LoanBalance)))
 	}
 
+	switch m.gs.QuestUrgency() {
+	case game.QuestUrgencyFresh:
+		parts = append(parts, statusQuestFreshStyle.Render("Quest:*"))
+	case game.QuestUrgencyStale:
+		parts = append(parts, statusQuestStaleStyle.Render("Quest:!"))
+	case game.QuestUrgencyCritical:
+		parts = append(parts, statusDangerStyle.Render("Quest:!!"))
+	}
+
 	return "\n  " + strings.Join(parts, statusDimStyle.Render(" | "))
 }
 
@@ -198,6 +240,9 @@ func (m Model) View() string {
 	content += m.statusBar(maxW)
 
 	maxH := h - 2
+	if maxH > 45 {
+		maxH = 45
+	}
 	if maxH < 10 {
 		maxH = 10
 	}

@@ -10,13 +10,23 @@ import (
 )
 
 type TitleScreen struct {
-	cursor int
-	items  []string
+	cursor    int
+	items     []string
+	colorblind bool
 }
 
 func NewTitleScreen() *TitleScreen {
+	return NewTitleScreenWithConfig(false)
+}
+
+func NewTitleScreenWithConfig(colorblind bool) *TitleScreen {
+	cbLabel := "Colorblind Mode: OFF"
+	if colorblind {
+		cbLabel = "Colorblind Mode: ON"
+	}
 	return &TitleScreen{
-		items: []string{"New Game", "Load Game", "Quit"},
+		items:     []string{"New Game", "Load Game", cbLabel, "Quit"},
+		colorblind: colorblind,
 	}
 }
 
@@ -37,6 +47,8 @@ func (s *TitleScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case 1:
 				return s, func() tea.Msg { return LoadGameMsg{} }
 			case 2:
+				return s, func() tea.Msg { return ToggleColorblindMsg{} }
+			case 3:
 				return s, tea.Quit
 			}
 		}

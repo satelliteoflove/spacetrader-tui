@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
@@ -204,24 +203,18 @@ func eventOrNone(event string) string {
 	return event
 }
 
-var (
-	resourceGreenStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	resourceRedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	resourceYellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-)
-
 func colorResource(r gamedata.Resource, text string) string {
 	switch r {
 	case gamedata.ResourceNone:
 		return text
 	case gamedata.ResourceMineralRich, gamedata.ResourceWaterWorld, gamedata.ResourceRichFauna,
 		gamedata.ResourceRichSoil, gamedata.ResourceGoodClinic, gamedata.ResourceRobotWorkers:
-		return resourceGreenStyle.Render(text)
+		return SuccessStyle.Render(text)
 	case gamedata.ResourceDesert, gamedata.ResourcePoor, gamedata.ResourceLifeless,
 		gamedata.ResourcePoorSoil, gamedata.ResourcePoorClinic, gamedata.ResourceLackOfWorkers:
-		return resourceRedStyle.Render(text)
+		return DangerStyle.Render(text)
 	case gamedata.ResourceIndustrial:
-		return resourceYellowStyle.Render(text)
+		return SelectedStyle.Render(text)
 	}
 	return text
 }

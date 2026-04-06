@@ -21,3 +21,5 @@ type EncounterDoneMsg struct {
 }
 
 type LoadGameMsg struct{}
+
+type ToggleColorblindMsg struct{}

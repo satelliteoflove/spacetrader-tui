@@ -67,44 +67,70 @@ var Keys = KeyMap{
 }
 
 var (
+	TitleStyle    lipgloss.Style
+	SelectedStyle lipgloss.Style
+	NormalStyle   lipgloss.Style
+	DangerStyle   lipgloss.Style
+	SuccessStyle  lipgloss.Style
+	DimStyle      lipgloss.Style
+	HeaderStyle   lipgloss.Style
+	IllegalStyle  lipgloss.Style
+	CyanStyle     lipgloss.Style
+	MagentaStyle  lipgloss.Style
+)
+
+func init() {
+	InitStyles(false)
+}
+
+func InitStyles(colorblind bool) {
+	dangerColor := lipgloss.Color("9")
+	successColor := lipgloss.Color("10")
+	wormholeColor := lipgloss.Color("13")
+	if colorblind {
+		dangerColor = lipgloss.Color("208")
+		successColor = lipgloss.Color("14")
+		wormholeColor = lipgloss.Color("5")
+	}
+
 	TitleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("15")).
-			Padding(1, 0)
+		Bold(true).
+		Foreground(lipgloss.Color("15")).
+		Padding(1, 0)
 
 	SelectedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("11")).
-			Bold(true)
+		Foreground(lipgloss.Color("11")).
+		Bold(true)
 
 	NormalStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("7"))
+		Foreground(lipgloss.Color("7"))
 
 	DangerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("9")).
-			Bold(true)
+		Foreground(dangerColor).
+		Bold(true)
 
 	SuccessStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("10"))
+		Foreground(successColor)
 
 	DimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("8"))
+		Foreground(lipgloss.Color("8"))
 
 	HeaderStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("14")).
-			BorderBottom(true).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("8"))
+		Bold(true).
+		Foreground(lipgloss.Color("14")).
+		BorderBottom(true).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("8"))
 
 	IllegalStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("9"))
+		Foreground(dangerColor)
 
 	CyanStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("14"))
+		Foreground(lipgloss.Color("14"))
 
 	MagentaStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("13"))
-)
+		Foreground(wormholeColor)
+}
 
 func RenderMenuItems(b *strings.Builder, items []string, cursor int) {
 	for i, item := range items {
