@@ -132,6 +132,25 @@ func InitStyles(colorblind bool) {
 		Foreground(wormholeColor)
 }
 
+func WordWrap(text string, width int) string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return ""
+	}
+	var lines []string
+	line := words[0]
+	for _, w := range words[1:] {
+		if len(line)+1+len(w) > width {
+			lines = append(lines, line)
+			line = w
+		} else {
+			line += " " + w
+		}
+	}
+	lines = append(lines, line)
+	return strings.Join(lines, "\n")
+}
+
 func RenderMenuItems(b *strings.Builder, items []string, cursor int) {
 	for i, item := range items {
 		if i == cursor {

@@ -40,8 +40,9 @@ type GameState struct {
 	NewsLog         []NewsEntry       `json:"news_log"`
 	Bookmarks       []Bookmark        `json:"bookmarks"`
 
-	Rand *rand.Rand       `json:"-"`
-	Data *gamedata.GameData `json:"-"`
+	Rand         *rand.Rand       `json:"-"`
+	Data         *gamedata.GameData `json:"-"`
+	cargoOfferQty int             `json:"-"`
 }
 
 func (gs *GameState) IsBookmarked(sysIdx int) bool {

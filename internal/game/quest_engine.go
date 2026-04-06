@@ -79,12 +79,32 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 	}
 
 	if gs.Quests.States[QuestCargoForSale] == QuestUnavailable && gs.Rand.Intn(100) < 5 {
-		gs.Quests.States[QuestCargoForSale] = QuestAvailable
-		events = append(events, QuestEvent{
-			Title:   "Cargo for Sale",
-			Message: "A merchant offers a bulk shipment at a discount.",
-			Actions: []string{"Buy cargo", "Decline"},
-		})
+		goodIdx := gs.Rand.Intn(NumGoods)
+		for gs.Data.Goods[goodIdx].MinTech > sys.TechLevel {
+			goodIdx = gs.Rand.Intn(NumGoods)
+		}
+		dp := &GameDataProvider{Data: gs.Data}
+		free := gs.Player.FreeCargo(dp)
+		qty := 3 + gs.Rand.Intn(5)
+		if qty > free {
+			qty = free
+		}
+		if qty > 0 {
+			good := gs.Data.Goods[goodIdx]
+			price := good.BasePrice * qty / 2
+			legalNote := ""
+			if !good.Legal {
+				legalNote = " (illegal goods!)"
+			}
+			gs.Quests.States[QuestCargoForSale] = QuestAvailable
+			gs.Quests.Progress[QuestCargoForSale] = goodIdx
+			gs.cargoOfferQty = qty
+			events = append(events, QuestEvent{
+				Title:   "Cargo for Sale",
+				Message: fmt.Sprintf("A merchant offers %d units of %s at half price for %d credits.%s", qty, good.Name, price, legalNote),
+				Actions: []string{fmt.Sprintf("Buy %d %s for %d cr", qty, good.Name, price), "Decline"},
+			})
+		}
 	}
 
 	if gs.Quests.States[QuestEraseRecord] == QuestUnavailable && gs.Player.PoliceRecord < -10 {
@@ -165,27 +185,17 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 
 	case "Cargo for Sale":
 		if actionIdx == 0 {
-			dp := &GameDataProvider{Data: gs.Data}
-			free := gs.Player.FreeCargo(dp)
-			if free <= 0 {
-				return "No cargo space available."
-			}
-			goodIdx := gs.Rand.Intn(NumGoods)
-			for gs.Data.Goods[goodIdx].MinTech > gs.Data.Systems[gs.CurrentSystemID].TechLevel {
-				goodIdx = gs.Rand.Intn(NumGoods)
-			}
-			qty := 3 + gs.Rand.Intn(5)
-			if qty > free {
-				qty = free
-			}
-			price := gs.Data.Goods[goodIdx].BasePrice * qty / 2
+			goodIdx := gs.Quests.Progress[QuestCargoForSale]
+			qty := gs.cargoOfferQty
+			good := gs.Data.Goods[goodIdx]
+			price := good.BasePrice * qty / 2
 			if gs.Player.Credits < price {
 				return "Not enough credits."
 			}
 			gs.Player.Credits -= price
 			gs.Player.Cargo[goodIdx] += qty
 			gs.Quests.States[QuestCargoForSale] = QuestComplete
-			return fmt.Sprintf("Bought %d %s for %d credits (half price!).", qty, gs.Data.Goods[goodIdx].Name, price)
+			return fmt.Sprintf("Bought %d %s for %d credits (half price!).", qty, good.Name, price)
 		}
 		gs.Quests.States[QuestCargoForSale] = QuestUnavailable
 		return "Declined."

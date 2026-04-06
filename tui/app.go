@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,6 +13,15 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 	"github.com/the4ofus/spacetrader-tui/tui/screens"
 )
+
+func hasSaveFile() bool {
+	path, err := game.DefaultSavePath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(path)
+	return err == nil
+}
 
 type Model struct {
 	gs              *game.GameState
@@ -27,7 +37,7 @@ func NewModel(data *gamedata.GameData, colorblind bool) Model {
 	return Model{
 		data:       data,
 		colorblind: colorblind,
-		screen:     screens.NewTitleScreenWithConfig(colorblind),
+		screen:     screens.NewTitleScreenWithConfig(colorblind, hasSaveFile()),
 	}
 }
 
@@ -92,7 +102,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cfg := game.LoadConfig()
 		cfg.ColorblindMode = m.colorblind
 		game.SaveConfig(cfg)
-		s := screens.NewTitleScreenWithConfig(m.colorblind)
+		s := screens.NewTitleScreenWithConfig(m.colorblind, hasSaveFile())
 		m.screen = s
 		return m, s.Init()
 	}
@@ -118,7 +128,7 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 	var s tea.Model
 	switch msg.Screen {
 	case screens.ScreenTitle:
-		s = screens.NewTitleScreenWithConfig(m.colorblind)
+		s = screens.NewTitleScreenWithConfig(m.colorblind, hasSaveFile())
 	case screens.ScreenNewGame:
 		s = screens.NewNewGameScreen()
 	case screens.ScreenSystem:
