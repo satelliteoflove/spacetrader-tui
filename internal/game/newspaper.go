@@ -13,15 +13,20 @@ var eventNames = []string{
 	"Plague", "Lack of Workers", "Artistic",
 }
 
+const minEventDays = 3
+
 func GenerateEvents(gs *GameState) {
 	for i := range gs.Systems {
 		changed := false
-		if gs.Rand.Intn(100) < 5 {
+		if gs.Systems[i].Event == "" && gs.Rand.Intn(100) < 5 {
 			gs.Systems[i].Event = eventNames[gs.Rand.Intn(len(eventNames))]
+			gs.Systems[i].EventDay = gs.Day
 			changed = true
-		} else if gs.Systems[i].Event != "" && gs.Rand.Intn(100) < 30 {
+		} else if gs.Systems[i].Event != "" && gs.Day-gs.Systems[i].EventDay >= minEventDays && gs.Rand.Intn(100) < 30 {
 			gs.Systems[i].Event = ""
+			gs.Systems[i].EventDay = 0
 			changed = true
+			removeNewsForSystem(gs, i)
 		}
 		if changed {
 			RefreshSystemPrices(gs, i)
@@ -80,6 +85,16 @@ func addNewsEntry(gs *GameState, headline, system string, sysIdx int) {
 	if len(gs.NewsLog) > 50 {
 		gs.NewsLog = gs.NewsLog[len(gs.NewsLog)-50:]
 	}
+}
+
+func removeNewsForSystem(gs *GameState, sysIdx int) {
+	filtered := gs.NewsLog[:0]
+	for _, e := range gs.NewsLog {
+		if e.SystemIdx != sysIdx {
+			filtered = append(filtered, e)
+		}
+	}
+	gs.NewsLog = filtered
 }
 
 func eventHeadline(event string, systemName string) string {

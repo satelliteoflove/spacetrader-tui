@@ -197,10 +197,16 @@ func (m Model) View() string {
 
 	content += m.statusBar(maxW)
 
+	maxH := h - 2
+	if maxH < 10 {
+		maxH = 10
+	}
+
 	frame := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
 		Width(maxW).
+		Height(maxH).
 		Padding(0, 1)
 
 	rendered := frame.Render(content)
