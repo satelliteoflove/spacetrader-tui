@@ -39,7 +39,7 @@ func NewSystemScreenWithCursor(gs *game.GameState, cursor int) *SystemScreen {
 		{"Trader's Guide", ScreenGuide},
 	}
 
-	if gs.Player.Credits >= 500000 && gs.Player.LoanBalance == 0 {
+	if gs.Player.Credits >= 500000 && gs.Player.LoanBalance == 0 && gs.QuestState(game.QuestMoonForSale) == game.QuestAvailable {
 		items = append(items, menuItem{"Buy Moon and Retire!", ScreenGameOver})
 	}
 

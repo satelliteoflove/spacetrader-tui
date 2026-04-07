@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -13,6 +14,17 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 	"github.com/the4ofus/spacetrader-tui/tui/screens"
 )
+
+const (
+	tickInterval = 125 * time.Millisecond
+	fadeDone     = 2
+)
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(tickInterval, func(t time.Time) tea.Msg {
+		return screens.TickMsg{Time: t}
+	})
+}
 
 func hasSaveFile() bool {
 	path, err := game.DefaultSavePath()
@@ -31,6 +43,8 @@ type Model struct {
 	height          int
 	systemHubCursor int
 	colorblind      bool
+	fadeFrame       int
+	pulsePhase      int
 }
 
 func NewModel(data *gamedata.GameData, colorblind bool) Model {
@@ -42,7 +56,7 @@ func NewModel(data *gamedata.GameData, colorblind bool) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return m.screen.Init()
+	return tea.Batch(m.screen.Init(), tickCmd())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -70,17 +84,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.gs = gs
+		m.fadeFrame = 0
 		s := screens.NewSystemScreen(m.gs)
 		m.screen = s
 		return m, s.Init()
 	case screens.StartGameMsg:
 		m.gs = game.NewGame(m.data, msg.Name, msg.Skills, msg.Difficulty)
+		m.fadeFrame = 0
 		s := screens.NewSystemScreen(m.gs)
 		m.screen = s
 		return m, s.Init()
 	case screens.TravelMsg:
+		destName := m.gs.Data.Systems[m.gs.CurrentSystemID].Name
+		m.fadeFrame = 0
+		s := screens.NewWarpScreen(destName)
+		m.screen = s
+		return m, s.Init()
+	case screens.WarpDoneMsg:
 		enc := encounter.Generate(m.gs)
 		if enc != nil {
+			m.fadeFrame = 0
 			s := screens.NewEncounterScreen(m.gs, enc)
 			m.screen = s
 			return m, s.Init()
@@ -89,12 +112,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.arriveAtSystem()
 	case screens.EncounterDoneMsg:
 		if m.gs.EndStatus == game.StatusDead {
+			m.fadeFrame = 0
 			s := screens.NewGameOverScreen(m.gs)
 			m.screen = s
 			return m, s.Init()
 		}
 		m.systemHubCursor = 1
 		return m.arriveAtSystem()
+	case screens.TickMsg:
+		if m.fadeFrame < fadeDone {
+			m.fadeFrame++
+		}
+		m.pulsePhase = (m.pulsePhase + 1) % 12
+		var cmd tea.Cmd
+		m.screen, cmd = m.screen.Update(msg)
+		return m, tea.Batch(cmd, tickCmd())
 	case screens.ToggleColorblindMsg:
 		m.colorblind = !m.colorblind
 		screens.InitStyles(m.colorblind)
@@ -102,6 +134,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cfg := game.LoadConfig()
 		cfg.ColorblindMode = m.colorblind
 		game.SaveConfig(cfg)
+		m.fadeFrame = 0
 		s := screens.NewTitleScreenWithConfig(m.colorblind, hasSaveFile())
 		m.screen = s
 		return m, s.Init()
@@ -113,6 +146,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) arriveAtSystem() (tea.Model, tea.Cmd) {
+	m.fadeFrame = 0
 	events := game.CheckQuestsOnArrival(m.gs)
 	if len(events) > 0 {
 		s := screens.NewQuestEventScreen(m.gs, events)
@@ -158,6 +192,7 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+	m.fadeFrame = 0
 	m.screen = s
 	return m, s.Init()
 }
@@ -189,6 +224,22 @@ func init() {
 	InitStatusStyles(false)
 }
 
+var pulseColors = [12]string{
+	"196", "203", "210", "217", "224", "231",
+	"224", "217", "210", "203", "196", "196",
+}
+
+func pulseDangerStyle(phase int, colorblind bool) lipgloss.Style {
+	if colorblind {
+		cbColors := [12]string{
+			"208", "214", "220", "226", "227", "228",
+			"227", "226", "220", "214", "208", "208",
+		}
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(cbColors[phase])).Bold(true)
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(pulseColors[phase])).Bold(true)
+}
+
 func (m Model) statusBar(width int) string {
 	if m.gs == nil {
 		return ""
@@ -201,7 +252,7 @@ func (m Model) statusBar(width int) string {
 	hullPct := m.gs.Player.Ship.Hull * 100 / shipDef.Hull
 	hullStr := fmt.Sprintf("Hull:%d%%", hullPct)
 	if hullPct < 50 {
-		hullStr = statusDangerStyle.Render(hullStr)
+		hullStr = pulseDangerStyle(m.pulsePhase, m.colorblind).Render(hullStr)
 	} else {
 		hullStr = statusBarStyle.Render(hullStr)
 	}
@@ -215,7 +266,7 @@ func (m Model) statusBar(width int) string {
 	}
 
 	if m.gs.Player.LoanBalance > 0 {
-		parts = append(parts, statusDangerStyle.Render(fmt.Sprintf("Debt:%d", m.gs.Player.LoanBalance)))
+		parts = append(parts, pulseDangerStyle(m.pulsePhase, m.colorblind).Render(fmt.Sprintf("Debt:%d", m.gs.Player.LoanBalance)))
 	}
 
 	switch m.gs.QuestUrgency() {
@@ -247,7 +298,15 @@ func (m Model) View() string {
 		maxW = w - 2
 	}
 
-	content += m.statusBar(maxW)
+	if m.fadeFrame < fadeDone {
+		stripped := screens.StripANSI(content)
+		content = screens.FadeStyles[m.fadeFrame].Render(stripped)
+		bar := m.statusBar(maxW)
+		strippedBar := screens.StripANSI(bar)
+		content += screens.FadeStyles[m.fadeFrame].Render(strippedBar)
+	} else {
+		content += m.statusBar(maxW)
+	}
 
 	maxH := h - 2
 	if maxH > 45 {

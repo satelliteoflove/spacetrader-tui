@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -81,6 +82,7 @@ var (
 
 func init() {
 	InitStyles(false)
+	initFadeStyles()
 }
 
 func InitStyles(colorblind bool) {
@@ -130,6 +132,23 @@ func InitStyles(colorblind bool) {
 
 	MagentaStyle = lipgloss.NewStyle().
 		Foreground(wormholeColor)
+}
+
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+func StripANSI(s string) string {
+	return ansiRe.ReplaceAllString(s, "")
+}
+
+var FadeStyles [fadeDone]lipgloss.Style
+
+const fadeDone = 2
+
+func initFadeStyles() {
+	FadeStyles = [fadeDone]lipgloss.Style{
+		lipgloss.NewStyle().Foreground(lipgloss.Color("236")),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("248")),
+	}
 }
 
 func WordWrap(text string, width int) string {

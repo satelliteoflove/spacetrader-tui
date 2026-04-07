@@ -3,6 +3,7 @@ package screens
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,25 +17,48 @@ type QuestEventScreen struct {
 	current int
 	cursor  int
 	result  string
+	tw      *Typewriter
 }
 
 func NewQuestEventScreen(gs *game.GameState, events []game.QuestEvent) *QuestEventScreen {
-	return &QuestEventScreen{gs: gs, events: events}
+	s := &QuestEventScreen{gs: gs, events: events}
+	if len(events) > 0 {
+		s.tw = NewTypewriter(events[0].Message, 40*time.Millisecond)
+	}
+	return s
 }
 
 func (s *QuestEventScreen) Init() tea.Cmd { return nil }
 
+func (s *QuestEventScreen) advanceEvent() {
+	s.current++
+	s.cursor = 0
+	if s.current < len(s.events) {
+		s.tw = NewTypewriter(s.events[s.current].Message, 40*time.Millisecond)
+	}
+}
+
 func (s *QuestEventScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case TickMsg:
+		if s.tw != nil {
+			s.tw.Start(msg.Time)
+			s.tw.Update(msg.Time)
+		}
+		return s, nil
 	case tea.KeyMsg:
+		if s.tw != nil && !s.tw.Done() {
+			s.tw.Skip()
+			return s, nil
+		}
+
 		if s.result != "" {
 			if key.Matches(msg, Keys.Enter) {
 				s.result = ""
-				s.current++
+				s.advanceEvent()
 				if s.current >= len(s.events) {
 					return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 				}
-				s.cursor = 0
 				return s, nil
 			}
 			return s, nil
@@ -43,11 +67,10 @@ func (s *QuestEventScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		evt := s.events[s.current]
 		if len(evt.Actions) == 0 {
 			if key.Matches(msg, Keys.Enter) || key.Matches(msg, Keys.Back) {
-				s.current++
+				s.advanceEvent()
 				if s.current >= len(s.events) {
 					return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 				}
-				s.cursor = 0
 			}
 			return s, nil
 		}
@@ -60,11 +83,12 @@ func (s *QuestEventScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, Keys.Enter):
 			s.result = game.ResolveQuestAction(s.gs, evt.Title, s.cursor)
 			if s.result == "" {
-				s.current++
+				s.advanceEvent()
 				if s.current >= len(s.events) {
 					return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 				}
-				s.cursor = 0
+			} else {
+				s.tw = NewTypewriter(s.result, 40*time.Millisecond)
 			}
 		}
 	}
@@ -81,15 +105,25 @@ func (s *QuestEventScreen) View() string {
 	evt := s.events[s.current]
 
 	b.WriteString(HeaderStyle.Render(fmt.Sprintf("  %s  ", evt.Title)) + "\n\n")
-	b.WriteString("  " + evt.Message + "\n\n")
+	if s.tw != nil && s.result == "" {
+		b.WriteString("  " + s.tw.View() + "\n\n")
+	} else if s.result == "" {
+		b.WriteString("  " + evt.Message + "\n\n")
+	} else {
+		b.WriteString("  " + evt.Message + "\n\n")
+	}
+
+	twDone := s.tw == nil || s.tw.Done()
 
 	if s.result != "" {
-		b.WriteString("  " + SuccessStyle.Render(s.result) + "\n")
-		b.WriteString("\n" + DimStyle.Render("  press enter to continue"))
-	} else if len(evt.Actions) > 0 {
+		b.WriteString("  " + SuccessStyle.Render(s.tw.View()) + "\n")
+		if twDone {
+			b.WriteString("\n" + DimStyle.Render("  press enter to continue"))
+		}
+	} else if len(evt.Actions) > 0 && twDone {
 		RenderMenuItems(&b, evt.Actions, s.cursor)
 		b.WriteString("\n" + DimStyle.Render("  j/k choose, enter select"))
-	} else {
+	} else if len(evt.Actions) == 0 && twDone {
 		b.WriteString(DimStyle.Render("  press enter to continue"))
 	}
 

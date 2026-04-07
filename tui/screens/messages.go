@@ -1,6 +1,8 @@
 package screens
 
 import (
+	"time"
+
 	"github.com/the4ofus/spacetrader-tui/internal/encounter"
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
@@ -23,3 +25,9 @@ type EncounterDoneMsg struct {
 type LoadGameMsg struct{}
 
 type ToggleColorblindMsg struct{}
+
+type TickMsg struct {
+	Time time.Time
+}
+
+type WarpDoneMsg struct{}

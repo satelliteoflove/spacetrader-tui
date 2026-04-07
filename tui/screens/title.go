@@ -2,11 +2,18 @@ package screens
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+const asciiTitle = ` __                     _____          _
+/ _\___ __ _  ___ ___  /__   \_ __ __ _  __| | ___ _ __
+\ \ / _ \  _` + "`" + ` |/ __/ _ \   / /\/ '__/ _` + "`" + ` |/ _` + "`" + ` |/ _ \ '__|
+_\ \  __/ (_| | (_|  __/  / /  | | | (_| | (_| |  __/ |
+\__/\___|\__,_|\___\___|  \/   |_|  \__,_|\__,_|\___|_|`
 
 type menuAction int
 
@@ -26,6 +33,7 @@ type TitleScreen struct {
 	cursor     int
 	items      []titleMenuItem
 	colorblind bool
+	tw         *Typewriter
 }
 
 func NewTitleScreen() *TitleScreen {
@@ -49,6 +57,7 @@ func NewTitleScreenWithConfig(colorblind bool, hasSave bool) *TitleScreen {
 	return &TitleScreen{
 		items:      items,
 		colorblind: colorblind,
+		tw:         NewTypewriter(asciiTitle, 13*time.Millisecond),
 	}
 }
 
@@ -56,7 +65,14 @@ func (s *TitleScreen) Init() tea.Cmd { return nil }
 
 func (s *TitleScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case TickMsg:
+		s.tw.Start(msg.Time)
+		s.tw.Update(msg.Time)
 	case tea.KeyMsg:
+		if !s.tw.Done() {
+			s.tw.Skip()
+			return s, nil
+		}
 		switch {
 		case key.Matches(msg, Keys.Up):
 			s.cursor = wrapCursor(s.cursor, -1, len(s.items))
@@ -81,26 +97,28 @@ func (s *TitleScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (s *TitleScreen) View() string {
 	var b strings.Builder
 
-	title := lipgloss.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("14")).
-		Padding(2, 0, 1, 0).
-		Render("SPACE TRADER")
+		Foreground(lipgloss.Color("14"))
+
+	b.WriteString("\n")
+	b.WriteString(titleStyle.Render(s.tw.View()))
+	b.WriteString("\n")
 
 	subtitle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("8")).
 		Render("Terminal Edition")
 
-	b.WriteString(title + "\n")
 	b.WriteString(subtitle + "\n\n")
 
-	labels := make([]string, len(s.items))
-	for i, item := range s.items {
-		labels[i] = item.label
+	if s.tw.Done() {
+		labels := make([]string, len(s.items))
+		for i, item := range s.items {
+			labels[i] = item.label
+		}
+		RenderMenuItems(&b, labels, s.cursor)
+		b.WriteString("\n" + DimStyle.Render("j/k to move, enter to select"))
 	}
-	RenderMenuItems(&b, labels, s.cursor)
-
-	b.WriteString("\n" + DimStyle.Render("j/k to move, enter to select"))
 
 	return b.String()
 }
