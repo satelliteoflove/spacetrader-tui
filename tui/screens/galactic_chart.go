@@ -784,6 +784,7 @@ func (s *GalacticListScreen) View() string {
 		b.WriteString("\n  " + s.message + "\n")
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  enter travel, r refuel, w wormhole, b bookmark, a all/range, 1-5 sort, / filter, m map, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  enter travel, r refuel, w wormhole, b bookmark"))
+	b.WriteString("\n" + DimStyle.Render("  a all/range, 1-5 sort, / filter, m map, esc back"))
 	return b.String()
 }

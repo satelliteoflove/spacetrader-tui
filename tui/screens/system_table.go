@@ -90,6 +90,18 @@ func filterSystemEntries(entries []systemEntry, text string) []systemEntry {
 	f := strings.ToLower(text)
 	var result []systemEntry
 	for _, e := range entries {
+		if f == "!" || f == "bookmarked" {
+			if e.bookmarked {
+				result = append(result, e)
+			}
+			continue
+		}
+		if f == "*" || f == "visited" {
+			if e.visited {
+				result = append(result, e)
+			}
+			continue
+		}
 		if strings.Contains(strings.ToLower(e.name), f) ||
 			strings.Contains(strings.ToLower(e.techStr), f) ||
 			strings.Contains(strings.ToLower(e.govStr), f) ||
