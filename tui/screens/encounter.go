@@ -114,6 +114,13 @@ func (s *EncounterScreen) View() string {
 		b.WriteString("  " + s.tw.View() + "\n")
 
 		if s.tw.Done() {
+			if s.outcome.CombatLog != "" {
+				b.WriteString("\n")
+				for _, line := range strings.Split(strings.TrimRight(s.outcome.CombatLog, "\n"), "\n") {
+					b.WriteString("  " + DimStyle.Render(line) + "\n")
+				}
+			}
+
 			if s.outcome.CreditsChange != 0 {
 				if s.outcome.CreditsChange > 0 {
 					b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Credits: +%d", s.outcome.CreditsChange)) + "\n")
@@ -123,6 +130,12 @@ func (s *EncounterScreen) View() string {
 			}
 			if s.outcome.HullDamage > 0 {
 				b.WriteString(DangerStyle.Render(fmt.Sprintf("  Hull damage: %d", s.outcome.HullDamage)) + "\n")
+			}
+			if s.outcome.CargoGained != nil {
+				for idx, qty := range s.outcome.CargoGained {
+					name := s.gs.Data.Goods[idx].Name
+					b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Scooped: %d %s", qty, name)) + "\n")
+				}
 			}
 
 			if s.gs.EndStatus == game.StatusDead {

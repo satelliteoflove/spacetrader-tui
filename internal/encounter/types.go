@@ -71,9 +71,11 @@ type Encounter struct {
 
 type Outcome struct {
 	Message       string
+	CombatLog     string
 	CreditsChange int
 	HullDamage    int
 	CargoLost     map[int]int
+	CargoGained   map[int]int
 	RecordChange  int
 	RepChange     int
 	Fled          bool

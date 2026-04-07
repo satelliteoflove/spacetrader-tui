@@ -105,10 +105,10 @@ func policeBribe(gs *game.GameState) Outcome {
 }
 
 func policeFlee(gs *game.GameState) Outcome {
-	pilotSkill := game.EffectivePlayerSkill(gs, formula.SkillPilot)
-	fleeChance := 30 + pilotSkill*5
+	playerPilot := game.EffectivePlayerSkill(gs, formula.SkillPilot)
+	enemy := NewPoliceShip(gs)
 
-	if gs.Rand.Intn(100) < fleeChance {
+	if FleeAttempt(gs.Rand, playerPilot, enemy.PilotSkill, gs.Difficulty) {
 		gs.Player.PoliceRecord -= 1
 		return Outcome{
 			Message:      "Escaped the police!",
@@ -118,8 +118,22 @@ func policeFlee(gs *game.GameState) Outcome {
 	}
 
 	gs.Player.PoliceRecord -= 3
+	round := FleeDamage(gs.Rand, enemy, gs)
+	combatLog := FormatCombatLog([]CombatRound{round})
+
+	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
+		return Outcome{
+			Message:      fmt.Sprintf("Failed to flee! %s", destroyMsg),
+			CombatLog:    combatLog,
+			HullDamage:   round.HullDamage,
+			RecordChange: -3,
+		}
+	}
+
 	return Outcome{
-		Message:      "Failed to flee. Police record worsened significantly.",
+		Message:      fmt.Sprintf("Failed to flee! Took %d hull damage. Record worsened.", round.HullDamage),
+		CombatLog:    combatLog,
+		HullDamage:   round.HullDamage,
 		RecordChange: -3,
 	}
 }
@@ -209,41 +223,41 @@ func confiscateShip(gs *game.GameState) Outcome {
 
 func policeFight(gs *game.GameState) Outcome {
 	gs.Player.PoliceRecord -= 5
+	enemy := NewPoliceShip(gs)
+	result := RunCombat(gs, enemy, 10)
+	combatLog := FormatCombatLog(result.Rounds)
 
-	policePower := 15 + int(gs.Difficulty)*5
-	pp := playerCombatPower(gs)
-
-	if pp >= policePower {
-		gs.Player.Reputation++
-		return Outcome{
-			Message:      "You defeated the police! Your record has worsened severely.",
-			RecordChange: -5,
-			RepChange:    1,
-		}
-	}
-
-	shieldProtection := 0
-	for _, sID := range gs.Player.Ship.Shields {
-		shieldProtection += gs.Data.Equipment[sID].Protection
-	}
-
-	rawDamage := 15 + gs.Rand.Intn(30)
-	damage := rawDamage - shieldProtection/10
+	startHull := gs.Data.Ships[gs.Player.Ship.TypeID].Hull
+	damage := startHull - gs.Player.Ship.Hull
 	if damage < 0 {
 		damage = 0
 	}
-	gs.Player.Ship.Hull -= damage
+
+	if result.PlayerWon {
+		gs.Player.Reputation++
+		gs.Player.Credits += result.Bounty
+		return Outcome{
+			Message:       fmt.Sprintf("You defeated the police! Bounty: %d cr. Record worsened severely.", result.Bounty),
+			CombatLog:     combatLog,
+			CreditsChange: result.Bounty,
+			HullDamage:    damage,
+			RecordChange:  -5,
+			RepChange:     1,
+		}
+	}
 
 	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
 		return Outcome{
 			Message:      fmt.Sprintf("Defeated by police! %s", destroyMsg),
+			CombatLog:    combatLog,
 			HullDamage:   damage,
 			RecordChange: -5,
 		}
 	}
 
 	return Outcome{
-		Message:      fmt.Sprintf("Defeated by police! Took %d hull damage. Record worsened severely.", damage),
+		Message:      fmt.Sprintf("Defeated by police! Took %d hull damage.", damage),
+		CombatLog:    combatLog,
 		HullDamage:   damage,
 		RecordChange: -5,
 	}
@@ -262,92 +276,75 @@ func resolvePirate(gs *game.GameState, enc *Encounter, action Action) Outcome {
 }
 
 func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
-	pp := playerCombatPower(gs)
-	piratePower := enc.EnemyPower
-	if piratePower == 0 {
-		piratePower = piratePowerForDifficulty(gs)
-	}
-	playerPower := pp
+	enemy := NewPirateShip(gs)
+	result := RunCombat(gs, enemy, 10)
+	combatLog := FormatCombatLog(result.Rounds)
 
-	if playerPower >= piratePower {
-		loot := 200 + gs.Rand.Intn(1800)
-		gs.Player.Credits += loot
-		gs.Player.Reputation++
-		return Outcome{
-			Message:       fmt.Sprintf("Victory! Looted %d credits. (You: %d vs Pirate: %d)", loot, playerPower, piratePower),
-			CreditsChange: loot,
-			RepChange:     1,
-		}
-	}
-
-	shieldProtection := 0
-	for _, sID := range gs.Player.Ship.Shields {
-		shieldProtection += gs.Data.Equipment[sID].Protection
-	}
-
-	rawDamage := 10 + gs.Rand.Intn(30)
-	damage := rawDamage - shieldProtection/10
+	startHull := gs.Data.Ships[gs.Player.Ship.TypeID].Hull
+	damage := startHull - gs.Player.Ship.Hull
 	if damage < 0 {
 		damage = 0
 	}
-	gs.Player.Ship.Hull -= damage
+
+	if result.PlayerWon {
+		gs.Player.Credits += result.Bounty
+		gs.Player.Reputation++
+		return Outcome{
+			Message:       fmt.Sprintf("Victory! Bounty: %d cr.", result.Bounty),
+			CombatLog:     combatLog,
+			CreditsChange: result.Bounty,
+			HullDamage:    damage,
+			CargoGained:   result.Loot,
+			RepChange:     1,
+		}
+	}
 
 	lost := min(gs.Player.Credits, 100+gs.Rand.Intn(400))
 	gs.Player.Credits -= lost
 
 	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
 		return Outcome{
-			Message:       fmt.Sprintf("Defeated! (You: %d vs Pirate: %d) %s", playerPower, piratePower, destroyMsg),
+			Message:       fmt.Sprintf("Defeated! %s", destroyMsg),
+			CombatLog:     combatLog,
 			CreditsChange: -lost,
 			HullDamage:    damage,
 		}
 	}
 
 	return Outcome{
-		Message:       fmt.Sprintf("Defeated! Took %d damage, lost %d credits. (You: %d vs Pirate: %d)", damage, lost, playerPower, piratePower),
+		Message:       fmt.Sprintf("Defeated! Took %d damage, lost %d cr.", damage, lost),
+		CombatLog:     combatLog,
 		CreditsChange: -lost,
 		HullDamage:    damage,
 	}
 }
 
 func pirateFlee(gs *game.GameState) Outcome {
-	pilotSkill := game.EffectivePlayerSkill(gs, formula.SkillPilot)
-	fleeChance := 30 + pilotSkill*5
+	playerPilot := game.EffectivePlayerSkill(gs, formula.SkillPilot)
+	enemy := NewPirateShip(gs)
 
-	if gs.Rand.Intn(100) < fleeChance {
+	if FleeAttempt(gs.Rand, playerPilot, enemy.PilotSkill, gs.Difficulty) {
 		return Outcome{
 			Message: "Escaped the pirates!",
 			Fled:    true,
 		}
 	}
 
-	shieldProtection := 0
-	for _, sID := range gs.Player.Ship.Shields {
-		shieldProtection += gs.Data.Equipment[sID].Protection
-	}
-
-	rawDamage := 5 + gs.Rand.Intn(15)
-	damage := rawDamage - shieldProtection/10
-	if damage < 0 {
-		damage = 0
-	}
-	gs.Player.Ship.Hull -= damage
-
-	lost := min(gs.Player.Credits, 50+gs.Rand.Intn(250))
-	gs.Player.Credits -= lost
+	round := FleeDamage(gs.Rand, enemy, gs)
+	combatLog := FormatCombatLog([]CombatRound{round})
 
 	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
 		return Outcome{
-			Message:       fmt.Sprintf("Failed to flee! %s", destroyMsg),
-			CreditsChange: -lost,
-			HullDamage:    damage,
+			Message:    fmt.Sprintf("Failed to flee! %s", destroyMsg),
+			CombatLog:  combatLog,
+			HullDamage: round.HullDamage,
 		}
 	}
 
 	return Outcome{
-		Message:       fmt.Sprintf("Failed to flee! Took %d damage, lost %d credits.", damage, lost),
-		CreditsChange: -lost,
-		HullDamage:    damage,
+		Message:    fmt.Sprintf("Failed to flee! Took %d hull damage.", round.HullDamage),
+		CombatLog:  combatLog,
+		HullDamage: round.HullDamage,
 	}
 }
 
