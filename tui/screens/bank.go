@@ -10,7 +10,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/the4ofus/spacetrader-tui/internal/economy"
-	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 )
 
@@ -107,7 +106,7 @@ func (s *BankScreen) View() string {
 	b.WriteString(HeaderStyle.Render("  BANK  ") + "\n")
 	b.WriteString(fmt.Sprintf("  Credits: %d\n", s.gs.Player.Credits))
 	b.WriteString(fmt.Sprintf("  Loan balance: %d\n", s.gs.Player.LoanBalance))
-	b.WriteString(fmt.Sprintf("  Max loan: %d\n", formula.MaxLoan))
+	b.WriteString(fmt.Sprintf("  Max loan: %d\n", economy.MaxLoanAmount(s.gs)))
 	b.WriteString(fmt.Sprintf("  Interest rate: 10%% per warp\n\n"))
 
 	items := []string{"Borrow credits", "Repay loan"}

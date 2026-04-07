@@ -5,7 +5,6 @@ import "github.com/the4ofus/spacetrader-tui/internal/gamedata"
 const (
 	MoonPrice       = 500_000
 	StartingCredits = 1000
-	MaxLoan         = 25_000
 	InterestRate    = 0.10
 	StartingShip    = gamedata.ShipGnat
 

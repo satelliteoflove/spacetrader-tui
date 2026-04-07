@@ -71,6 +71,7 @@ func ExecuteTravel(gs *game.GameState, destIdx int) TravelResult {
 
 	applyDailyCosts(gs)
 	applyEngineerRepair(gs)
+	applyPoliceRecordDecay(gs)
 	game.GenerateEvents(gs)
 	game.RefreshSystemPrices(gs, destIdx)
 
@@ -118,6 +119,24 @@ func applyDailyCosts(gs *game.GameState) {
 			gs.Player.HasInsurance = false
 		}
 	}
+}
+
+func applyPoliceRecordDecay(gs *game.GameState) {
+	record := gs.Player.PoliceRecord
+	if record >= 0 {
+		return
+	}
+
+	attackThresholds := [5]int{-999, -100, -70, -30, -10}
+	diff := int(gs.Difficulty)
+	if diff > 4 {
+		diff = 4
+	}
+	if record < attackThresholds[diff] {
+		return
+	}
+
+	gs.Player.PoliceRecord++
 }
 
 func applyEngineerRepair(gs *game.GameState) {

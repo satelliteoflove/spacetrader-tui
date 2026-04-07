@@ -25,25 +25,48 @@ func TestTakeLoan(t *testing.T) {
 	gs := newTestGame(t)
 	startCredits := gs.Player.Credits
 
-	result := economy.TakeLoan(gs, 5000)
+	result := economy.TakeLoan(gs, 500)
 	if !result.Success {
 		t.Fatalf("TakeLoan failed: %s", result.Message)
 	}
-	if gs.Player.Credits != startCredits+5000 {
-		t.Errorf("credits: got %d, want %d", gs.Player.Credits, startCredits+5000)
+	if gs.Player.Credits != startCredits+500 {
+		t.Errorf("credits: got %d, want %d", gs.Player.Credits, startCredits+500)
 	}
-	if gs.Player.LoanBalance != 5000 {
-		t.Errorf("loan: got %d, want 5000", gs.Player.LoanBalance)
+	if gs.Player.LoanBalance != 500 {
+		t.Errorf("loan: got %d, want 500", gs.Player.LoanBalance)
 	}
 }
 
 func TestTakeLoanMax(t *testing.T) {
 	gs := newTestGame(t)
-	gs.Player.LoanBalance = 25000
+	maxLoan := economy.MaxLoanAmount(gs)
+	gs.Player.LoanBalance = maxLoan
 
 	result := economy.TakeLoan(gs, 1000)
 	if result.Success {
 		t.Error("should not be able to take loan at max")
+	}
+}
+
+func TestMaxLoanScalesWithWorth(t *testing.T) {
+	gs := newTestGame(t)
+	poorMax := economy.MaxLoanAmount(gs)
+
+	gs.Player.Credits = 100000
+	richMax := economy.MaxLoanAmount(gs)
+
+	if richMax <= poorMax {
+		t.Errorf("max loan should scale with worth: poor=%d, rich=%d", poorMax, richMax)
+	}
+}
+
+func TestMaxLoanCriminalPenalty(t *testing.T) {
+	gs := newTestGame(t)
+	gs.Player.PoliceRecord = -10
+
+	maxLoan := economy.MaxLoanAmount(gs)
+	if maxLoan != 500 {
+		t.Errorf("criminal max loan: got %d, want 500", maxLoan)
 	}
 }
 

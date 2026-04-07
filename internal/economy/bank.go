@@ -3,7 +3,6 @@ package economy
 import (
 	"fmt"
 
-	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 )
 
@@ -12,12 +11,27 @@ type BankResult struct {
 	Message string
 }
 
+func MaxLoanAmount(gs *game.GameState) int {
+	if gs.Player.PoliceRecord < -5 {
+		return 500
+	}
+	worth := PlayerWorth(gs)
+	maxLoan := worth / 10 / 500 * 500
+	if maxLoan < 1000 {
+		maxLoan = 1000
+	}
+	if maxLoan > 25000 {
+		maxLoan = 25000
+	}
+	return maxLoan
+}
+
 func TakeLoan(gs *game.GameState, amount int) BankResult {
 	if amount <= 0 {
 		return BankResult{Message: "Invalid amount."}
 	}
 
-	maxLoan := formula.MaxLoan
+	maxLoan := MaxLoanAmount(gs)
 	available := maxLoan - gs.Player.LoanBalance
 	if available <= 0 {
 		return BankResult{Message: "You already have the maximum loan."}
@@ -31,7 +45,7 @@ func TakeLoan(gs *game.GameState, amount int) BankResult {
 
 	return BankResult{
 		Success: true,
-		Message: fmt.Sprintf("Borrowed %d credits. Total debt: %d.", amount, gs.Player.LoanBalance),
+		Message: fmt.Sprintf("Borrowed %d credits. Total debt: %d (max loan: %d).", amount, gs.Player.LoanBalance, maxLoan),
 	}
 }
 

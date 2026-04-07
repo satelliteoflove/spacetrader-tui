@@ -17,6 +17,43 @@ func effectiveTraderSkill(gs *game.GameState) int {
 	return game.EffectivePlayerSkill(gs, formula.SkillTrader)
 }
 
+func SellPrice(gs *game.GameState, goodIdx int) int {
+	basePrice := gs.Systems[gs.CurrentSystemID].Prices[goodIdx]
+	if basePrice < 0 {
+		return -1
+	}
+	if gs.Player.PoliceRecord < -5 {
+		basePrice = basePrice * 90 / 100
+	}
+	if basePrice < 1 {
+		basePrice = 1
+	}
+	return basePrice
+}
+
+func BuyPrice(gs *game.GameState, goodIdx int) int {
+	sellPrice := SellPrice(gs, goodIdx)
+	if sellPrice < 0 {
+		return -1
+	}
+
+	base := sellPrice
+	if gs.Player.PoliceRecord < -5 {
+		base = base * 100 / 90
+	}
+
+	traderSkill := effectiveTraderSkill(gs)
+	if traderSkill > 10 {
+		traderSkill = 10
+	}
+	buyPrice := base * (103 + (10 - traderSkill)) / 100
+
+	if buyPrice <= sellPrice {
+		buyPrice = sellPrice + 1
+	}
+	return buyPrice
+}
+
 func Buy(gs *game.GameState, goodIdx int, qty int) TransactionResult {
 	if goodIdx < 0 || goodIdx >= game.NumGoods {
 		return TransactionResult{Message: "Invalid good."}
@@ -25,20 +62,9 @@ func Buy(gs *game.GameState, goodIdx int, qty int) TransactionResult {
 		return TransactionResult{Message: "Invalid quantity."}
 	}
 
-	sysState := &gs.Systems[gs.CurrentSystemID]
-	basePrice := sysState.Prices[goodIdx]
-	if basePrice < 0 {
+	price := BuyPrice(gs, goodIdx)
+	if price < 0 {
 		return TransactionResult{Message: "Good not available in this market."}
-	}
-
-	traderSkill := effectiveTraderSkill(gs)
-	discount := traderSkill
-	if discount > 10 {
-		discount = 10
-	}
-	price := basePrice * (100 - discount) / 100
-	if price < 1 {
-		price = 1
 	}
 
 	totalCost := price * qty
@@ -56,13 +82,9 @@ func Buy(gs *game.GameState, goodIdx int, qty int) TransactionResult {
 	gs.Player.Cargo[goodIdx] += qty
 
 	goodName := gs.Data.Goods[goodIdx].Name
-	msg := fmt.Sprintf("Bought %d %s for %d cr", qty, goodName, totalCost)
-	if discount > 0 {
-		msg += fmt.Sprintf(" (%d%% trader discount)", discount)
-	}
 	return TransactionResult{
 		Success:    true,
-		Message:    msg,
+		Message:    fmt.Sprintf("Bought %d %s for %d cr (%d cr/unit)", qty, goodName, totalCost, price),
 		TotalPrice: totalCost,
 	}
 }
@@ -79,18 +101,10 @@ func Sell(gs *game.GameState, goodIdx int, qty int) TransactionResult {
 		return TransactionResult{Message: "Not enough goods to sell."}
 	}
 
-	sysState := &gs.Systems[gs.CurrentSystemID]
-	basePrice := sysState.Prices[goodIdx]
-	if basePrice < 0 {
+	price := SellPrice(gs, goodIdx)
+	if price < 0 {
 		return TransactionResult{Message: "Market does not buy this good here."}
 	}
-
-	traderSkill := effectiveTraderSkill(gs)
-	bonus := traderSkill
-	if bonus > 10 {
-		bonus = 10
-	}
-	price := basePrice * (100 + bonus) / 100
 
 	totalPrice := price * qty
 
@@ -115,9 +129,6 @@ func Sell(gs *game.GameState, goodIdx int, qty int) TransactionResult {
 		} else {
 			msg += fmt.Sprintf(" (loss: %d)", profit)
 		}
-	}
-	if bonus > 0 {
-		msg += fmt.Sprintf(" (%d%% trader bonus)", bonus)
 	}
 	return TransactionResult{
 		Success:    true,
