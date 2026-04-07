@@ -2,10 +2,12 @@ package game
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
 
+	"github.com/the4ofus/spacetrader-tui/internal/galaxy"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
@@ -47,16 +49,23 @@ func Load(path string, data *gamedata.GameData) (*GameState, error) {
 	if err := json.Unmarshal(b, gs); err != nil {
 		return nil, err
 	}
+
+	if gs.SaveVersion < CurrentSaveVersion {
+		return nil, fmt.Errorf("incompatible save (version %d, need %d)", gs.SaveVersion, CurrentSaveVersion)
+	}
+
 	gs.Rand = rand.New(rand.NewSource(gs.Seed))
+	data.Systems = galaxy.Generate(gs.Seed)
 	gs.Data = data
 
-	for len(gs.Systems) < len(data.Systems) {
+	numSystems := len(data.Systems)
+	for len(gs.Systems) < numSystems {
 		idx := len(gs.Systems)
 		gs.Systems = append(gs.Systems, SystemState{})
 		RefreshSystemPrices(gs, idx)
 	}
-	if len(gs.Systems) > len(data.Systems) {
-		gs.Systems = gs.Systems[:len(data.Systems)]
+	if len(gs.Systems) > numSystems {
+		gs.Systems = gs.Systems[:numSystems]
 	}
 
 	validateSave(gs)

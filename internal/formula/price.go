@@ -15,11 +15,18 @@ func BasePrice(good gamedata.GoodDef, sys gamedata.SystemDef, event string, rng 
 		price = price + (price * techPos / techRange / 2) - (price / 4)
 	}
 
+	polData := gamedata.PoliticalSystems[sys.PoliticalSystem]
+	if polData.HasWantedGood && polData.WantedGood == good.ID {
+		price = price * 4 / 3
+	}
+
+	price = price * (100 - int(sys.Size)) / 100
+
 	if good.ExpensiveResource != "" && sys.Resource.String() == good.ExpensiveResource {
-		price = price * 150 / 100
+		price = price * 4 / 3
 	}
 	if good.CheapResource != "" && sys.Resource.String() == good.CheapResource {
-		price = price * 70 / 100
+		price = price * 3 / 4
 	}
 
 	if (sys.PoliticalSystem == gamedata.PolDictatorship ||
@@ -30,10 +37,10 @@ func BasePrice(good gamedata.GoodDef, sys gamedata.SystemDef, event string, rng 
 
 	if event != "" {
 		if event == good.PriceIncreaseEvent {
-			price = price * 150 / 100
+			price = price * 3 / 2
 		}
 		if event == good.PriceDecreaseEvent {
-			price = price * 70 / 100
+			price = price * 3 / 4
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/the4ofus/spacetrader-tui/internal/data"
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
+	"github.com/the4ofus/spacetrader-tui/internal/galaxy"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 	"github.com/the4ofus/spacetrader-tui/internal/market"
@@ -18,6 +19,7 @@ func loadData(t *testing.T) *gamedata.GameData {
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
+	gd.Systems = galaxy.Generate(42)
 	return gd
 }
 

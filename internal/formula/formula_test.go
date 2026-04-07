@@ -60,17 +60,26 @@ func TestEffectiveSkill(t *testing.T) {
 		testMerc{skills: [4]int{5, 2, 7, 4}},
 	}
 
-	if got := EffectiveSkill(4, crew, SkillPilot, 0); got != 5 {
+	if got := EffectiveSkill(4, crew, SkillPilot, 0, gamedata.DiffNormal); got != 5 {
 		t.Errorf("pilot skill: got %d, want 5 (best merc)", got)
 	}
-	if got := EffectiveSkill(4, crew, SkillFighter, 0); got != 8 {
+	if got := EffectiveSkill(4, crew, SkillFighter, 0, gamedata.DiffNormal); got != 8 {
 		t.Errorf("fighter skill: got %d, want 8 (best merc)", got)
 	}
-	if got := EffectiveSkill(4, crew, SkillTrader, 1); got != 8 {
+	if got := EffectiveSkill(4, crew, SkillTrader, 1, gamedata.DiffNormal); got != 8 {
 		t.Errorf("trader skill: got %d, want 8 (best merc 7 + gadget 1)", got)
 	}
-	if got := EffectiveSkill(9, nil, SkillPilot, 0); got != 9 {
+	if got := EffectiveSkill(9, nil, SkillPilot, 0, gamedata.DiffNormal); got != 9 {
 		t.Errorf("no crew: got %d, want 9 (player only)", got)
+	}
+	if got := EffectiveSkill(4, nil, SkillPilot, 0, gamedata.DiffBeginner); got != 5 {
+		t.Errorf("beginner bonus: got %d, want 5 (4 + 1)", got)
+	}
+	if got := EffectiveSkill(4, nil, SkillPilot, 0, gamedata.DiffImpossible); got != 3 {
+		t.Errorf("impossible penalty: got %d, want 3 (4 - 1)", got)
+	}
+	if got := EffectiveSkill(1, nil, SkillPilot, 0, gamedata.DiffImpossible); got != 1 {
+		t.Errorf("impossible min: got %d, want 1 (min clamped)", got)
 	}
 }
 

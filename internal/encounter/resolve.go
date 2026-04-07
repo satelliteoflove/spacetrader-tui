@@ -84,7 +84,7 @@ func policeBribe(gs *game.GameState) Outcome {
 		}
 	}
 
-	traderSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], gs.Player.CrewMercs(), formula.SkillTrader, 0)
+	traderSkill := game.EffectivePlayerSkill(gs, formula.SkillTrader)
 	successChance := 20 + traderSkill*5
 
 	gs.Player.Credits -= bribeAmount
@@ -105,7 +105,7 @@ func policeBribe(gs *game.GameState) Outcome {
 }
 
 func policeFlee(gs *game.GameState) Outcome {
-	pilotSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillPilot], gs.Player.CrewMercs(), formula.SkillPilot, 0)
+	pilotSkill := game.EffectivePlayerSkill(gs, formula.SkillPilot)
 	fleeChance := 30 + pilotSkill*5
 
 	if gs.Rand.Intn(100) < fleeChance {
@@ -311,7 +311,7 @@ func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
 }
 
 func pirateFlee(gs *game.GameState) Outcome {
-	pilotSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillPilot], gs.Player.CrewMercs(), formula.SkillPilot, 0)
+	pilotSkill := game.EffectivePlayerSkill(gs, formula.SkillPilot)
 	fleeChance := 30 + pilotSkill*5
 
 	if gs.Rand.Intn(100) < fleeChance {
@@ -396,7 +396,7 @@ func traderTrade(gs *game.GameState) Outcome {
 	goodIdx := available[gs.Rand.Intn(len(available))]
 	good := gs.Data.Goods[goodIdx]
 
-	traderSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], gs.Player.CrewMercs(), formula.SkillTrader, 0)
+	traderSkill := game.EffectivePlayerSkill(gs, formula.SkillTrader)
 
 	discount := 90 + traderSkill
 	if discount > 98 {

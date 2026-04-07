@@ -14,6 +14,8 @@ const (
 	StatusDead
 )
 
+const CurrentSaveVersion = 2
+
 type NewsEntry struct {
 	Headline  string `json:"headline"`
 	System    string `json:"system"`
@@ -28,6 +30,7 @@ type Bookmark struct {
 }
 
 type GameState struct {
+	SaveVersion     int               `json:"save_version"`
 	Player          Player            `json:"player"`
 	Systems         []SystemState     `json:"systems"`
 	CurrentSystemID int               `json:"current_system_id"`

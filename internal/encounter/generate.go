@@ -167,7 +167,7 @@ func newPirateWithThreat(gs *game.GameState) *Encounter {
 }
 
 func playerCombatPower(gs *game.GameState) int {
-	fighterSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillFighter], gs.Player.CrewMercs(), formula.SkillFighter, 0)
+	fighterSkill := game.EffectivePlayerSkill(gs, formula.SkillFighter)
 	weaponPower := 0
 	for _, wID := range gs.Player.Ship.Weapons {
 		weaponPower += gs.Data.Equipment[wID].Power

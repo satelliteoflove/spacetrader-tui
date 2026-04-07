@@ -12,11 +12,6 @@ func LoadAll(dataFS fs.FS) (*gamedata.GameData, error) {
 	gd := &gamedata.GameData{}
 	var err error
 
-	gd.Systems, err = loadSystems(dataFS)
-	if err != nil {
-		return nil, fmt.Errorf("loading systems: %w", err)
-	}
-
 	gd.Goods, err = loadGoods(dataFS)
 	if err != nil {
 		return nil, fmt.Errorf("loading goods: %w", err)
@@ -41,50 +36,6 @@ func LoadAllFromEmbed(dataFS fs.FS) (*gamedata.GameData, error) {
 		return nil, fmt.Errorf("getting data subdirectory: %w", err)
 	}
 	return LoadAll(sub)
-}
-
-type rawSystem struct {
-	Name            string `json:"name"`
-	X               int    `json:"x"`
-	Y               int    `json:"y"`
-	TechLevel       string `json:"tech_level"`
-	PoliticalSystem string `json:"political_system"`
-	Resource        string `json:"resource"`
-	Special         string `json:"special"`
-}
-
-func loadSystems(dataFS fs.FS) ([]gamedata.SystemDef, error) {
-	raw, err := readJSON[[]rawSystem](dataFS, "systems.json")
-	if err != nil {
-		return nil, err
-	}
-
-	systems := make([]gamedata.SystemDef, len(raw))
-	for i, r := range raw {
-		tech, err := gamedata.ParseTechLevel(r.TechLevel)
-		if err != nil {
-			return nil, fmt.Errorf("system %q: %w", r.Name, err)
-		}
-		pol, err := gamedata.ParsePoliticalSystem(r.PoliticalSystem)
-		if err != nil {
-			return nil, fmt.Errorf("system %q: %w", r.Name, err)
-		}
-		res, err := gamedata.ParseResource(r.Resource)
-		if err != nil {
-			return nil, fmt.Errorf("system %q: %w", r.Name, err)
-		}
-		systems[i] = gamedata.SystemDef{
-			ID:              i,
-			Name:            r.Name,
-			X:               r.X,
-			Y:               r.Y,
-			TechLevel:       tech,
-			PoliticalSystem: pol,
-			Resource:        res,
-			Special:         r.Special,
-		}
-	}
-	return systems, nil
 }
 
 type rawGood struct {
@@ -245,9 +196,9 @@ func questRewardEquipment(startID int) []gamedata.EquipDef {
 			ID:          startID,
 			Name:        "Morgan's Laser",
 			Category:    gamedata.EquipWeapon,
-			Power:       50,
+			Power:       85,
 			TechLevel:   gamedata.TechHiTech,
-			Price:       30000,
+			Price:       50000,
 			QuestReward: true,
 		},
 		{
@@ -256,7 +207,7 @@ func questRewardEquipment(startID int) []gamedata.EquipDef {
 			Category:    gamedata.EquipShield,
 			Protection:  350,
 			TechLevel:   gamedata.TechHiTech,
-			Price:       40000,
+			Price:       45000,
 			QuestReward: true,
 		},
 		{
@@ -265,7 +216,7 @@ func questRewardEquipment(startID int) []gamedata.EquipDef {
 			Category:    gamedata.EquipGadget,
 			RangeBonus:  3,
 			TechLevel:   gamedata.TechHiTech,
-			Price:       20000,
+			Price:       30000,
 			QuestReward: true,
 		},
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
+	"github.com/the4ofus/spacetrader-tui/internal/galaxy"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
@@ -15,6 +16,8 @@ func NewGame(data *gamedata.GameData, name string, skills [formula.NumSkills]int
 
 func NewGameWithSeed(data *gamedata.GameData, name string, skills [formula.NumSkills]int, diff gamedata.Difficulty, seed int64) *GameState {
 	rng := rand.New(rand.NewSource(seed))
+
+	data.Systems = galaxy.Generate(seed)
 
 	gnatDef := data.Ships[int(formula.StartingShip)]
 
@@ -32,28 +35,29 @@ func NewGameWithSeed(data *gamedata.GameData, name string, skills [formula.NumSk
 				Gadgets: []int{},
 			},
 		},
-		Systems:    make([]SystemState, len(data.Systems)),
-		Day:        1,
-		Difficulty: diff,
-		EndStatus:  StatusPlaying,
-		Seed:       seed,
-		Rand:       rng,
-		Data:       data,
+		Systems:     make([]SystemState, len(data.Systems)),
+		Day:         1,
+		Difficulty:  diff,
+		EndStatus:   StatusPlaying,
+		SaveVersion: CurrentSaveVersion,
+		Seed:        seed,
+		Rand:        rng,
+		Data:        data,
 	}
 
-	startIdx := pickStartingSystem(data, rng)
+	startIdx := pickStartingSystem(gs)
 	gs.CurrentSystemID = startIdx
 	gs.Systems[startIdx].Visited = true
 
-	initializeMarkets(gs, data)
+	initializeMarkets(gs)
 	GenerateWormholes(gs)
 
 	return gs
 }
 
-func pickStartingSystem(data *gamedata.GameData, rng *rand.Rand) int {
+func pickStartingSystem(gs *GameState) int {
 	candidates := []int{}
-	for i, sys := range data.Systems {
+	for i, sys := range gs.Data.Systems {
 		if sys.TechLevel >= gamedata.TechEarlyIndustrial && sys.PoliticalSystem != gamedata.PolAnarchy {
 			candidates = append(candidates, i)
 		}
@@ -61,11 +65,11 @@ func pickStartingSystem(data *gamedata.GameData, rng *rand.Rand) int {
 	if len(candidates) == 0 {
 		return 0
 	}
-	return candidates[rng.Intn(len(candidates))]
+	return candidates[gs.Rand.Intn(len(candidates))]
 }
 
-func initializeMarkets(gs *GameState, data *gamedata.GameData) {
-	for i := range data.Systems {
+func initializeMarkets(gs *GameState) {
+	for i := range gs.Data.Systems {
 		RefreshSystemPrices(gs, i)
 	}
 }

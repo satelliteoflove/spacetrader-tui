@@ -14,7 +14,7 @@ type TransactionResult struct {
 }
 
 func effectiveTraderSkill(gs *game.GameState) int {
-	return formula.EffectiveSkill(gs.Player.Skills[formula.SkillTrader], gs.Player.CrewMercs(), formula.SkillTrader, 0)
+	return game.EffectivePlayerSkill(gs, formula.SkillTrader)
 }
 
 func Buy(gs *game.GameState, goodIdx int, qty int) TransactionResult {

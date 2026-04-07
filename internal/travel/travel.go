@@ -121,7 +121,7 @@ func applyDailyCosts(gs *game.GameState) {
 }
 
 func applyEngineerRepair(gs *game.GameState) {
-	engSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillEngineer], gs.Player.CrewMercs(), formula.SkillEngineer, 0)
+	engSkill := game.EffectivePlayerSkill(gs, formula.SkillEngineer)
 
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
 	if gs.Player.Ship.Hull < shipDef.Hull {

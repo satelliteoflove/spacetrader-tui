@@ -270,6 +270,32 @@ func ParseShipSize(s string) (ShipSize, error) {
 	return 0, fmt.Errorf("unknown ship size: %q", s)
 }
 
+type SystemSize int
+
+const (
+	SysTiny SystemSize = iota
+	SysSmall
+	SysMedium
+	SysLarge
+	SysHuge
+	NumSystemSizes
+)
+
+var systemSizeNames = [NumSystemSizes]string{
+	"Tiny",
+	"Small",
+	"Medium",
+	"Large",
+	"Huge",
+}
+
+func (s SystemSize) String() string {
+	if s >= 0 && s < NumSystemSizes {
+		return systemSizeNames[s]
+	}
+	return fmt.Sprintf("SystemSize(%d)", int(s))
+}
+
 type EquipCategory int
 
 const (

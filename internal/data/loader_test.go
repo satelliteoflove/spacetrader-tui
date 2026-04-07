@@ -21,9 +21,6 @@ func loadTestData(t *testing.T) *gamedata.GameData {
 func TestLoadAllCounts(t *testing.T) {
 	gd := loadTestData(t)
 
-	if got := len(gd.Systems); got != 79 {
-		t.Errorf("expected 79 systems, got %d", got)
-	}
 	if got := len(gd.Goods); got != 10 {
 		t.Errorf("expected 10 goods, got %d", got)
 	}
@@ -32,22 +29,6 @@ func TestLoadAllCounts(t *testing.T) {
 	}
 	if got := len(gd.Equipment); got != 13 {
 		t.Errorf("expected 13 equipment (10 base + 3 quest), got %d", got)
-	}
-}
-
-func TestSystemEnumConversions(t *testing.T) {
-	gd := loadTestData(t)
-
-	for _, sys := range gd.Systems {
-		if sys.TechLevel < 0 || sys.TechLevel >= gamedata.NumTechLevels {
-			t.Errorf("system %q: invalid tech level %d", sys.Name, sys.TechLevel)
-		}
-		if sys.PoliticalSystem < 0 || sys.PoliticalSystem >= gamedata.NumPoliticalSystems {
-			t.Errorf("system %q: invalid political system %d", sys.Name, sys.PoliticalSystem)
-		}
-		if sys.Resource < 0 || sys.Resource >= gamedata.NumResources {
-			t.Errorf("system %q: invalid resource %d", sys.Name, sys.Resource)
-		}
 	}
 }
 
@@ -115,41 +96,6 @@ func TestEquipmentCategories(t *testing.T) {
 	}
 	if gadgets != 6 {
 		t.Errorf("expected 6 gadgets (5 base + Fuel Compactor), got %d", gadgets)
-	}
-}
-
-func TestKnownSystems(t *testing.T) {
-	gd := loadTestData(t)
-
-	find := func(name string) *gamedata.SystemDef {
-		for i := range gd.Systems {
-			if gd.Systems[i].Name == name {
-				return &gd.Systems[i]
-			}
-		}
-		return nil
-	}
-
-	acamar := find("Acamar")
-	if acamar == nil {
-		t.Fatal("Acamar not found")
-	}
-	if acamar.TechLevel != gamedata.TechMedieval {
-		t.Errorf("Acamar tech: got %v, want Medieval", acamar.TechLevel)
-	}
-	if acamar.PoliticalSystem != gamedata.PolFeudal {
-		t.Errorf("Acamar politics: got %v, want Feudal State", acamar.PoliticalSystem)
-	}
-	if acamar.Resource != gamedata.ResourceDesert {
-		t.Errorf("Acamar resource: got %v, want Desert", acamar.Resource)
-	}
-
-	aldebaran := find("Aldebaran")
-	if aldebaran == nil {
-		t.Fatal("Aldebaran not found")
-	}
-	if aldebaran.TechLevel != gamedata.TechHiTech {
-		t.Errorf("Aldebaran tech: got %v, want Hi-tech", aldebaran.TechLevel)
 	}
 }
 

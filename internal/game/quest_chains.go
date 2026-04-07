@@ -124,7 +124,7 @@ func checkSpaceMonster(gs *GameState) []QuestEvent {
 
 	acamar := findSystem(gs, "Acamar")
 	if state == QuestAvailable && gs.CurrentSystemID == acamar {
-		fighterSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillFighter], gs.Player.CrewMercs(), formula.SkillFighter, 0)
+		fighterSkill := EffectivePlayerSkill(gs, formula.SkillFighter)
 		weaponPower := 0
 		for _, w := range gs.Player.Ship.Weapons {
 			weaponPower += gs.Data.Equipment[w].Power
@@ -408,7 +408,7 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 	switch title {
 	case "Space Monster!":
 		if actionIdx == 0 {
-			fighterSkill := formula.EffectiveSkill(gs.Player.Skills[formula.SkillFighter], gs.Player.CrewMercs(), formula.SkillFighter, 0)
+			fighterSkill := EffectivePlayerSkill(gs, formula.SkillFighter)
 			weaponPower := 0
 			for _, w := range gs.Player.Ship.Weapons {
 				weaponPower += gs.Data.Equipment[w].Power

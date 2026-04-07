@@ -7,6 +7,7 @@ type SystemDef struct {
 	TechLevel       TechLevel
 	PoliticalSystem PoliticalSystem
 	Resource        Resource
+	Size            SystemSize
 	Special         string
 }
 
