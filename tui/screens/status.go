@@ -134,7 +134,7 @@ func (s *StatusScreen) View() string {
 		b.WriteString("\n" + div + "\n")
 		b.WriteString(CyanStyle.Render("  Active Quests") + "\n")
 		for _, q := range activeQuests {
-			b.WriteString("    " + q + "\n")
+			b.WriteString("    " + renderQuestLine(q) + "\n")
 		}
 	}
 
@@ -143,29 +143,69 @@ func (s *StatusScreen) View() string {
 }
 
 func getActiveQuests(gs *game.GameState) []string {
-	var quests []string
 	type questInfo struct {
 		id   game.QuestID
 		name string
-		hint string
 	}
 	checks := []questInfo{
-		{game.QuestDragonfly, "Dragonfly", "Chase through Arouan, Halley, Regulus, Linnet"},
-		{game.QuestSpaceMonster, "Space Monster", "Destroy at Acamar"},
-		{game.QuestScarab, "Scarab", "Find near a wormhole exit"},
-		{game.QuestAlienArtifact, "Alien Artifact", "Deliver to a Hi-tech system"},
-		{game.QuestJarek, "Ambassador Jarek", "Transport to Aldebaran"},
-		{game.QuestJapori, "Japori Disease", "Deliver 10 medicine"},
-		{game.QuestGemulon, "Gemulon Invasion", "Warn Gemulon (timed!)"},
-		{game.QuestFehler, "Dr. Fehler", "Stop experiment at Deneb (timed!)"},
-		{game.QuestWild, "Jonathan Wild", "Smuggle to Adahn"},
-		{game.QuestReactor, "Reactor Delivery", "Deliver to Eridani (fuel leak!)"},
+		{game.QuestDragonfly, "Dragonfly"},
+		{game.QuestSpaceMonster, "Space Monster"},
+		{game.QuestScarab, "Scarab"},
+		{game.QuestAlienArtifact, "Alien Artifact"},
+		{game.QuestJarek, "Ambassador Jarek"},
+		{game.QuestJapori, "Japori Disease"},
+		{game.QuestGemulon, "Gemulon Invasion"},
+		{game.QuestFehler, "Dr. Fehler"},
+		{game.QuestWild, "Jonathan Wild"},
+		{game.QuestReactor, "Reactor Delivery"},
 	}
+	var quests []string
 	for _, c := range checks {
 		state := gs.Quests.States[c.id]
 		if state == game.QuestActive || state == game.QuestAvailable {
-			quests = append(quests, c.name+" - "+c.hint)
+			desc := gs.QuestDescription(c.id)
+			quests = append(quests, c.name+" - "+desc)
 		}
 	}
 	return quests
+}
+
+func renderQuestLine(line string) string {
+	var result strings.Builder
+	for len(line) > 0 {
+		dimIdx := strings.Index(line, "\x00dim\x00")
+		nextIdx := strings.Index(line, "\x00next\x00")
+		markerIdx := -1
+		markerTag := ""
+		markerLen := 0
+		if dimIdx >= 0 && (nextIdx < 0 || dimIdx < nextIdx) {
+			markerIdx = dimIdx
+			markerTag = "dim"
+			markerLen = len("\x00dim\x00")
+		} else if nextIdx >= 0 {
+			markerIdx = nextIdx
+			markerTag = "next"
+			markerLen = len("\x00next\x00")
+		}
+		if markerIdx < 0 {
+			result.WriteString(line)
+			break
+		}
+		result.WriteString(line[:markerIdx])
+		line = line[markerIdx+markerLen:]
+		endIdx := strings.Index(line, "\x00"+markerTag+"\x00")
+		if endIdx < 0 {
+			result.WriteString(line)
+			break
+		}
+		content := line[:endIdx]
+		line = line[endIdx+markerLen:]
+		switch markerTag {
+		case "dim":
+			result.WriteString(DimStyle.Render(content))
+		case "next":
+			result.WriteString(SelectedStyle.Render(content))
+		}
+	}
+	return result.String()
 }
