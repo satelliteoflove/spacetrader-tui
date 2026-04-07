@@ -72,6 +72,7 @@ func ExecuteTravel(gs *game.GameState, destIdx int) TravelResult {
 	applyDailyCosts(gs)
 	applyEngineerRepair(gs)
 	game.GenerateEvents(gs)
+	game.RefreshSystemPrices(gs, destIdx)
 
 	return TravelResult{
 		Success:     true,

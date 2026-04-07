@@ -21,8 +21,8 @@ func loadTestData(t *testing.T) *gamedata.GameData {
 func TestLoadAllCounts(t *testing.T) {
 	gd := loadTestData(t)
 
-	if got := len(gd.Systems); got != 78 {
-		t.Errorf("expected 78 systems, got %d", got)
+	if got := len(gd.Systems); got != 79 {
+		t.Errorf("expected 79 systems, got %d", got)
 	}
 	if got := len(gd.Goods); got != 10 {
 		t.Errorf("expected 10 goods, got %d", got)

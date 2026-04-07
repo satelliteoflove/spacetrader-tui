@@ -16,6 +16,7 @@
   {"name": "Gemulon", "x": 24, "y": 6, "tech_level": "Pre-agricultural", "political_system": "Anarchy", "resource": "Poor", "special": "", "market": {}},
   {"name": "Halley", "x": 36, "y": 24, "tech_level": "Medieval", "political_system": "Feudal State", "resource": "Desert", "special": "", "market": {}},
   {"name": "Iodine", "x": 8, "y": 44, "tech_level": "Early Industrial", "political_system": "Capitalist State", "resource": "Mineral Rich", "special": "", "market": {}},
+  {"name": "Japori", "x": 3, "y": 30, "tech_level": "Renaissance", "political_system": "Democracy", "resource": "Good Clinic", "special": "", "market": {}},
   {"name": "Iralius", "x": 16, "y": 44, "tech_level": "Post-industrial", "political_system": "Corporate State", "resource": "Industrial", "special": "", "market": {}},
   {"name": "Lave", "x": 8, "y": 12, "tech_level": "Pre-agricultural", "political_system": "Anarchy", "resource": "No Special Resources", "special": "Famous for Laveian Tree Grubs", "market": {}},
   {"name": "Mizar", "x": 6, "y": 46, "tech_level": "Agricultural", "political_system": "Monarchy", "resource": "Rich Soil", "special": "", "market": {}},

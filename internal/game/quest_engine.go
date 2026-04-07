@@ -33,7 +33,8 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 		}
 	}
 
-	if gs.Quests.States[QuestJapori] == QuestActive {
+	japoriSys := findSystem(gs, "Japori")
+	if gs.Quests.States[QuestJapori] == QuestActive && japoriSys >= 0 && gs.CurrentSystemID == japoriSys {
 		medicine := gs.Player.Cargo[int(gamedata.GoodMedicine)]
 		if medicine >= 10 {
 			gs.Player.Cargo[int(gamedata.GoodMedicine)] -= 10
@@ -162,7 +163,7 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 	case "Japori Disease":
 		if actionIdx == 0 {
 			gs.Quests.States[QuestJapori] = QuestActive
-			return "Mission accepted. Deliver 10 medicine to any system."
+			return "Mission accepted. Deliver 10 medicine to Japori."
 		}
 		gs.Quests.States[QuestJapori] = QuestUnavailable
 		return "Mission declined."
