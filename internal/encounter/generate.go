@@ -6,6 +6,8 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
+const ClicksPerWarp = 21
+
 type PoliceAttitude int
 
 const (
@@ -34,80 +36,77 @@ func GetPoliceAttitude(gs *game.GameState) PoliceAttitude {
 	return PoliceInspect
 }
 
-func Generate(gs *game.GameState) *Encounter {
-	sys := gs.Data.Systems[gs.CurrentSystemID]
+func GenerateForClick(gs *game.GameState, destIdx int) *Encounter {
+	dest := gs.Data.Systems[destIdx]
+	polData := gamedata.PoliticalSystems[dest.PoliticalSystem]
 
-	policeChance := policeBaseChance(sys.PoliticalSystem)
-	pirateChance := pirateBaseChance(sys.PoliticalSystem)
-	traderChance := 10
+	threshold := 44 - 2*int(gs.Difficulty)
+	if threshold < 1 {
+		threshold = 1
+	}
 
-	hasIllegal := false
-	for _, g := range gs.Data.Goods {
-		if !g.Legal && gs.Player.Cargo[int(g.ID)] > 0 {
-			hasIllegal = true
-			break
+	roll := gs.Rand.Intn(threshold)
+
+	if gs.Data.Ships[gs.Player.Ship.TypeID].Name == "Flea" {
+		roll *= 2
+	}
+
+	if gs.Quests.States[game.QuestAlienArtifact] == game.QuestActive {
+		if gs.Rand.Intn(20) < 4 {
+			enc := newPirateWithThreat(gs)
+			enc.Message = "Alien Mantis ships attack! They want the artifact!"
+			return enc
 		}
 	}
-	if hasIllegal {
-		policeChance += 20
-	}
 
-	if gs.Player.PoliceRecord < -10 {
-		policeChance += 10
-	}
+	pirateStrength := polData.PirateStrength
+	policeStrength := polData.PoliceStrength
+	traderStrength := polData.TraderStrength
 
-	if gs.Quests.States[game.QuestWild] == game.QuestActive {
-		policeChance += 15
-	}
-
-	if gs.Quests.States[game.QuestAlienArtifact] == game.QuestActive && gs.Rand.Intn(100) < 25 {
-		enc := newPirateWithThreat(gs)
-		enc.Message = "Alien Mantis ships attack! They want the artifact!"
-		return enc
-	}
-
-	roll := gs.Rand.Intn(100)
-
-	if roll < policeChance {
-		return newPoliceForAttitude(gs)
-	}
-	roll -= policeChance
-
-	if roll < pirateChance {
+	if roll < pirateStrength {
 		return newPirateWithThreat(gs)
 	}
-	roll -= pirateChance
 
-	if roll < traderChance {
+	if roll < pirateStrength+policeStrength {
+		return newPoliceForAttitude(gs)
+	}
+
+	if roll < pirateStrength+policeStrength+traderStrength {
 		return NewTraderEncounter()
 	}
-	roll -= traderChance
 
-	if roll < 2 {
-		return newRareEncounter(gs)
+	if gs.Rand.Intn(1000) < 1 {
+		return newRareEncounter(gs, 0)
+	}
+	if gs.Rand.Intn(1000) < 1 {
+		return newRareEncounter(gs, 1)
 	}
 
 	return nil
 }
 
-func newRareEncounter(gs *game.GameState) *Encounter {
-	roll := gs.Rand.Intn(3)
-	switch roll {
+func Generate(gs *game.GameState) *Encounter {
+	return GenerateForClick(gs, gs.CurrentSystemID)
+}
+
+func newRareEncounter(gs *game.GameState, variant int) *Encounter {
+	switch variant {
 	case 0:
 		captains := []string{"Captain Ahab", "Captain Conrad", "Captain Huie"}
 		name := captains[gs.Rand.Intn(len(captains))]
 		return &Encounter{
 			Type:    EncFamousCaptain,
 			Actions: []Action{ActionTrade, ActionDecline},
-			Message: name + " hails you. The famous captain offers supplies.",
+			Message: name + " hails you. The famous captain offers to share wisdom.",
 		}
 	case 1:
-		return &Encounter{
-			Type:    EncMarieCeleste,
-			Actions: []Action{ActionTrade, ActionDecline},
-			Message: "You find an abandoned ship, the Marie Celeste. Its cargo hold contains narcotics.",
+		if gs.Rand.Intn(2) == 0 {
+			return &Encounter{
+				Type:    EncMarieCeleste,
+				Actions: []Action{ActionTrade, ActionDecline},
+				Message: "You find an abandoned ship, the Marie Celeste. Its cargo hold contains narcotics.",
+			}
 		}
-	case 2:
 		return &Encounter{
 			Type:    EncBottle,
 			Actions: []Action{ActionTrade, ActionDecline},
@@ -135,28 +134,6 @@ func newPoliceForAttitude(gs *game.GameState) *Encounter {
 	default:
 		return NewPoliceEncounter()
 	}
-}
-
-func policeBaseChance(pol gamedata.PoliticalSystem) int {
-	switch pol {
-	case gamedata.PolAnarchy, gamedata.PolFeudal:
-		return 0
-	case gamedata.PolMilitary, gamedata.PolFascist:
-		return 30
-	case gamedata.PolCorporate, gamedata.PolCybernetic, gamedata.PolTechnocracy:
-		return 25
-	case gamedata.PolDictatorship:
-		return 20
-	case gamedata.PolDemocracy, gamedata.PolCapitalist, gamedata.PolConfederacy:
-		return 15
-	case gamedata.PolMonarchy, gamedata.PolTheocracy:
-		return 15
-	case gamedata.PolSocialist, gamedata.PolCommunist:
-		return 10
-	case gamedata.PolPacifist, gamedata.PolSatori:
-		return 5
-	}
-	return 15
 }
 
 func newPirateWithThreat(gs *game.GameState) *Encounter {
@@ -193,26 +170,4 @@ func assessThreat(gs *game.GameState, enemyPower int) string {
 	default:
 		return "This pirate outguns you significantly."
 	}
-}
-
-func pirateBaseChance(pol gamedata.PoliticalSystem) int {
-	switch pol {
-	case gamedata.PolAnarchy, gamedata.PolFeudal:
-		return 30
-	case gamedata.PolSocialist, gamedata.PolCommunist:
-		return 20
-	case gamedata.PolDemocracy, gamedata.PolCapitalist, gamedata.PolConfederacy:
-		return 15
-	case gamedata.PolMonarchy, gamedata.PolTheocracy:
-		return 15
-	case gamedata.PolDictatorship:
-		return 10
-	case gamedata.PolCorporate, gamedata.PolCybernetic, gamedata.PolTechnocracy:
-		return 10
-	case gamedata.PolMilitary, gamedata.PolFascist:
-		return 5
-	case gamedata.PolPacifist, gamedata.PolSatori:
-		return 5
-	}
-	return 15
 }

@@ -9,7 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/the4ofus/spacetrader-tui/internal/encounter"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 	"github.com/the4ofus/spacetrader-tui/tui/screens"
@@ -37,6 +36,8 @@ type Model struct {
 	data            *gamedata.GameData
 	config          game.Config
 	screen          tea.Model
+	warpScreen      *screens.WarpScreen
+	warpDestIdx     int
 	width           int
 	height          int
 	systemHubCursor int
@@ -96,25 +97,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case screens.TravelMsg:
 		destName := m.gs.Data.Systems[m.gs.CurrentSystemID].Name
 		m.fadeFrame = 0
-		s := screens.NewWarpScreen(destName)
+		m.warpDestIdx = msg.DestIdx
+		s := screens.NewWarpScreen(m.gs, msg.DestIdx, destName)
+		m.warpScreen = s
+		m.screen = s
+		return m, s.Init()
+	case screens.WarpEncounterMsg:
+		m.fadeFrame = 0
+		s := screens.NewEncounterScreen(m.gs, msg.Encounter)
 		m.screen = s
 		return m, s.Init()
 	case screens.WarpDoneMsg:
-		enc := encounter.Generate(m.gs)
-		if enc != nil {
-			m.fadeFrame = 0
-			s := screens.NewEncounterScreen(m.gs, enc)
-			m.screen = s
-			return m, s.Init()
-		}
+		m.warpScreen = nil
 		m.systemHubCursor = 1
 		return m.arriveAtSystem()
 	case screens.EncounterDoneMsg:
 		if m.gs.EndStatus == game.StatusDead {
 			m.fadeFrame = 0
+			m.warpScreen = nil
 			s := screens.NewGameOverScreen(m.gs)
 			m.screen = s
 			return m, s.Init()
+		}
+		if m.warpScreen != nil {
+			m.fadeFrame = 0
+			m.screen = m.warpScreen
+			m.warpScreen.Update(screens.WarpResumeMsg{})
+			return m, nil
 		}
 		m.systemHubCursor = 1
 		return m.arriveAtSystem()

@@ -29,3 +29,9 @@ type TickMsg struct {
 }
 
 type WarpDoneMsg struct{}
+
+type WarpEncounterMsg struct {
+	Encounter *encounter.Encounter
+}
+
+type WarpResumeMsg struct{}
