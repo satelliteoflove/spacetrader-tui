@@ -33,6 +33,10 @@ func resolvePolice(gs *game.GameState, action Action) Outcome {
 		return policeBribe(gs)
 	case ActionFlee:
 		return policeFlee(gs)
+	case ActionSurrender:
+		return policeSurrender(gs)
+	case ActionFight:
+		return policeFight(gs)
 	}
 	return Outcome{Message: "Invalid action."}
 }
@@ -117,6 +121,131 @@ func policeFlee(gs *game.GameState) Outcome {
 	return Outcome{
 		Message:      "Failed to flee. Police record worsened significantly.",
 		RecordChange: -3,
+	}
+}
+
+func policeSurrender(gs *game.GameState) Outcome {
+	attitude := GetPoliceAttitude(gs)
+
+	if attitude == PoliceAttack {
+		return confiscateShip(gs)
+	}
+
+	illegalCargo := map[int]int{}
+	allCargo := map[int]int{}
+	totalFine := 0
+
+	for _, g := range gs.Data.Goods {
+		idx := int(g.ID)
+		if gs.Player.Cargo[idx] > 0 {
+			if !g.Legal {
+				illegalCargo[idx] = gs.Player.Cargo[idx]
+				totalFine += 1000 * gs.Player.Cargo[idx]
+			}
+			allCargo[idx] = gs.Player.Cargo[idx]
+		}
+	}
+
+	record := gs.Player.PoliceRecord
+	if record < -50 {
+		for idx, qty := range allCargo {
+			gs.Player.Cargo[idx] = 0
+			_ = qty
+		}
+		totalFine += 2000
+		gs.Player.Credits = max(0, gs.Player.Credits-totalFine)
+		gs.Player.PoliceRecord -= 5
+		return Outcome{
+			Message:       fmt.Sprintf("All cargo confiscated! Fined %d credits.", totalFine),
+			CreditsChange: -totalFine,
+			CargoLost:     allCargo,
+			RecordChange:  -5,
+		}
+	}
+
+	for idx := range illegalCargo {
+		gs.Player.Cargo[idx] = 0
+	}
+	if totalFine == 0 {
+		totalFine = 500
+	}
+	gs.Player.Credits = max(0, gs.Player.Credits-totalFine)
+	gs.Player.PoliceRecord -= 3
+	cargoLost := illegalCargo
+	if len(cargoLost) == 0 {
+		cargoLost = nil
+	}
+	return Outcome{
+		Message:       fmt.Sprintf("Illegal goods confiscated! Fined %d credits.", totalFine),
+		CreditsChange: -totalFine,
+		CargoLost:     cargoLost,
+		RecordChange:  -3,
+	}
+}
+
+func confiscateShip(gs *game.GameState) Outcome {
+	fleaDef := gs.Data.Ships[0]
+
+	gs.Player.Ship = game.Ship{
+		TypeID:  0,
+		Hull:    fleaDef.Hull,
+		Fuel:    fleaDef.Range,
+		Weapons: []int{},
+		Shields: []int{},
+		Gadgets: []int{},
+	}
+
+	for i := range gs.Player.Cargo {
+		gs.Player.Cargo[i] = 0
+	}
+	gs.Player.Crew = nil
+	gs.Player.PoliceRecord -= 5
+
+	return Outcome{
+		Message:      "Ship confiscated! You have been given a Flea and released.",
+		RecordChange: -5,
+	}
+}
+
+func policeFight(gs *game.GameState) Outcome {
+	gs.Player.PoliceRecord -= 5
+
+	policePower := 15 + int(gs.Difficulty)*5
+	pp := playerCombatPower(gs)
+
+	if pp >= policePower {
+		gs.Player.Reputation++
+		return Outcome{
+			Message:      "You defeated the police! Your record has worsened severely.",
+			RecordChange: -5,
+			RepChange:    1,
+		}
+	}
+
+	shieldProtection := 0
+	for _, sID := range gs.Player.Ship.Shields {
+		shieldProtection += gs.Data.Equipment[sID].Protection
+	}
+
+	rawDamage := 15 + gs.Rand.Intn(30)
+	damage := rawDamage - shieldProtection/10
+	if damage < 0 {
+		damage = 0
+	}
+	gs.Player.Ship.Hull -= damage
+
+	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
+		return Outcome{
+			Message:      fmt.Sprintf("Defeated by police! %s", destroyMsg),
+			HullDamage:   damage,
+			RecordChange: -5,
+		}
+	}
+
+	return Outcome{
+		Message:      fmt.Sprintf("Defeated by police! Took %d hull damage. Record worsened severely.", damage),
+		HullDamage:   damage,
+		RecordChange: -5,
 	}
 }
 

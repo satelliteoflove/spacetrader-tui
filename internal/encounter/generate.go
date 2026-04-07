@@ -6,6 +6,34 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
+type PoliceAttitude int
+
+const (
+	PoliceInspect   PoliceAttitude = iota
+	PoliceSurrender
+	PoliceAttack
+)
+
+func GetPoliceAttitude(gs *game.GameState) PoliceAttitude {
+	record := gs.Player.PoliceRecord
+	diff := int(gs.Difficulty)
+
+	surrenderThresholds := [5]int{-999, -70, -30, -10, 0}
+	attackThresholds := [5]int{-999, -100, -70, -30, -10}
+
+	if diff > 4 {
+		diff = 4
+	}
+
+	if record < attackThresholds[diff] {
+		return PoliceAttack
+	}
+	if record < surrenderThresholds[diff] {
+		return PoliceSurrender
+	}
+	return PoliceInspect
+}
+
 func Generate(gs *game.GameState) *Encounter {
 	sys := gs.Data.Systems[gs.CurrentSystemID]
 
@@ -41,7 +69,7 @@ func Generate(gs *game.GameState) *Encounter {
 	roll := gs.Rand.Intn(100)
 
 	if roll < policeChance {
-		return NewPoliceEncounter()
+		return newPoliceForAttitude(gs)
 	}
 	roll -= policeChance
 
@@ -87,6 +115,26 @@ func newRareEncounter(gs *game.GameState) *Encounter {
 		}
 	}
 	return nil
+}
+
+func newPoliceForAttitude(gs *game.GameState) *Encounter {
+	attitude := GetPoliceAttitude(gs)
+	switch attitude {
+	case PoliceAttack:
+		return &Encounter{
+			Type:    EncPolice,
+			Actions: []Action{ActionFight, ActionFlee},
+			Message: "Police open fire on sight! Your record precedes you.",
+		}
+	case PoliceSurrender:
+		return &Encounter{
+			Type:    EncPolice,
+			Actions: []Action{ActionSurrender, ActionFight, ActionFlee},
+			Message: "Police demand your immediate surrender!",
+		}
+	default:
+		return NewPoliceEncounter()
+	}
 }
 
 func policeBaseChance(pol gamedata.PoliticalSystem) int {
