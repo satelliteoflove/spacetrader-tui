@@ -775,8 +775,23 @@ func (s *GalacticListScreen) View() string {
 				b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Wormhole to %s", s.gs.Data.Systems[wh.SystemA].Name)) + "\n")
 			}
 		}
-		if e.bookmarked && e.bookmarkNote != "" {
-			b.WriteString(SelectedStyle.Render(fmt.Sprintf("  Bookmarked: %s", e.bookmarkNote)) + "\n")
+		if e.bookmarked {
+			dayInfo := ""
+			if e.bookmarkDay > 0 {
+				age := s.gs.Day - e.bookmarkDay
+				if age == 0 {
+					dayInfo = " (today)"
+				} else if age == 1 {
+					dayInfo = " (1 day ago)"
+				} else {
+					dayInfo = fmt.Sprintf(" (%d days ago)", age)
+				}
+			}
+			if e.bookmarkNote != "" {
+				b.WriteString(SelectedStyle.Render(fmt.Sprintf("  Bookmarked%s: %s", dayInfo, e.bookmarkNote)) + "\n")
+			} else {
+				b.WriteString(SelectedStyle.Render(fmt.Sprintf("  Bookmarked%s", dayInfo)) + "\n")
+			}
 		}
 	}
 

@@ -41,9 +41,11 @@ type systemEntry struct {
 	isCurrent    bool
 	bookmarked   bool
 	bookmarkNote string
+	bookmarkDay  int
 }
 
 func buildSystemEntries(gs *game.GameState, indices []int) []systemEntry {
+	refreshBookmarks(gs)
 	cur := gs.Data.Systems[gs.CurrentSystemID]
 	entries := make([]systemEntry, len(indices))
 	for i, idx := range indices {
@@ -62,6 +64,7 @@ func buildSystemEntries(gs *game.GameState, indices []int) []systemEntry {
 			isCurrent:    idx == gs.CurrentSystemID,
 			bookmarked:   hasBM,
 			bookmarkNote: bm.Note,
+			bookmarkDay:  bm.Day,
 		}
 	}
 	return entries
@@ -243,6 +246,15 @@ func resourceTradeHints(goods []gamedata.GoodDef, r gamedata.Resource) (cheap, e
 		}
 	}
 	return strings.Join(cheapGoods, ", "), strings.Join(expensiveGoods, ", ")
+}
+
+func refreshBookmarks(gs *game.GameState) {
+	for _, bm := range gs.Bookmarks {
+		newNote := autoBookmarkNote(gs, bm.SystemIdx)
+		if newNote != bm.Note {
+			gs.UpdateBookmark(bm.SystemIdx, newNote)
+		}
+	}
 }
 
 func autoBookmarkNote(gs *game.GameState, sysIdx int) string {

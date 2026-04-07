@@ -63,6 +63,16 @@ func (gs *GameState) GetBookmark(sysIdx int) (Bookmark, bool) {
 	return Bookmark{}, false
 }
 
+func (gs *GameState) UpdateBookmark(sysIdx int, note string) {
+	for i, b := range gs.Bookmarks {
+		if b.SystemIdx == sysIdx {
+			gs.Bookmarks[i].Note = note
+			gs.Bookmarks[i].Day = gs.Day
+			return
+		}
+	}
+}
+
 func (gs *GameState) ToggleBookmark(sysIdx int, note string) bool {
 	for i, b := range gs.Bookmarks {
 		if b.SystemIdx == sysIdx {
