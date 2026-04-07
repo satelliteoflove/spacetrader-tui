@@ -3,9 +3,15 @@ package encounter
 import (
 	"fmt"
 
+	"github.com/the4ofus/spacetrader-tui/internal/economy"
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
+	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
+
+func playerWorth(gs *game.GameState) int {
+	return economy.PlayerWorth(gs)
+}
 
 func Resolve(gs *game.GameState, enc *Encounter, action Action) Outcome {
 	switch enc.Type {
@@ -75,32 +81,41 @@ func policeComply(gs *game.GameState) Outcome {
 }
 
 func policeBribe(gs *game.GameState) Outcome {
-	bribeAmount := 500 + gs.Rand.Intn(1000)
-	if gs.Player.Credits < bribeAmount {
-		gs.Player.PoliceRecord -= 1
+	sys := gs.Data.Systems[gs.CurrentSystemID]
+	polData := gamedata.PoliticalSystems[sys.PoliticalSystem]
+
+	if polData.BribeLevel <= 0 {
 		return Outcome{
-			Message:      "Can't afford the bribe. Police record worsened.",
-			RecordChange: -1,
+			Message: fmt.Sprintf("Bribery is impossible in %s systems.", polData.Name),
 		}
 	}
 
-	traderSkill := game.EffectivePlayerSkill(gs, formula.SkillTrader)
-	successChance := 20 + traderSkill*5
+	worth := playerWorth(gs)
+	diff := int(gs.Difficulty)
+	bribeCost := worth / ((10 + 5*(4-diff)) * polData.BribeLevel)
+	bribeCost = (bribeCost / 100) * 100
+	if bribeCost < 100 {
+		bribeCost = 100
+	}
+	if bribeCost > 10000 {
+		bribeCost = 10000
+	}
 
-	gs.Player.Credits -= bribeAmount
+	if gs.Quests.States[game.QuestWild] == game.QuestActive ||
+		gs.Quests.States[game.QuestReactor] == game.QuestActive {
+		bribeCost *= 2
+	}
 
-	if gs.Rand.Intn(100) < successChance {
+	if gs.Player.Credits < bribeCost {
 		return Outcome{
-			Message:       fmt.Sprintf("Bribe of %d credits accepted.", bribeAmount),
-			CreditsChange: -bribeAmount,
+			Message: fmt.Sprintf("Bribe costs %d credits -- you can't afford it.", bribeCost),
 		}
 	}
 
-	gs.Player.PoliceRecord -= 2
+	gs.Player.Credits -= bribeCost
 	return Outcome{
-		Message:       fmt.Sprintf("Bribe of %d credits rejected! Record worsened.", bribeAmount),
-		CreditsChange: -bribeAmount,
-		RecordChange:  -2,
+		Message:       fmt.Sprintf("Bribe of %d credits accepted. The police look the other way.", bribeCost),
+		CreditsChange: -bribeCost,
 	}
 }
 
@@ -145,55 +160,43 @@ func policeSurrender(gs *game.GameState) Outcome {
 		return confiscateShip(gs)
 	}
 
-	illegalCargo := map[int]int{}
-	allCargo := map[int]int{}
-	totalFine := 0
+	record := gs.Player.PoliceRecord
+	worth := playerWorth(gs)
 
+	penaltyFactor := -record
+	if penaltyFactor > 80 {
+		penaltyFactor = 80
+	}
+	fine := ((1 + worth*penaltyFactor/100) / 500) * 500
+	if fine < 500 {
+		fine = 500
+	}
+
+	prisonDays := -record
+	if prisonDays < 30 {
+		prisonDays = 30
+	}
+
+	allCargo := map[int]int{}
 	for _, g := range gs.Data.Goods {
 		idx := int(g.ID)
 		if gs.Player.Cargo[idx] > 0 {
-			if !g.Legal {
-				illegalCargo[idx] = gs.Player.Cargo[idx]
-				totalFine += 1000 * gs.Player.Cargo[idx]
-			}
 			allCargo[idx] = gs.Player.Cargo[idx]
-		}
-	}
-
-	record := gs.Player.PoliceRecord
-	if record < -50 {
-		for idx, qty := range allCargo {
 			gs.Player.Cargo[idx] = 0
-			_ = qty
-		}
-		totalFine += 2000
-		gs.Player.Credits = max(0, gs.Player.Credits-totalFine)
-		gs.Player.PoliceRecord -= 5
-		return Outcome{
-			Message:       fmt.Sprintf("All cargo confiscated! Fined %d credits.", totalFine),
-			CreditsChange: -totalFine,
-			CargoLost:     allCargo,
-			RecordChange:  -5,
 		}
 	}
 
-	for idx := range illegalCargo {
-		gs.Player.Cargo[idx] = 0
-	}
-	if totalFine == 0 {
-		totalFine = 500
-	}
-	gs.Player.Credits = max(0, gs.Player.Credits-totalFine)
-	gs.Player.PoliceRecord -= 3
-	cargoLost := illegalCargo
-	if len(cargoLost) == 0 {
-		cargoLost = nil
-	}
+	gs.Player.Credits = max(0, gs.Player.Credits-fine)
+	gs.Day += prisonDays
+	gs.Player.PoliceRecord = -5
+
+	msg := fmt.Sprintf("Arrested! Fined %d credits, %d days in prison. All cargo confiscated. Record reset to Dubious.", fine, prisonDays)
+
 	return Outcome{
-		Message:       fmt.Sprintf("Illegal goods confiscated! Fined %d credits.", totalFine),
-		CreditsChange: -totalFine,
-		CargoLost:     cargoLost,
-		RecordChange:  -3,
+		Message:       msg,
+		CreditsChange: -fine,
+		CargoLost:     allCargo,
+		RecordChange:  -5 - record,
 	}
 }
 
@@ -421,14 +424,68 @@ func resolveFamousCaptain(gs *game.GameState, action Action) Outcome {
 	if action == ActionDecline {
 		return Outcome{Message: "You wave and continue on your way."}
 	}
-	repair := 10 + gs.Rand.Intn(20)
-	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
-	gs.Player.Ship.Hull += repair
-	if gs.Player.Ship.Hull > shipDef.Hull {
-		gs.Player.Ship.Hull = shipDef.Hull
+
+	captainName := ""
+	for _, line := range []string{"Captain Ahab", "Captain Conrad", "Captain Huie"} {
+		if len(gs.Player.Ship.Shields) > 0 || len(gs.Player.Ship.Weapons) > 0 {
+			captainName = line
+			break
+		}
 	}
-	return Outcome{
-		Message: fmt.Sprintf("The captain repairs your hull (+%d) as a gesture of goodwill.", repair),
+
+	isCriminal := gs.Player.PoliceRecord < -30
+
+	if isCriminal {
+		return Outcome{Message: "The captain scans your record and moves on without a word."}
+	}
+
+	hasReflectiveShield := false
+	hasMilitaryLaser := false
+	for _, sID := range gs.Player.Ship.Shields {
+		if gs.Data.Equipment[sID].Name == "Reflective Shield" || gs.Data.Equipment[sID].Name == "Lightning Shield" {
+			hasReflectiveShield = true
+		}
+	}
+	for _, wID := range gs.Player.Ship.Weapons {
+		if gs.Data.Equipment[wID].Name == "Military Laser" || gs.Data.Equipment[wID].Name == "Morgan's Laser" {
+			hasMilitaryLaser = true
+		}
+	}
+
+	if captainName == "" {
+		captainName = "Captain Ahab"
+	}
+
+	switch {
+	case captainName == "Captain Ahab" || (!hasMilitaryLaser && hasReflectiveShield):
+		if !hasReflectiveShield {
+			return Outcome{Message: "Captain Ahab admires your ship but you lack the equipment to learn from him."}
+		}
+		if gs.Player.Skills[formula.SkillPilot] < formula.SkillMax {
+			gs.Player.Skills[formula.SkillPilot]++
+			return Outcome{Message: "Captain Ahab shares piloting techniques! Pilot skill increased."}
+		}
+		return Outcome{Message: "Captain Ahab is impressed by your piloting mastery."}
+
+	case captainName == "Captain Conrad" || (hasMilitaryLaser && gs.Player.Skills[formula.SkillEngineer] < formula.SkillMax):
+		if !hasMilitaryLaser {
+			return Outcome{Message: "Captain Conrad eyes your weapons but you lack the firepower to impress him."}
+		}
+		if gs.Player.Skills[formula.SkillEngineer] < formula.SkillMax {
+			gs.Player.Skills[formula.SkillEngineer]++
+			return Outcome{Message: "Captain Conrad shares engineering secrets! Engineer skill increased."}
+		}
+		return Outcome{Message: "Captain Conrad salutes your engineering expertise."}
+
+	default:
+		if !hasMilitaryLaser {
+			return Outcome{Message: "Captain Huie looks at your weapons and shakes his head."}
+		}
+		if gs.Player.Skills[formula.SkillTrader] < formula.SkillMax {
+			gs.Player.Skills[formula.SkillTrader]++
+			return Outcome{Message: "Captain Huie shares trade secrets! Trader skill increased."}
+		}
+		return Outcome{Message: "Captain Huie acknowledges your trading prowess."}
 	}
 }
 

@@ -120,21 +120,40 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 	}
 
 	if gs.Quests.TribbleQty > 0 {
-		gs.Quests.TribbleQty = gs.Quests.TribbleQty * 2
-		if gs.Quests.TribbleQty > 100 {
-			gs.Quests.TribbleQty = 100
-		}
-		food := gs.Player.Cargo[int(gamedata.GoodFood)]
-		if food > 0 {
-			eaten := food
-			if eaten > gs.Quests.TribbleQty/10+1 {
-				eaten = gs.Quests.TribbleQty/10 + 1
-			}
-			gs.Player.Cargo[int(gamedata.GoodFood)] -= eaten
+		narcIdx := int(gamedata.GoodNarcotics)
+		if gs.Player.Cargo[narcIdx] > 0 {
+			narcQty := gs.Player.Cargo[narcIdx]
+			gs.Player.Cargo[narcIdx] = 0
+			fursIdx := int(gamedata.GoodFurs)
+			gs.Player.Cargo[fursIdx] += narcQty
+			gs.Quests.TribbleQty = 1 + gs.Rand.Intn(3)
 			events = append(events, QuestEvent{
 				Title:   "Tribbles!",
-				Message: fmt.Sprintf("Your %d tribbles ate %d units of food!", gs.Quests.TribbleQty, eaten),
+				Message: fmt.Sprintf("The tribbles consumed your narcotics and mostly died! Only %d remain. You're left with %d furs.", gs.Quests.TribbleQty, narcQty),
 			})
+		} else {
+			foodIdx := int(gamedata.GoodFood)
+			food := gs.Player.Cargo[foodIdx]
+			divisor := 2
+			if food > 0 {
+				divisor = 1
+			}
+			breed := 1 + gs.Rand.Intn(max(1, gs.Quests.TribbleQty/divisor))
+			gs.Quests.TribbleQty += breed
+
+			if food > 0 {
+				foodGrowth := 100 + gs.Rand.Intn(food*100+1)
+				gs.Quests.TribbleQty += foodGrowth
+				gs.Player.Cargo[foodIdx] = 0
+				events = append(events, QuestEvent{
+					Title:   "Tribbles!",
+					Message: fmt.Sprintf("Your %d tribbles ate all your food and multiplied wildly!", gs.Quests.TribbleQty),
+				})
+			}
+
+			if gs.Quests.TribbleQty > 100000 {
+				gs.Quests.TribbleQty = 100000
+			}
 		}
 	}
 

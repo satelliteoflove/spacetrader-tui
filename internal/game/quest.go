@@ -35,10 +35,13 @@ const (
 )
 
 type QuestData struct {
-	States     [NumQuests]QuestState `json:"states"`
-	Progress   [NumQuests]int        `json:"progress"`
-	TribbleQty int                   `json:"tribble_qty"`
+	States      [NumQuests]QuestState `json:"states"`
+	Progress    [NumQuests]int        `json:"progress"`
+	TribbleQty  int                   `json:"tribble_qty"`
+	MonsterHull int                   `json:"monster_hull"`
 }
+
+const MonsterMaxHull = 500
 
 func (gs *GameState) QuestState(id QuestID) QuestState {
 	return gs.Quests.States[id]

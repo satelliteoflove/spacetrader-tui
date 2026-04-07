@@ -36,16 +36,21 @@ func AvailableEquipment(gs *game.GameState) []gamedata.EquipDef {
 
 func TradeInValue(gs *game.GameState) int {
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
-	value := shipDef.Price * 3 / 4
+
+	shipMultNum := 3
+	if gs.Quests.TribbleQty > 0 {
+		shipMultNum = 1
+	}
+	value := shipDef.Price * shipMultNum / 4
 
 	for _, wID := range gs.Player.Ship.Weapons {
-		value += gs.Data.Equipment[wID].Price * 3 / 4
+		value += gs.Data.Equipment[wID].Price * 2 / 3
 	}
 	for _, sID := range gs.Player.Ship.Shields {
-		value += gs.Data.Equipment[sID].Price * 3 / 4
+		value += gs.Data.Equipment[sID].Price * 2 / 3
 	}
 	for _, gID := range gs.Player.Ship.Gadgets {
-		value += gs.Data.Equipment[gID].Price * 3 / 4
+		value += gs.Data.Equipment[gID].Price * 2 / 3
 	}
 
 	return value

@@ -72,6 +72,7 @@ func ExecuteTravel(gs *game.GameState, destIdx int) TravelResult {
 	applyDailyCosts(gs)
 	applyEngineerRepair(gs)
 	applyPoliceRecordDecay(gs)
+	applyQuestDailyTick(gs)
 	game.GenerateEvents(gs)
 	game.RefreshSystemPrices(gs, destIdx)
 
@@ -117,6 +118,24 @@ func applyDailyCosts(gs *game.GameState) {
 		if gs.Player.Credits < 0 {
 			gs.Player.Credits = 0
 			gs.Player.HasInsurance = false
+		}
+	}
+}
+
+func applyQuestDailyTick(gs *game.GameState) {
+	if gs.Quests.States[game.QuestSpaceMonster] == game.QuestAvailable ||
+		gs.Quests.States[game.QuestSpaceMonster] == game.QuestActive {
+		if gs.Quests.MonsterHull > 0 && gs.Quests.MonsterHull < game.MonsterMaxHull {
+			gs.Quests.MonsterHull = gs.Quests.MonsterHull * 105 / 100
+			if gs.Quests.MonsterHull > game.MonsterMaxHull {
+				gs.Quests.MonsterHull = game.MonsterMaxHull
+			}
+		}
+	}
+
+	if gs.Quests.States[game.QuestReactor] == game.QuestActive {
+		if gs.Quests.TribbleQty > 0 {
+			gs.Quests.TribbleQty /= 2
 		}
 	}
 }

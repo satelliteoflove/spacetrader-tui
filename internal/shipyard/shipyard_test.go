@@ -51,7 +51,7 @@ func TestTradeInValue(t *testing.T) {
 	gnatPrice := gs.Data.Ships[int(gamedata.ShipGnat)].Price
 	pulsePrice := gs.Data.Equipment[0].Price
 
-	expected := (gnatPrice + pulsePrice) * 3 / 4
+	expected := gnatPrice*3/4 + pulsePrice*2/3
 	if value != expected {
 		t.Errorf("trade-in: got %d, want %d", value, expected)
 	}
