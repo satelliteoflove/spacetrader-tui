@@ -2,7 +2,6 @@ package screens
 
 import (
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,7 +19,7 @@ type menuAction int
 const (
 	actionNewGame menuAction = iota
 	actionLoadGame
-	actionColorblind
+	actionSettings
 	actionQuit
 )
 
@@ -30,10 +29,9 @@ type titleMenuItem struct {
 }
 
 type TitleScreen struct {
-	cursor     int
-	items      []titleMenuItem
-	colorblind bool
-	tw         *Typewriter
+	cursor int
+	items  []titleMenuItem
+	tw     *Typewriter
 }
 
 func NewTitleScreen() *TitleScreen {
@@ -41,23 +39,17 @@ func NewTitleScreen() *TitleScreen {
 }
 
 func NewTitleScreenWithConfig(colorblind bool, hasSave bool) *TitleScreen {
-	cbLabel := "Colorblind Mode: OFF"
-	if colorblind {
-		cbLabel = "Colorblind Mode: ON"
-	}
-
 	var items []titleMenuItem
 	if hasSave {
 		items = append(items, titleMenuItem{"Load Game", actionLoadGame})
 	}
 	items = append(items, titleMenuItem{"New Game", actionNewGame})
-	items = append(items, titleMenuItem{cbLabel, actionColorblind})
+	items = append(items, titleMenuItem{"Settings", actionSettings})
 	items = append(items, titleMenuItem{"Quit", actionQuit})
 
 	return &TitleScreen{
-		items:      items,
-		colorblind: colorblind,
-		tw:         NewTypewriter(asciiTitle, 13*time.Millisecond),
+		items: items,
+		tw:    NewTypewriter(asciiTitle, AnimTypewriterTitle),
 	}
 }
 
@@ -84,8 +76,8 @@ func (s *TitleScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenNewGame} }
 			case actionLoadGame:
 				return s, func() tea.Msg { return LoadGameMsg{} }
-			case actionColorblind:
-				return s, func() tea.Msg { return ToggleColorblindMsg{} }
+			case actionSettings:
+				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSettings} }
 			case actionQuit:
 				return s, tea.Quit
 			}

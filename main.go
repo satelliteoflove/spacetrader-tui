@@ -26,8 +26,9 @@ func main() {
 	cfg := game.LoadConfig()
 	screens.InitStyles(cfg.ColorblindMode)
 	tui.InitStatusStyles(cfg.ColorblindMode)
+	screens.ApplyAnimationSettings(cfg)
 
-	m := tui.NewModel(gd, cfg.ColorblindMode)
+	m := tui.NewModel(gd, cfg)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {

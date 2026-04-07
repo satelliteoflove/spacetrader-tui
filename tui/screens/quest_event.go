@@ -3,7 +3,6 @@ package screens
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,7 +22,7 @@ type QuestEventScreen struct {
 func NewQuestEventScreen(gs *game.GameState, events []game.QuestEvent) *QuestEventScreen {
 	s := &QuestEventScreen{gs: gs, events: events}
 	if len(events) > 0 {
-		s.tw = NewTypewriter(events[0].Message, 40*time.Millisecond)
+		s.tw = NewTypewriter(events[0].Message, AnimTypewriterEncounter)
 	}
 	return s
 }
@@ -34,7 +33,7 @@ func (s *QuestEventScreen) advanceEvent() {
 	s.current++
 	s.cursor = 0
 	if s.current < len(s.events) {
-		s.tw = NewTypewriter(s.events[s.current].Message, 40*time.Millisecond)
+		s.tw = NewTypewriter(s.events[s.current].Message, AnimTypewriterEncounter)
 	}
 }
 
@@ -88,7 +87,7 @@ func (s *QuestEventScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 				}
 			} else {
-				s.tw = NewTypewriter(s.result, 40*time.Millisecond)
+				s.tw = NewTypewriter(s.result, AnimTypewriterEncounter)
 			}
 		}
 	}

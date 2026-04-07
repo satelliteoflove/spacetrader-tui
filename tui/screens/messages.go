@@ -24,8 +24,6 @@ type EncounterDoneMsg struct {
 
 type LoadGameMsg struct{}
 
-type ToggleColorblindMsg struct{}
-
 type TickMsg struct {
 	Time time.Time
 }

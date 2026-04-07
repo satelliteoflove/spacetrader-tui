@@ -3,7 +3,6 @@ package screens
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,7 +18,6 @@ const (
 	phaseResult
 )
 
-const entranceThreshold = 2
 
 type EncounterScreen struct {
 	gs            *game.GameState
@@ -35,7 +33,7 @@ func NewEncounterScreen(gs *game.GameState, enc *encounter.Encounter) *Encounter
 	return &EncounterScreen{
 		gs:  gs,
 		enc: enc,
-		tw:  NewTypewriter(enc.Message, 40*time.Millisecond),
+		tw:  NewTypewriter(enc.Message, AnimTypewriterEncounter),
 	}
 }
 
@@ -44,7 +42,7 @@ func (s *EncounterScreen) Init() tea.Cmd { return nil }
 func (s *EncounterScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case TickMsg:
-		if s.entranceDelay < entranceThreshold {
+		if s.entranceDelay < AnimEntranceThreshold {
 			s.entranceDelay++
 		} else {
 			s.tw.Start(msg.Time)
@@ -52,7 +50,7 @@ func (s *EncounterScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return s, nil
 	case tea.KeyMsg:
-		if s.entranceDelay < entranceThreshold {
+		if s.entranceDelay < AnimEntranceThreshold {
 			return s, nil
 		}
 		if !s.tw.Done() {
@@ -75,14 +73,14 @@ func (s *EncounterScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			action := s.enc.Actions[s.cursor]
 			s.outcome = encounter.Resolve(s.gs, s.enc, action)
 			s.phase = phaseResult
-			s.tw = NewTypewriter(s.outcome.Message, 40*time.Millisecond)
+			s.tw = NewTypewriter(s.outcome.Message, AnimTypewriterEncounter)
 		}
 	}
 	return s, nil
 }
 
 func (s *EncounterScreen) View() string {
-	if s.entranceDelay < entranceThreshold {
+	if s.entranceDelay < AnimEntranceThreshold {
 		return ""
 	}
 

@@ -12,10 +12,14 @@ type Typewriter struct {
 }
 
 func NewTypewriter(text string, charRate time.Duration) *Typewriter {
-	return &Typewriter{
+	tw := &Typewriter{
 		fullText: text,
 		charRate: charRate,
 	}
+	if charRate <= 0 {
+		tw.Skip()
+	}
+	return tw
 }
 
 func (tw *Typewriter) Start(now time.Time) {

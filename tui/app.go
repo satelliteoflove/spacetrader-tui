@@ -15,10 +15,7 @@ import (
 	"github.com/the4ofus/spacetrader-tui/tui/screens"
 )
 
-const (
-	tickInterval = 125 * time.Millisecond
-	fadeDone     = 2
-)
+const tickInterval = 125 * time.Millisecond
 
 func tickCmd() tea.Cmd {
 	return tea.Tick(tickInterval, func(t time.Time) tea.Msg {
@@ -38,6 +35,7 @@ func hasSaveFile() bool {
 type Model struct {
 	gs              *game.GameState
 	data            *gamedata.GameData
+	config          game.Config
 	screen          tea.Model
 	width           int
 	height          int
@@ -47,11 +45,12 @@ type Model struct {
 	pulsePhase      int
 }
 
-func NewModel(data *gamedata.GameData, colorblind bool) Model {
+func NewModel(data *gamedata.GameData, cfg game.Config) Model {
 	return Model{
 		data:       data,
-		colorblind: colorblind,
-		screen:     screens.NewTitleScreenWithConfig(colorblind, hasSaveFile()),
+		config:     cfg,
+		colorblind: cfg.ColorblindMode,
+		screen:     screens.NewTitleScreenWithConfig(cfg.ColorblindMode, hasSaveFile()),
 	}
 }
 
@@ -120,24 +119,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.systemHubCursor = 1
 		return m.arriveAtSystem()
 	case screens.TickMsg:
-		if m.fadeFrame < fadeDone {
+		if m.fadeFrame < screens.AnimFadeDone {
 			m.fadeFrame++
 		}
-		m.pulsePhase = (m.pulsePhase + 1) % 12
+		if screens.AnimPulsePhases > 0 {
+			m.pulsePhase = (m.pulsePhase + 1) % screens.AnimPulsePhases
+		} else {
+			m.pulsePhase = 0
+		}
 		var cmd tea.Cmd
 		m.screen, cmd = m.screen.Update(msg)
 		return m, tea.Batch(cmd, tickCmd())
-	case screens.ToggleColorblindMsg:
-		m.colorblind = !m.colorblind
-		screens.InitStyles(m.colorblind)
-		InitStatusStyles(m.colorblind)
-		cfg := game.LoadConfig()
-		cfg.ColorblindMode = m.colorblind
-		game.SaveConfig(cfg)
-		m.fadeFrame = 0
-		s := screens.NewTitleScreenWithConfig(m.colorblind, hasSaveFile())
-		m.screen = s
-		return m, s.Init()
+	case screens.UpdateSettingsMsg:
+		m.config = msg.Config
+		if m.colorblind != m.config.ColorblindMode {
+			m.colorblind = m.config.ColorblindMode
+			screens.InitStyles(m.colorblind)
+			InitStatusStyles(m.colorblind)
+		}
+		screens.ApplyAnimationSettings(m.config)
+		return m, nil
 	}
 
 	var cmd tea.Cmd
@@ -189,6 +190,8 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 		s = screens.NewGuideScreen()
 	case screens.ScreenNews:
 		s = screens.NewNewsScreen(m.gs)
+	case screens.ScreenSettings:
+		s = screens.NewSettingsScreen(m.config, m.gs != nil)
 	default:
 		return m, nil
 	}
@@ -224,20 +227,34 @@ func init() {
 	InitStatusStyles(false)
 }
 
-var pulseColors = [12]string{
+var pulseColorsNormal = []string{
 	"196", "203", "210", "217", "224", "231",
-	"224", "217", "210", "203", "196", "196",
+}
+var pulseColorsCB = []string{
+	"208", "214", "220", "226", "227", "228",
 }
 
 func pulseDangerStyle(phase int, colorblind bool) lipgloss.Style {
-	if colorblind {
-		cbColors := [12]string{
-			"208", "214", "220", "226", "227", "228",
-			"227", "226", "220", "214", "208", "208",
+	if screens.AnimPulsePhases <= 0 {
+		if colorblind {
+			return lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
 		}
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(cbColors[phase])).Bold(true)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(pulseColors[phase])).Bold(true)
+	colors := pulseColorsNormal
+	if colorblind {
+		colors = pulseColorsCB
+	}
+	half := screens.AnimPulsePhases / 2
+	idx := phase
+	if idx >= half {
+		idx = screens.AnimPulsePhases - 1 - idx
+	}
+	ci := idx * (len(colors) - 1) / half
+	if ci >= len(colors) {
+		ci = len(colors) - 1
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(colors[ci])).Bold(true)
 }
 
 func (m Model) statusBar(width int) string {
@@ -298,7 +315,7 @@ func (m Model) View() string {
 		maxW = w - 2
 	}
 
-	if m.fadeFrame < fadeDone {
+	if screens.AnimFadeDone > 0 && m.fadeFrame < screens.AnimFadeDone {
 		stripped := screens.StripANSI(content)
 		content = screens.FadeStyles[m.fadeFrame].Render(stripped)
 		bar := m.statusBar(maxW)

@@ -37,6 +37,7 @@ func NewSystemScreenWithCursor(gs *game.GameState, cursor int) *SystemScreen {
 		{"Status", ScreenStatus},
 		{"Recent News", ScreenNews},
 		{"Trader's Guide", ScreenGuide},
+		{"Settings", ScreenSettings},
 	}
 
 	if gs.Player.Credits >= 500000 && gs.Player.LoanBalance == 0 && gs.QuestState(game.QuestMoonForSale) == game.QuestAvailable {

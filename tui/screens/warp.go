@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	warpWidth     = 60
-	warpHeight    = 16
-	warpMaxFrames = 12
+	warpWidth  = 60
+	warpHeight = 16
 )
 
 type WarpScreen struct {
@@ -49,7 +48,7 @@ func (s *WarpScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case TickMsg:
 		s.frame++
-		if s.frame >= warpMaxFrames {
+		if AnimWarpMaxFrames <= 0 || s.frame >= AnimWarpMaxFrames {
 			return s, func() tea.Msg { return WarpDoneMsg{} }
 		}
 		for y := warpHeight - 1; y > 0; y-- {

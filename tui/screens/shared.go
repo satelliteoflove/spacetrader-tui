@@ -3,9 +3,12 @@ package screens
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/the4ofus/spacetrader-tui/internal/game"
 )
 
 type ScreenType int
@@ -26,6 +29,7 @@ const (
 	ScreenGameOver
 	ScreenGuide
 	ScreenNews
+	ScreenSettings
 )
 
 type NavigateMsg struct {
@@ -82,7 +86,13 @@ var (
 
 func init() {
 	InitStyles(false)
-	initFadeStyles()
+	ApplyAnimationSettings(game.Config{
+		TransitionSpeed:   game.AnimMedium,
+		WarpSpeed:         game.AnimMedium,
+		EncounterEntrance: game.AnimMedium,
+		TypewriterSpeed:   game.AnimMedium,
+		PulseSpeed:        game.AnimMedium,
+	})
 }
 
 func InitStyles(colorblind bool) {
@@ -140,15 +150,69 @@ func StripANSI(s string) string {
 	return ansiRe.ReplaceAllString(s, "")
 }
 
-var FadeStyles [fadeDone]lipgloss.Style
+var FadeStyles []lipgloss.Style
 
-const fadeDone = 2
+var (
+	AnimFadeDone            int
+	AnimWarpMaxFrames       int
+	AnimEntranceThreshold   int
+	AnimTypewriterTitle     time.Duration
+	AnimTypewriterEncounter time.Duration
+	AnimPulsePhases         int
+)
+
+var fadeStepColors = []string{"232", "236", "240", "248"}
 
 func initFadeStyles() {
-	FadeStyles = [fadeDone]lipgloss.Style{
-		lipgloss.NewStyle().Foreground(lipgloss.Color("236")),
-		lipgloss.NewStyle().Foreground(lipgloss.Color("248")),
+	if AnimFadeDone <= 0 {
+		FadeStyles = nil
+		return
 	}
+	FadeStyles = make([]lipgloss.Style, AnimFadeDone)
+	step := len(fadeStepColors) / AnimFadeDone
+	if step < 1 {
+		step = 1
+	}
+	for i := 0; i < AnimFadeDone; i++ {
+		idx := i * step
+		if idx >= len(fadeStepColors) {
+			idx = len(fadeStepColors) - 1
+		}
+		FadeStyles[i] = lipgloss.NewStyle().Foreground(lipgloss.Color(fadeStepColors[idx]))
+	}
+}
+
+var transitionLookup = map[game.AnimSpeed]int{
+	game.AnimOff: 0, game.AnimSlow: 4, game.AnimMedium: 2, game.AnimFast: 1,
+}
+var warpLookup = map[game.AnimSpeed]int{
+	game.AnimOff: 0, game.AnimSlow: 20, game.AnimMedium: 12, game.AnimFast: 6,
+}
+var entranceLookup = map[game.AnimSpeed]int{
+	game.AnimOff: 0, game.AnimSlow: 4, game.AnimMedium: 2, game.AnimFast: 1,
+}
+var twTitleLookup = map[game.AnimSpeed]time.Duration{
+	game.AnimOff: 0, game.AnimSlow: 25 * time.Millisecond, game.AnimMedium: 13 * time.Millisecond, game.AnimFast: 5 * time.Millisecond,
+}
+var twEncounterLookup = map[game.AnimSpeed]time.Duration{
+	game.AnimOff: 0, game.AnimSlow: 70 * time.Millisecond, game.AnimMedium: 40 * time.Millisecond, game.AnimFast: 20 * time.Millisecond,
+}
+var pulseLookup = map[game.AnimSpeed]int{
+	game.AnimOff: 0, game.AnimSlow: 16, game.AnimMedium: 12, game.AnimFast: 8,
+}
+
+func ApplyAnimationSettings(cfg game.Config) {
+	AnimFadeDone = transitionLookup[cfg.TransitionSpeed]
+	AnimWarpMaxFrames = warpLookup[cfg.WarpSpeed]
+	AnimEntranceThreshold = entranceLookup[cfg.EncounterEntrance]
+	AnimTypewriterTitle = twTitleLookup[cfg.TypewriterSpeed]
+	AnimTypewriterEncounter = twEncounterLookup[cfg.TypewriterSpeed]
+	AnimPulsePhases = pulseLookup[cfg.PulseSpeed]
+	initFadeStyles()
+}
+
+type UpdateSettingsMsg struct {
+	Config game.Config
 }
 
 func WordWrap(text string, width int) string {
