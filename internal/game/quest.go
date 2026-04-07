@@ -22,6 +22,7 @@ const (
 	QuestCargoForSale
 	QuestLotteryWinner
 	QuestMoonForSale
+	QuestFabricRip
 	NumQuests
 )
 
@@ -35,10 +36,12 @@ const (
 )
 
 type QuestData struct {
-	States      [NumQuests]QuestState `json:"states"`
-	Progress    [NumQuests]int        `json:"progress"`
-	TribbleQty  int                   `json:"tribble_qty"`
-	MonsterHull int                   `json:"monster_hull"`
+	States         [NumQuests]QuestState `json:"states"`
+	Progress       [NumQuests]int        `json:"progress"`
+	TribbleQty     int                   `json:"tribble_qty"`
+	MonsterHull    int                   `json:"monster_hull"`
+	FabricRipDays  int                   `json:"fabric_rip_days"`
+	HasSingularity bool                  `json:"has_singularity"`
 }
 
 const MonsterMaxHull = 500

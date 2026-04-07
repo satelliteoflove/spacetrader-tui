@@ -124,17 +124,14 @@ func checkSpaceMonster(gs *GameState) []QuestEvent {
 
 	acamar := findSystem(gs, "Acamar")
 	if state == QuestAvailable && gs.CurrentSystemID == acamar {
-		fighterSkill := EffectivePlayerSkill(gs, formula.SkillFighter)
-		weaponPower := 0
-		for _, w := range gs.Player.Ship.Weapons {
-			weaponPower += gs.Data.Equipment[w].Power
+		monsterHull := gs.Quests.MonsterHull
+		if monsterHull == 0 {
+			monsterHull = MonsterMaxHull
 		}
-		power := fighterSkill*2 + weaponPower
-		monsterPower := 30 + gs.Rand.Intn(20)
 
 		return []QuestEvent{{
 			Title:   "Space Monster!",
-			Message: fmt.Sprintf("The Space Monster attacks! Your power: %d vs Monster: %d", power, monsterPower),
+			Message: fmt.Sprintf("The Space Monster attacks! Monster hull: %d/%d. It regenerates 5%% hull per day -- don't delay!", monsterHull, MonsterMaxHull),
 			Actions: []string{"Fight!", "Flee"},
 		}}
 	}
@@ -307,18 +304,21 @@ func checkFehler(gs *GameState) []QuestEvent {
 		if gs.Day-startDay > 5 {
 			gs.Quests.States[QuestFehler] = QuestUnavailable
 			gs.Quests.Progress[QuestFehler] = 0
+			gs.Quests.FabricRipDays = 25
+			gs.Quests.States[QuestFabricRip] = QuestActive
 			return []QuestEvent{{
-				Title:   "Experiment Failed",
-				Message: "The experiment went wrong. Spacetime is distorted near Deneb.",
+				Title:   "Experiment Failed!",
+				Message: "The experiment tore a hole in spacetime! Random warps may occur during travel for some time.",
 			}}
 		}
 		if deneb >= 0 && gs.CurrentSystemID == deneb {
 			gs.Quests.States[QuestFehler] = QuestComplete
 			gs.Player.Credits += 10000
 			gs.Player.Reputation += 3
+			gs.Quests.HasSingularity = true
 			return []QuestEvent{{
 				Title:   "Experiment Stopped!",
-				Message: "You stopped Dr. Fehler's experiment just in time! 10,000 credits reward.",
+				Message: "You stopped Dr. Fehler's experiment just in time! 10,000 credits reward.\n\nYou also recovered a Portable Singularity -- use it to warp to any system once!",
 			}}
 		}
 	}
@@ -385,9 +385,26 @@ func checkReactor(gs *GameState) []QuestEvent {
 	}
 
 	if state == QuestActive {
+		gs.Quests.Progress[QuestReactor]++
+		status := gs.Quests.Progress[QuestReactor]
+
 		gs.Player.Ship.Fuel -= 1
 		if gs.Player.Ship.Fuel < 0 {
 			gs.Player.Ship.Fuel = 0
+		}
+
+		if status >= 21 {
+			gs.Quests.States[QuestReactor] = QuestUnavailable
+			gs.Quests.Progress[QuestReactor] = 0
+			damage := gs.Data.Ships[gs.Player.Ship.TypeID].Hull / 2
+			gs.Player.Ship.Hull -= damage
+			if gs.Player.Ship.Hull < 1 {
+				gs.Player.Ship.Hull = 1
+			}
+			return []QuestEvent{{
+				Title:   "Reactor Meltdown!",
+				Message: fmt.Sprintf("The reactor has melted down! Massive damage (%d hull) and the reactor is lost!", damage),
+			}}
 		}
 
 		eridani := findSystem(gs, "Eridani")
@@ -398,6 +415,13 @@ func checkReactor(gs *GameState) []QuestEvent {
 			return []QuestEvent{{
 				Title:   "Reactor Delivered!",
 				Message: fmt.Sprintf("Henry Morgan is pleased. %s", reward),
+			}}
+		}
+
+		if status > 15 {
+			return []QuestEvent{{
+				Title:   "Reactor Warning",
+				Message: fmt.Sprintf("The reactor is becoming unstable! Status: %d/20. Deliver it soon!", status),
 			}}
 		}
 	}
@@ -433,6 +457,20 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 
 	case "Scarab Found!":
 		if actionIdx == 0 {
+			hasPulse := false
+			hasMorgans := false
+			for _, wID := range gs.Player.Ship.Weapons {
+				name := gs.Data.Equipment[wID].Name
+				if name == "Pulse Laser" {
+					hasPulse = true
+				}
+				if name == "Morgan's Laser" {
+					hasMorgans = true
+				}
+			}
+			if !hasPulse && !hasMorgans {
+				return "Your weapons have no effect on the Scarab's hull! It seems impervious to energy weapons. Perhaps a simpler weapon would work..."
+			}
 			gs.Quests.States[QuestScarab] = QuestComplete
 			shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
 			gs.Player.Ship.Hull = shipDef.Hull + 20

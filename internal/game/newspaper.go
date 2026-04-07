@@ -49,6 +49,13 @@ func eventHasTradeableGoods(gs *GameState, sysIdx int, event string) bool {
 	return false
 }
 
+func SystemMasthead(gs *GameState) string {
+	sys := gs.Data.Systems[gs.CurrentSystemID]
+	polData := gamedata.PoliticalSystems[sys.PoliticalSystem]
+	idx := gs.Rand.Intn(3)
+	return polData.NewspaperNames[idx]
+}
+
 func GenerateNewspaper(gs *GameState) []string {
 	sys := gs.Data.Systems[gs.CurrentSystemID]
 	sysState := gs.Systems[gs.CurrentSystemID]

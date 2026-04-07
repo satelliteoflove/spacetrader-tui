@@ -128,6 +128,16 @@ func (s *StatusScreen) View() string {
 	if s.gs.Quests.TribbleQty > 0 {
 		b.WriteString(fmt.Sprintf("  Tribbles: %d\n", s.gs.Quests.TribbleQty))
 	}
+	if s.gs.Quests.HasSingularity {
+		b.WriteString(SuccessStyle.Render("  Portable Singularity: READY") + "\n")
+	}
+	if s.gs.Quests.States[game.QuestReactor] == game.QuestActive {
+		status := s.gs.Quests.Progress[game.QuestReactor]
+		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Reactor: %d/20 (meltdown at 21!)", status)) + "\n")
+	}
+	if s.gs.Quests.FabricRipDays > 0 {
+		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Fabric Rip: %d days remaining", s.gs.Quests.FabricRipDays)) + "\n")
+	}
 
 	activeQuests := getActiveQuests(s.gs)
 	if len(activeQuests) > 0 {

@@ -125,7 +125,10 @@ func applyDailyCosts(gs *game.GameState) {
 func applyQuestDailyTick(gs *game.GameState) {
 	if gs.Quests.States[game.QuestSpaceMonster] == game.QuestAvailable ||
 		gs.Quests.States[game.QuestSpaceMonster] == game.QuestActive {
-		if gs.Quests.MonsterHull > 0 && gs.Quests.MonsterHull < game.MonsterMaxHull {
+		if gs.Quests.MonsterHull == 0 {
+			gs.Quests.MonsterHull = game.MonsterMaxHull
+		}
+		if gs.Quests.MonsterHull < game.MonsterMaxHull {
 			gs.Quests.MonsterHull = gs.Quests.MonsterHull * 105 / 100
 			if gs.Quests.MonsterHull > game.MonsterMaxHull {
 				gs.Quests.MonsterHull = game.MonsterMaxHull
@@ -136,6 +139,17 @@ func applyQuestDailyTick(gs *game.GameState) {
 	if gs.Quests.States[game.QuestReactor] == game.QuestActive {
 		if gs.Quests.TribbleQty > 0 {
 			gs.Quests.TribbleQty /= 2
+		}
+	}
+
+	if gs.Quests.FabricRipDays > 0 {
+		gs.Quests.FabricRipDays--
+		if gs.Quests.FabricRipDays <= 0 {
+			gs.Quests.States[game.QuestFabricRip] = game.QuestComplete
+		} else if gs.Rand.Intn(25) < gs.Quests.FabricRipDays {
+			dest := gs.Rand.Intn(len(gs.Data.Systems))
+			gs.CurrentSystemID = dest
+			gs.Systems[dest].Visited = true
 		}
 	}
 }

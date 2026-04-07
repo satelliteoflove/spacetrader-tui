@@ -37,6 +37,8 @@ type systemEntry struct {
 	govStr       string
 	resource     gamedata.Resource
 	resStr       string
+	sizeStr      string
+	hasWormhole  bool
 	visited      bool
 	isCurrent    bool
 	bookmarked   bool
@@ -60,6 +62,8 @@ func buildSystemEntries(gs *game.GameState, indices []int) []systemEntry {
 			govStr:       sys.PoliticalSystem.String(),
 			resource:     sys.Resource,
 			resStr:       shortResource(sys.Resource),
+			sizeStr:      sys.Size.String(),
+			hasWormhole:  game.IsWormholeSystem(gs, idx),
 			visited:      gs.Systems[idx].Visited,
 			isCurrent:    idx == gs.CurrentSystemID,
 			bookmarked:   hasBM,

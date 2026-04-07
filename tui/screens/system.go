@@ -91,8 +91,8 @@ func (s *SystemScreen) View() string {
 	if resLabel == "" {
 		resLabel = "None"
 	}
-	b.WriteString(fmt.Sprintf("  Tech: %s  |  Gov: %s  |  Specialty: %s\n",
-		sys.TechLevel, sys.PoliticalSystem, resLabel))
+	b.WriteString(fmt.Sprintf("  Tech: %s  |  Gov: %s  |  Size: %s  |  Specialty: %s\n",
+		sys.TechLevel, sys.PoliticalSystem, sys.Size, resLabel))
 
 	record := gamedata.PoliceRecordToTier(s.gs.Player.PoliceRecord)
 	rep := gamedata.ReputationToTier(s.gs.Player.Reputation)
@@ -104,7 +104,8 @@ func (s *SystemScreen) View() string {
 	}
 
 	if len(s.headlines) > 0 {
-		b.WriteString("\n" + CyanStyle.Render("  --- News ---") + "\n")
+		masthead := game.SystemMasthead(s.gs)
+		b.WriteString("\n" + CyanStyle.Render(fmt.Sprintf("  --- %s ---", masthead)) + "\n")
 		for _, h := range s.headlines {
 			b.WriteString("  " + h + "\n")
 		}
