@@ -31,11 +31,11 @@ func NewSystemScreenWithCursor(gs *game.GameState, cursor int) *SystemScreen {
 	items := []menuItem{
 		{"Market", ScreenMarket},
 		{"Navigation", ScreenGalacticList},
-		{"Shipyard", ScreenShipyard},
-		{"Bank", ScreenBank},
-		{"Personnel", ScreenPersonnel},
+		{"Galaxy News", ScreenNews},
 		{"Status", ScreenStatus},
-		{"Recent News", ScreenNews},
+		{"Shipyard", ScreenShipyard},
+		{"Personnel", ScreenPersonnel},
+		{"Bank", ScreenBank},
 		{"Trader's Guide", ScreenGuide},
 		{"Settings", ScreenSettings},
 	}
@@ -64,7 +64,7 @@ func (s *SystemScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.cursor = wrapCursor(s.cursor, 1, len(s.items))
 		case key.Matches(msg, Keys.Enter):
 			target := s.items[s.cursor].screen
-			if target == ScreenGameOver {
+			if target == ScreenGameOver && !s.gs.Player.MoonPurchased {
 				s.gs.Player.Credits -= 500000
 				s.gs.Player.MoonPurchased = true
 				s.gs.EndStatus = game.StatusRetired
@@ -91,8 +91,10 @@ func (s *SystemScreen) View() string {
 	if resLabel == "" {
 		resLabel = "None"
 	}
-	b.WriteString(fmt.Sprintf("  Tech: %s  |  Gov: %s  |  Size: %s  |  Specialty: %s\n",
-		sys.TechLevel, sys.PoliticalSystem, sys.Size, resLabel))
+	b.WriteString(fmt.Sprintf("  Tech: %s  |  Gov: %s  |  Size: %s\n",
+		sys.TechLevel, sys.PoliticalSystem, sys.Size))
+	b.WriteString(fmt.Sprintf("  Specialty: %s\n", resLabel))
+	b.WriteString(DimStyle.Render("  " + strings.Repeat("-", 40)) + "\n")
 
 	record := gamedata.PoliceRecordToTier(s.gs.Player.PoliceRecord)
 	rep := gamedata.ReputationToTier(s.gs.Player.Reputation)

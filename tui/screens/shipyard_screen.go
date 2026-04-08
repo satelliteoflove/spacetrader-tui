@@ -137,6 +137,7 @@ func (s *ShipyardScreen) View() string {
 		s.gs.Player.Credits, shipyard.TradeInValue(s.gs)))
 
 	tabs := []string{"[1] Ships", "[2] Equipment", "[3] Repair/Refuel"}
+	b.WriteString("  ")
 	for i, t := range tabs {
 		if shipyardTab(i) == s.tab {
 			b.WriteString(SelectedStyle.Render(t) + "  ")

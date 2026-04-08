@@ -18,20 +18,23 @@ const (
 )
 
 type WarpScreen struct {
-	gs       *game.GameState
-	stars    [warpHeight][warpWidth]rune
-	frame    int
-	click    int
-	destIdx  int
-	destName string
-	done     bool
+	gs        *game.GameState
+	stars     [warpHeight][warpWidth]rune
+	frame     int
+	click     int
+	maxClicks int
+	destIdx   int
+	destName  string
+	done      bool
 }
 
-func NewWarpScreen(gs *game.GameState, destIdx int, destName string) *WarpScreen {
+func NewWarpScreen(gs *game.GameState, destIdx int, destName string, distance float64) *WarpScreen {
+	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
 	w := &WarpScreen{
-		gs:       gs,
-		destIdx:  destIdx,
-		destName: destName,
+		gs:        gs,
+		destIdx:   destIdx,
+		destName:  destName,
+		maxClicks: encounter.ClicksForDistance(distance, shipDef.Range),
 	}
 	for y := 0; y < warpHeight; y++ {
 		spawnStarRow(&w.stars[y])
@@ -69,31 +72,15 @@ func (s *WarpScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		spawnStarRow(&s.stars[0])
 
-		if AnimWarpMaxFrames > 0 && s.frame%max(AnimWarpMaxFrames/encounter.ClicksPerWarp, 1) == 0 {
-			s.click++
-			if s.click > encounter.ClicksPerWarp {
+		shouldAdvance := AnimWarpMaxFrames <= 0 || s.frame%max(AnimWarpMaxFrames/s.maxClicks, 1) == 0
+		if shouldAdvance {
+			if cmd := s.advanceClick(); cmd != nil {
+				return s, cmd
+			}
+			if AnimWarpMaxFrames <= 0 {
 				s.done = true
 				return s, func() tea.Msg { return WarpDoneMsg{} }
 			}
-
-			enc := encounter.GenerateForClick(s.gs, s.destIdx)
-			if enc != nil {
-				return s, func() tea.Msg { return WarpEncounterMsg{Encounter: enc} }
-			}
-		} else if AnimWarpMaxFrames <= 0 {
-			s.click++
-			if s.click > encounter.ClicksPerWarp {
-				s.done = true
-				return s, func() tea.Msg { return WarpDoneMsg{} }
-			}
-
-			enc := encounter.GenerateForClick(s.gs, s.destIdx)
-			if enc != nil {
-				return s, func() tea.Msg { return WarpEncounterMsg{Encounter: enc} }
-			}
-
-			s.done = true
-			return s, func() tea.Msg { return WarpDoneMsg{} }
 		}
 
 	case WarpResumeMsg:
@@ -103,6 +90,18 @@ func (s *WarpScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return s, nil
+}
+
+func (s *WarpScreen) advanceClick() tea.Cmd {
+	s.click++
+	if s.click > s.maxClicks {
+		s.done = true
+		return func() tea.Msg { return WarpDoneMsg{} }
+	}
+	if enc := encounter.GenerateForClick(s.gs, s.destIdx); enc != nil {
+		return func() tea.Msg { return WarpEncounterMsg{Encounter: enc} }
+	}
+	return nil
 }
 
 func (s *WarpScreen) View() string {
@@ -115,7 +114,7 @@ func (s *WarpScreen) View() string {
 	b.WriteString("\n")
 	b.WriteString(labelStyle.Render("  Warping to " + s.destName + "..."))
 
-	progress := s.click * 100 / encounter.ClicksPerWarp
+	progress := s.click * 100 / s.maxClicks
 	if progress > 100 {
 		progress = 100
 	}

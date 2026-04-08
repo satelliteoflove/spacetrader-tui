@@ -122,6 +122,7 @@ func (s *PersonnelScreen) View() string {
 		len(s.gs.Player.Crew), maxCrew, s.gs.Player.Credits))
 
 	tabs := []string{"[1] Current Crew", "[2] Hire"}
+	b.WriteString("  ")
 	for i, t := range tabs {
 		if personnelTab(i) == s.tab {
 			b.WriteString(SelectedStyle.Render(t) + "  ")

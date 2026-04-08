@@ -1,6 +1,16 @@
 package screens
 
-import "time"
+import (
+	"time"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
+var fadeColors = []lipgloss.Color{
+	lipgloss.Color("236"),
+	lipgloss.Color("240"),
+	lipgloss.Color("244"),
+}
 
 type Typewriter struct {
 	fullText string
@@ -47,7 +57,31 @@ func (tw *Typewriter) View() string {
 		}
 		return ""
 	}
-	return tw.fullText[:tw.revealed]
+
+	fadeLen := len(fadeColors)
+	if tw.revealed <= 0 {
+		return ""
+	}
+
+	solidEnd := tw.revealed - fadeLen
+	if solidEnd < 0 {
+		solidEnd = 0
+	}
+
+	result := tw.fullText[:solidEnd]
+
+	for i := solidEnd; i < tw.revealed && i < len(tw.fullText); i++ {
+		fadeIdx := i - solidEnd
+		ch := tw.fullText[i]
+		if ch == ' ' || ch == '\n' {
+			result += string(ch)
+		} else {
+			style := lipgloss.NewStyle().Foreground(fadeColors[fadeIdx])
+			result += style.Render(string(ch))
+		}
+	}
+
+	return result
 }
 
 func (tw *Typewriter) Skip() {

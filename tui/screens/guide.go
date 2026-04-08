@@ -64,6 +64,7 @@ func (s *GuideScreen) View() string {
 	b.WriteString(HeaderStyle.Render("  TRADER'S GUIDE  ") + "\n")
 
 	tabs := []string{"[1] Trading", "[2] Tech", "[3] Government", "[4] Specialty"}
+	b.WriteString("  ")
 	for i, t := range tabs {
 		if guideTab(i) == s.tab {
 			b.WriteString(SelectedStyle.Render(t) + "  ")
@@ -182,14 +183,14 @@ func guideTechContent() string {
   %-16s %s`,
 		CyanStyle.Render("TECHNOLOGY LEVELS"),
 		DimStyle.Render("  Level            Description"),
-		"  Pre-ag", "Primitive, subsistence farming",
-		"  Agricultural", "Organized farming, basic trade",
-		"  Medieval", "Metalworking, ore demand rises",
-		"  Renaissance", "Early science, games and firearms",
-		"  Early Ind", "Factories, medicine and machines",
+		"  Pre-ag", "Primitive, only water and furs",
+		"  Agricultural", "Farming begins, food is cheap here",
+		"  Medieval", "Ore production begins, cheap here",
+		"  Renaissance", "Games and firearms appear",
+		"  Early Ind", "Medicine and machines produced",
 		"  Industrial", "Mass production, narcotics appear",
-		"  Post-ind", "Automation, advanced equipment",
-		"  Hi-tech", "Peak technology, all goods available",
+		"  Post-ind", "Robots produced, advanced equipment",
+		"  Hi-tech", "All goods available, basics cost more",
 		CyanStyle.Render("GOODS BY TECH LEVEL"),
 		"  Water", "Pre-ag through Hi-tech",
 		"  Furs", "Pre-ag through Hi-tech",

@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 	"github.com/the4ofus/spacetrader-tui/tui/screens"
@@ -48,10 +49,11 @@ type Model struct {
 
 func NewModel(data *gamedata.GameData, cfg game.Config) Model {
 	return Model{
-		data:       data,
-		config:     cfg,
-		colorblind: cfg.ColorblindMode,
-		screen:     screens.NewTitleScreenWithConfig(cfg.ColorblindMode, hasSaveFile()),
+		data:            data,
+		config:          cfg,
+		colorblind:      cfg.ColorblindMode,
+		systemHubCursor: 1,
+		screen:          screens.NewTitleScreenWithConfig(cfg.ColorblindMode, hasSaveFile()),
 	}
 }
 
@@ -72,7 +74,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.screen, cmd = m.screen.Update(msg)
 		return m, cmd
 	case screens.NavigateMsg:
-		m.systemHubCursor = msg.RestoreCursor
+		if msg.RestoreCursor > 0 {
+			m.systemHubCursor = msg.RestoreCursor
+		}
 		return m.navigate(msg)
 	case screens.LoadGameMsg:
 		path, err := game.DefaultSavePath()
@@ -85,20 +89,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.gs = gs
 		m.fadeFrame = 0
-		s := screens.NewSystemScreen(m.gs)
+		m.systemHubCursor = 1
+		s := screens.NewSystemScreenWithCursor(m.gs, m.systemHubCursor)
 		m.screen = s
 		return m, s.Init()
 	case screens.StartGameMsg:
 		m.gs = game.NewGame(m.data, msg.Name, msg.Skills, msg.Difficulty)
 		m.fadeFrame = 0
-		s := screens.NewSystemScreen(m.gs)
+		m.systemHubCursor = 1
+		s := screens.NewSystemScreenWithCursor(m.gs, m.systemHubCursor)
 		m.screen = s
 		return m, s.Init()
 	case screens.TravelMsg:
-		destName := m.gs.Data.Systems[m.gs.CurrentSystemID].Name
+		cur := m.gs.Data.Systems[m.gs.CurrentSystemID]
+		dest := m.gs.Data.Systems[msg.DestIdx]
+		dist := formula.Distance(cur.X, cur.Y, dest.X, dest.Y)
 		m.fadeFrame = 0
 		m.warpDestIdx = msg.DestIdx
-		s := screens.NewWarpScreen(m.gs, msg.DestIdx, destName)
+		s := screens.NewWarpScreen(m.gs, msg.DestIdx, dest.Name, dist)
 		m.warpScreen = s
 		m.screen = s
 		return m, s.Init()
