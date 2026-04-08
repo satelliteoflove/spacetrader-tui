@@ -45,8 +45,9 @@ func (tw *Typewriter) Update(now time.Time) {
 	}
 	elapsed := now.Sub(tw.start)
 	tw.revealed = int(elapsed / tw.charRate)
-	if tw.revealed > len(tw.fullText) {
-		tw.revealed = len(tw.fullText)
+	max := len(tw.fullText) + len(fadeColors)
+	if tw.revealed > max {
+		tw.revealed = max
 	}
 }
 
@@ -90,5 +91,5 @@ func (tw *Typewriter) Skip() {
 }
 
 func (tw *Typewriter) Done() bool {
-	return tw.skipped || tw.revealed >= len(tw.fullText)
+	return tw.skipped || tw.revealed >= len(tw.fullText)+len(fadeColors)
 }

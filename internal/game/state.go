@@ -14,7 +14,7 @@ const (
 	StatusDead
 )
 
-const CurrentSaveVersion = 2
+const CurrentSaveVersion = 3
 
 type NewsEntry struct {
 	Headline  string `json:"headline"`
