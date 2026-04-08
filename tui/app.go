@@ -97,6 +97,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.gs = game.NewGame(m.data, msg.Name, msg.Skills, msg.Difficulty)
 		m.fadeFrame = 0
 		m.systemHubCursor = 1
+		var events []game.QuestEvent
+		if msg.Difficulty == gamedata.DiffBeginner {
+			events = append(events, game.QuestEvent{
+				Title:   "Lottery Winner",
+				Message: "You are lucky! While docking at the space port, you receive a\nmessage that you won 1000 credits in a lottery. The prize has\nbeen added to your account.",
+			})
+		}
+		if len(events) > 0 {
+			s := screens.NewQuestEventScreen(m.gs, events)
+			m.screen = s
+			return m, s.Init()
+		}
 		s := screens.NewSystemScreenWithCursor(m.gs, m.systemHubCursor)
 		m.screen = s
 		return m, s.Init()

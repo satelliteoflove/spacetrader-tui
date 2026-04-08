@@ -18,7 +18,7 @@ func newTestGame(t *testing.T) *game.GameState {
 		t.Fatalf("LoadAll: %v", err)
 	}
 	skills := [formula.NumSkills]int{4, 4, 4, 4}
-	return game.NewGameWithSeed(gd, "Test", skills, gamedata.DiffNormal, 42)
+	return game.NewGameWithSeed(gd, "Test", skills, gamedata.DiffNormal, 12345)
 }
 
 func TestAvailableShips(t *testing.T) {

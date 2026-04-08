@@ -51,15 +51,38 @@ func NewGameWithSeed(data *gamedata.GameData, name string, skills [formula.NumSk
 
 	initializeMarkets(gs)
 	GenerateWormholes(gs)
+	GenerateEvents(gs)
+
+	if diff == gamedata.DiffBeginner {
+		gs.Player.Credits += 1000
+	}
 
 	return gs
 }
 
 func pickStartingSystem(gs *GameState) int {
+	shipRange := float64(gs.Data.Ships[gs.Player.Ship.TypeID].Range)
+	minNeighbors := 3
+
 	candidates := []int{}
 	for i, sys := range gs.Data.Systems {
-		if sys.TechLevel >= gamedata.TechEarlyIndustrial && sys.PoliticalSystem != gamedata.PolAnarchy {
-			candidates = append(candidates, i)
+		if sys.TechLevel >= gamedata.TechAgricultural && sys.PoliticalSystem != gamedata.PolAnarchy {
+			neighbors := 0
+			for j, other := range gs.Data.Systems {
+				if i != j && formula.Distance(sys.X, sys.Y, other.X, other.Y) <= shipRange {
+					neighbors++
+				}
+			}
+			if neighbors >= minNeighbors {
+				candidates = append(candidates, i)
+			}
+		}
+	}
+	if len(candidates) == 0 {
+		for i, sys := range gs.Data.Systems {
+			if sys.TechLevel >= gamedata.TechAgricultural {
+				candidates = append(candidates, i)
+			}
 		}
 	}
 	if len(candidates) == 0 {

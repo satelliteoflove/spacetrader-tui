@@ -33,11 +33,11 @@ func TestSkillPointsForDifficulty(t *testing.T) {
 		diff gamedata.Difficulty
 		want int
 	}{
-		{gamedata.DiffBeginner, 20},
-		{gamedata.DiffEasy, 18},
-		{gamedata.DiffNormal, 16},
-		{gamedata.DiffHard, 14},
-		{gamedata.DiffImpossible, 12},
+		{gamedata.DiffBeginner, 25},
+		{gamedata.DiffEasy, 20},
+		{gamedata.DiffNormal, 20},
+		{gamedata.DiffHard, 18},
+		{gamedata.DiffImpossible, 15},
 	}
 
 	for _, tt := range tests {

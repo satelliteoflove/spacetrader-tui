@@ -24,15 +24,15 @@ var SkillNames = [NumSkills]string{"Pilot", "Fighter", "Trader", "Engineer"}
 func SkillPointsForDifficulty(d gamedata.Difficulty) int {
 	switch d {
 	case gamedata.DiffBeginner:
-		return 20
+		return 25
 	case gamedata.DiffEasy:
-		return 18
+		return 20
 	case gamedata.DiffNormal:
-		return 16
+		return 20
 	case gamedata.DiffHard:
-		return 14
+		return 18
 	case gamedata.DiffImpossible:
-		return 12
+		return 15
 	}
-	return 16
+	return 20
 }

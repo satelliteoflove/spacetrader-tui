@@ -51,8 +51,8 @@ func TestNewGameStartingSystem(t *testing.T) {
 	gs := newTestGame(t)
 
 	sys := gs.CurrentSystem()
-	if sys.TechLevel < gamedata.TechEarlyIndustrial {
-		t.Errorf("starting system %q has tech %v, expected >= Early Industrial", sys.Name, sys.TechLevel)
+	if sys.TechLevel < gamedata.TechAgricultural {
+		t.Errorf("starting system %q has tech %v, expected >= Agricultural", sys.Name, sys.TechLevel)
 	}
 	if sys.PoliticalSystem == gamedata.PolAnarchy {
 		t.Errorf("starting system %q is Anarchy", sys.Name)

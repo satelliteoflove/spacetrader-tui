@@ -70,22 +70,84 @@ func shuffledNames(rng *rand.Rand) []string {
 	return result
 }
 
+const (
+	NumChains    = 4
+	ChainStepMin = 7
+	ChainStepMax = 9
+	ForkChance   = 15
+	DriftMax     = 0.6
+	EdgeMargin   = 5
+)
+
+type chainHead struct {
+	x, y  float64
+	angle float64
+}
+
 func placeCoordinates(rng *rand.Rand) [][2]int {
 	coords := make([][2]int, 0, NumSystems)
+
+	seeds := spreadSeeds(rng, NumChains)
+	var heads []chainHead
+	for _, s := range seeds {
+		coords = append(coords, s)
+		heads = append(heads, chainHead{
+			x:     float64(s[0]),
+			y:     float64(s[1]),
+			angle: rng.Float64() * 2 * math.Pi,
+		})
+	}
+
+	for len(coords) < NumSystems && len(heads) > 0 {
+		idx := rng.Intn(len(heads))
+		h := &heads[idx]
+
+		stepDist := float64(ChainStepMin) + rng.Float64()*float64(ChainStepMax-ChainStepMin)
+		h.angle += (rng.Float64()*2 - 1) * DriftMax
+
+		nx := h.x + math.Cos(h.angle)*stepDist
+		ny := h.y + math.Sin(h.angle)*stepDist
+
+		if nx < EdgeMargin || nx >= float64(GalaxyWidth-EdgeMargin) {
+			h.angle = math.Pi - h.angle
+			nx = h.x + math.Cos(h.angle)*stepDist
+		}
+		if ny < EdgeMargin || ny >= float64(GalaxyHeight-EdgeMargin) {
+			h.angle = -h.angle
+			ny = h.y + math.Sin(h.angle)*stepDist
+		}
+
+		nx = math.Max(1, math.Min(float64(GalaxyWidth-2), nx))
+		ny = math.Max(1, math.Min(float64(GalaxyHeight-2), ny))
+
+		ix, iy := int(nx), int(ny)
+		if tooClose(coords, ix, iy) {
+			heads = append(heads[:idx], heads[idx+1:]...)
+			continue
+		}
+
+		coords = append(coords, [2]int{ix, iy})
+		h.x, h.y = nx, ny
+
+		if rng.Intn(100) < ForkChance && len(heads) < 10 {
+			forkAngle := h.angle + (math.Pi/3 + rng.Float64()*math.Pi/3)
+			if rng.Intn(2) == 0 {
+				forkAngle = h.angle - (math.Pi/3 + rng.Float64()*math.Pi/3)
+			}
+			heads = append(heads, chainHead{x: nx, y: ny, angle: forkAngle})
+		}
+	}
 
 	for len(coords) < NumSystems {
 		placed := false
 		for attempt := 0; attempt < MaxPlaceRetries; attempt++ {
 			x := rng.Intn(GalaxyWidth)
 			y := rng.Intn(GalaxyHeight)
-
-			if tooClose(coords, x, y) {
-				continue
+			if !tooClose(coords, x, y) {
+				coords = append(coords, [2]int{x, y})
+				placed = true
+				break
 			}
-
-			coords = append(coords, [2]int{x, y})
-			placed = true
-			break
 		}
 		if !placed {
 			coords = append(coords, forcePlace(rng, coords))
@@ -94,6 +156,34 @@ func placeCoordinates(rng *rand.Rand) [][2]int {
 
 	ensureConnectivity(rng, coords)
 	return coords
+}
+
+func spreadSeeds(rng *rand.Rand, n int) [][2]int {
+	seeds := make([][2]int, 0, n)
+	for i := 0; i < n; i++ {
+		for attempt := 0; attempt < 200; attempt++ {
+			x := EdgeMargin + rng.Intn(GalaxyWidth-2*EdgeMargin)
+			y := EdgeMargin + rng.Intn(GalaxyHeight-2*EdgeMargin)
+			tooNear := false
+			for _, s := range seeds {
+				if dist(s[0], s[1], x, y) < float64(GalaxyWidth)/float64(n) {
+					tooNear = true
+					break
+				}
+			}
+			if !tooNear {
+				seeds = append(seeds, [2]int{x, y})
+				break
+			}
+		}
+		if len(seeds) <= i {
+			seeds = append(seeds, [2]int{
+				EdgeMargin + rng.Intn(GalaxyWidth-2*EdgeMargin),
+				EdgeMargin + rng.Intn(GalaxyHeight-2*EdgeMargin),
+			})
+		}
+	}
+	return seeds
 }
 
 func tooClose(coords [][2]int, x, y int) bool {

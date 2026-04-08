@@ -1,5 +1,5 @@
 [
-  {"type": "Flea", "size": "Tiny", "cargo_bays": 10, "weapon_slots": 0, "shield_slots": 0, "gadget_slots": 0, "crew_quarters": 1, "range": 20, "fuel_cost": 1, "hull": 25, "repair_cost": 1, "price": 2000, "min_tech": "Early Industrial"},
+  {"type": "Flea", "size": "Tiny", "cargo_bays": 10, "weapon_slots": 0, "shield_slots": 0, "gadget_slots": 0, "crew_quarters": 1, "range": 7, "fuel_cost": 1, "hull": 25, "repair_cost": 1, "price": 2000, "min_tech": "Early Industrial"},
   {"type": "Gnat", "size": "Small", "cargo_bays": 15, "weapon_slots": 1, "shield_slots": 0, "gadget_slots": 1, "crew_quarters": 1, "range": 14, "fuel_cost": 1, "hull": 100, "repair_cost": 2, "price": 10000, "min_tech": "Industrial"},
   {"type": "Firefly", "size": "Small", "cargo_bays": 20, "weapon_slots": 1, "shield_slots": 1, "gadget_slots": 1, "crew_quarters": 1, "range": 17, "fuel_cost": 1, "hull": 100, "repair_cost": 3, "price": 25000, "min_tech": "Industrial"},
   {"type": "Mosquito", "size": "Small", "cargo_bays": 15, "weapon_slots": 2, "shield_slots": 1, "gadget_slots": 1, "crew_quarters": 1, "range": 13, "fuel_cost": 1, "hull": 100, "repair_cost": 5, "price": 30000, "min_tech": "Industrial"},
