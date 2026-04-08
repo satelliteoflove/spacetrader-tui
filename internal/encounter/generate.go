@@ -1,12 +1,12 @@
 package encounter
 
 import (
+	"fmt"
+
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
-
-const ClicksPerWarp = 21
 
 type PoliceAttitude int
 
@@ -40,7 +40,7 @@ func GenerateForClick(gs *game.GameState, destIdx int) *Encounter {
 	dest := gs.Data.Systems[destIdx]
 	polData := gamedata.PoliticalSystems[dest.PoliticalSystem]
 
-	threshold := 44 - 2*int(gs.Difficulty)
+	threshold := EncounterBaseThreshold - DifficultyThresholdMod*int(gs.Difficulty)
 	if threshold < 1 {
 		threshold = 1
 	}
@@ -52,7 +52,7 @@ func GenerateForClick(gs *game.GameState, destIdx int) *Encounter {
 	}
 
 	if gs.Quests.States[game.QuestAlienArtifact] == game.QuestActive {
-		if gs.Rand.Intn(20) < 4 {
+		if gs.Rand.Intn(AlienArtifactDenom) < AlienArtifactChance {
 			enc := newPirateWithThreat(gs)
 			enc.Message = "Alien Mantis ships attack! They want the artifact!"
 			return enc
@@ -72,13 +72,13 @@ func GenerateForClick(gs *game.GameState, destIdx int) *Encounter {
 	}
 
 	if roll < pirateStrength+policeStrength+traderStrength {
-		return NewTraderEncounter()
+		return newTraderWithOffer(gs, destIdx)
 	}
 
-	if gs.Rand.Intn(1000) < 1 {
+	if gs.Rand.Intn(RareEncounterOdds) < 1 {
 		return newRareEncounter(gs, 0)
 	}
-	if gs.Rand.Intn(1000) < 1 {
+	if gs.Rand.Intn(RareEncounterOdds) < 1 {
 		return newRareEncounter(gs, 1)
 	}
 
@@ -138,26 +138,39 @@ func newPoliceForAttitude(gs *game.GameState) *Encounter {
 
 func newPirateWithThreat(gs *game.GameState) *Encounter {
 	enc := NewPirateEncounter()
-	enc.EnemyPower = piratePowerForDifficulty(gs)
-	enc.ThreatNote = assessThreat(gs, enc.EnemyPower)
+	ship := NewPirateShip(gs)
+	enc.PirateShip = &ship
+	enc.ThreatNote = assessThreat(gs, &ship)
 	return enc
 }
 
-func playerCombatPower(gs *game.GameState) int {
-	fighterSkill := game.EffectivePlayerSkill(gs, formula.SkillFighter)
-	weaponPower := 0
-	for _, wID := range gs.Player.Ship.Weapons {
-		weaponPower += gs.Data.Equipment[wID].Power
-	}
-	return fighterSkill*2 + weaponPower
+func shipCombatPower(weaponPower int, fighterSkill int, hull int, totalShields int) int {
+	return weaponPower*2 + fighterSkill*2 + hull/10 + totalShields/10
 }
 
-func assessThreat(gs *game.GameState, enemyPower int) string {
-	player := playerCombatPower(gs)
-	if player == 0 && enemyPower == 0 {
+func assessThreat(gs *game.GameState, enemy *EnemyShip) string {
+	playerFighter := game.EffectivePlayerSkill(gs, formula.SkillFighter)
+	playerWeapon := 0
+	for _, wID := range gs.Player.Ship.Weapons {
+		playerWeapon += gs.Data.Equipment[wID].Power
+	}
+	playerHull := gs.Data.Ships[gs.Player.Ship.TypeID].Hull
+	playerShields := 0
+	for _, sID := range gs.Player.Ship.Shields {
+		playerShields += gs.Data.Equipment[sID].Protection
+	}
+	player := shipCombatPower(playerWeapon, playerFighter, playerHull, playerShields)
+
+	enemyShields := 0
+	for _, s := range enemy.Shields {
+		enemyShields += s
+	}
+	pirate := shipCombatPower(enemy.WeaponPower, enemy.FighterSkill, enemy.Hull, enemyShields)
+
+	if player == 0 && pirate == 0 {
 		return "Both sides are unarmed."
 	}
-	ratio := float64(enemyPower) / float64(max(player, 1))
+	ratio := float64(pirate) / float64(max(player, 1))
 	switch {
 	case ratio <= 0.5:
 		return "Your scanners detect a lightly armed vessel."
@@ -169,5 +182,36 @@ func assessThreat(gs *game.GameState, enemyPower int) string {
 		return "A heavily armed pirate -- dangerous."
 	default:
 		return "This pirate outguns you significantly."
+	}
+}
+
+func newTraderWithOffer(gs *game.GameState, destIdx int) *Encounter {
+	sysState := &gs.Systems[destIdx]
+	var available []int
+	for i := 0; i < game.NumGoods; i++ {
+		if sysState.Prices[i] > 0 {
+			available = append(available, i)
+		}
+	}
+	if len(available) == 0 {
+		return NewTraderEncounter()
+	}
+
+	goodIdx := available[gs.Rand.Intn(len(available))]
+	good := gs.Data.Goods[goodIdx]
+
+	traderSkill := game.EffectivePlayerSkill(gs, formula.SkillTrader)
+	discount := 90 + traderSkill
+	if discount > 98 {
+		discount = 98
+	}
+	price := sysState.Prices[goodIdx] * discount / 100
+
+	return &Encounter{
+		Type:          EncTrader,
+		Actions:       []Action{ActionTrade, ActionDecline},
+		Message:       fmt.Sprintf("A trader offers 1 %s for %d cr (market: %d cr).", good.Name, price, sysState.Prices[goodIdx]),
+		TraderGoodIdx: goodIdx,
+		TraderPrice:   price,
 	}
 }

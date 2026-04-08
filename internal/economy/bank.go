@@ -75,14 +75,24 @@ func RepayLoan(gs *game.GameState, amount int) BankResult {
 	}
 }
 
+const (
+	InterestDivisor = 10
+	MinInterest     = 1
+)
+
+func LoanInterest(loanBalance int) int {
+	interest := loanBalance / InterestDivisor
+	if interest < MinInterest {
+		interest = MinInterest
+	}
+	return interest
+}
+
 func ApplyInterest(gs *game.GameState) int {
 	if gs.Player.LoanBalance <= 0 {
 		return 0
 	}
-	interest := gs.Player.LoanBalance / 10
-	if interest < 1 {
-		interest = 1
-	}
+	interest := LoanInterest(gs.Player.LoanBalance)
 	gs.Player.LoanBalance += interest
 	return interest
 }

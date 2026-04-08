@@ -195,7 +195,8 @@ func attackRound(rng *rand.Rand, attackerName string, weapons []WeaponInfo,
 	if len(weapons) == 0 {
 		return CombatRound{
 			AttackerName: attackerName, WeaponName: "none",
-			Hit: false, HullStatus: fmt.Sprintf("Hull: %d", *defenderHull),
+			Hit: false, ShieldStatus: shieldStatusStr(*defenderShields),
+			HullStatus: fmt.Sprintf("Hull: %d", *defenderHull),
 		}
 	}
 
@@ -289,13 +290,13 @@ func shieldStatusStr(shields []int) string {
 }
 
 func CalculateBounty(shipPrice int) int {
-	bounty := shipPrice / 200
-	bounty = (bounty / 25) * 25
-	if bounty < 25 {
-		bounty = 25
+	bounty := shipPrice / BountyDivisor
+	bounty = (bounty / BountyRounding) * BountyRounding
+	if bounty < BountyMin {
+		bounty = BountyMin
 	}
-	if bounty > 2500 {
-		bounty = 2500
+	if bounty > BountyMax {
+		bounty = BountyMax
 	}
 	return bounty
 }

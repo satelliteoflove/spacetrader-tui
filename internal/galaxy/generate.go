@@ -49,7 +49,7 @@ func shuffledNames(rng *rand.Rand) []string {
 	result = append(result, questCriticalNames...)
 
 	var others []string
-	for _, n := range systemNamePool {
+	for _, n := range allSystemNames() {
 		if !critical[n] {
 			others = append(others, n)
 		}

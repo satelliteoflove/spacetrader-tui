@@ -62,11 +62,13 @@ func (a Action) String() string {
 }
 
 type Encounter struct {
-	Type       EncounterType
-	Actions    []Action
-	Message    string
-	ThreatNote string
-	EnemyPower int
+	Type          EncounterType
+	Actions       []Action
+	Message       string
+	ThreatNote    string
+	PirateShip    *EnemyShip
+	TraderGoodIdx int
+	TraderPrice   int
 }
 
 type Outcome struct {

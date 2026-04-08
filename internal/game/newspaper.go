@@ -52,7 +52,7 @@ func eventHasTradeableGoods(gs *GameState, sysIdx int, event string) bool {
 func SystemMasthead(gs *GameState) string {
 	sys := gs.Data.Systems[gs.CurrentSystemID]
 	polData := gamedata.PoliticalSystems[sys.PoliticalSystem]
-	idx := gs.Rand.Intn(3)
+	idx := gs.CurrentSystemID % 3
 	return polData.NewspaperNames[idx]
 }
 
@@ -75,7 +75,7 @@ func GenerateNewspaper(gs *GameState) []string {
 		}
 		if gs.Systems[i].Event != "" {
 			dist := formula.Distance(sys.X, sys.Y, neighbor.X, neighbor.Y)
-			if dist < 20 {
+			if dist < 30 {
 				h := eventHeadline(gs.Systems[i].Event, neighbor.Name)
 				headlines = append(headlines, h)
 				addNewsEntry(gs, h, neighbor.Name, i)

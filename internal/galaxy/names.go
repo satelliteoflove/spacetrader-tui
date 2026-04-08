@@ -15,29 +15,36 @@ var questCriticalNames = []string{
 	"Utopia",
 }
 
-var systemNamePool = []string{
-	"Acamar", "Adahn", "Aldea", "Andevian", "Antedi",
-	"Balosnee", "Baratas", "Brax", "Bretel", "Calondia",
+var additionalNames = []string{
+	"Adahn", "Aldea", "Andevian", "Antedi",
+	"Balosnee", "Brax", "Bretel", "Calondia",
 	"Campor", "Capelle", "Carzon", "Castor", "Cestus",
-	"Cheron", "Courteney", "Daled", "Damast", "Davlos",
-	"Deneb", "Deneva", "Devidia", "Draylon", "Drema",
+	"Cheron", "Courteney", "Damast", "Davlos",
+	"Deneb", "Deneva", "Draylon", "Drema",
 	"Endor", "Esmee", "Exo", "Ferris", "Festen",
-	"Fourmi", "Frolix", "Gemulon", "Guinifer", "Hades",
+	"Fourmi", "Frolix", "Guinifer", "Hades",
 	"Hamlet", "Helena", "Hulst", "Iodine", "Iralius",
-	"Janus", "Japori", "Jarada", "Jason", "Kaylon",
+	"Janus", "Jarada", "Jason", "Kaylon",
 	"Khefka", "Kira", "Klaatu", "Klaestron", "Korma",
-	"Kravat", "Krios", "Laertes", "Largo", "Lave",
-	"Ligon", "Lowry", "Magrat", "Malcoria", "Melina",
+	"Krios", "Laertes", "Largo", "Lave",
+	"Ligon", "Lowry", "Magrat", "Malcoria",
 	"Mentar", "Merik", "Mintaka", "Montor", "Mordan",
-	"Myrthe", "Nelvana", "Nix", "Nyle", "Odet",
+	"Myrthe", "Nelvana", "Nyle", "Odet",
 	"Og", "Omega", "Omphalos", "Orias", "Othello",
 	"Parade", "Penthara", "Picard", "Pollux", "Quator",
-	"Rakhar", "Ran", "Regulas", "Relva", "Rhymus",
+	"Rakhar", "Ran", "Relva", "Rhymus",
 	"Rochani", "Rubicum", "Rutia", "Sarpeidon", "Sefalla",
 	"Seltrice", "Sigma", "Sol", "Somari", "Stakoron",
 	"Styris", "Talani", "Tamus", "Tantalos", "Tanuga",
 	"Tarchannen", "Terosa", "Thera", "Titan", "Torin",
-	"Triacus", "Turkana", "Tyrus", "Umberlee", "Utopia",
+	"Triacus", "Turkana", "Tyrus", "Umberlee",
 	"Vadera", "Vagra", "Vandor", "Ventax", "Xenon",
-	"Xerxes", "Yew", "Yojimbo", "Zalkon", "Zuul",
+	"Xerxes", "Yew", "Yojimbo", "Zuul",
+}
+
+func allSystemNames() []string {
+	names := make([]string, 0, len(questCriticalNames)+len(additionalNames))
+	names = append(names, questCriticalNames...)
+	names = append(names, additionalNames...)
+	return names
 }

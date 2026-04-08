@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/the4ofus/spacetrader-tui/internal/economy"
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 )
@@ -84,7 +85,19 @@ func ExecuteTravel(gs *game.GameState, destIdx int) TravelResult {
 	}
 }
 
+const (
+	BaseInsurancePremium = 100
+	MaxNoClaimDiscount   = 90
+	MinInsurancePremium  = 10
+)
+
 func applyDailyCosts(gs *game.GameState) {
+	applyCrewWages(gs)
+	applyLoanInterest(gs)
+	applyInsurancePremium(gs)
+}
+
+func applyCrewWages(gs *game.GameState) {
 	totalWages := 0
 	for _, m := range gs.Player.Crew {
 		totalWages += m.Wage
@@ -94,31 +107,32 @@ func applyDailyCosts(gs *game.GameState) {
 		gs.Player.Credits = 0
 		gs.Player.Crew = nil
 	}
+}
 
+func applyLoanInterest(gs *game.GameState) {
 	if gs.Player.LoanBalance > 0 {
-		interest := gs.Player.LoanBalance / 10
-		if interest < 1 {
-			interest = 1
-		}
+		interest := economy.LoanInterest(gs.Player.LoanBalance)
 		gs.Player.LoanBalance += interest
 	}
+}
 
-	if gs.Player.HasInsurance {
-		gs.Player.InsuranceDays++
-		basePremium := 100
-		noclaimDiscount := gs.Player.InsuranceDays
-		if noclaimDiscount > 90 {
-			noclaimDiscount = 90
-		}
-		premium := basePremium * (100 - noclaimDiscount) / 100
-		if premium < 10 {
-			premium = 10
-		}
-		gs.Player.Credits -= premium
-		if gs.Player.Credits < 0 {
-			gs.Player.Credits = 0
-			gs.Player.HasInsurance = false
-		}
+func applyInsurancePremium(gs *game.GameState) {
+	if !gs.Player.HasInsurance {
+		return
+	}
+	gs.Player.InsuranceDays++
+	noClaimDiscount := gs.Player.InsuranceDays
+	if noClaimDiscount > MaxNoClaimDiscount {
+		noClaimDiscount = MaxNoClaimDiscount
+	}
+	premium := BaseInsurancePremium * (100 - noClaimDiscount) / 100
+	if premium < MinInsurancePremium {
+		premium = MinInsurancePremium
+	}
+	gs.Player.Credits -= premium
+	if gs.Player.Credits < 0 {
+		gs.Player.Credits = 0
+		gs.Player.HasInsurance = false
 	}
 }
 

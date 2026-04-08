@@ -20,7 +20,7 @@ func BasePrice(good gamedata.GoodDef, sys gamedata.SystemDef, event string, rng 
 		price = price * 4 / 3
 	}
 
-	price = price * (100 - int(sys.Size)) / 100
+	price = price * (100 - int(sys.Size)*3) / 100
 
 	if good.ExpensiveResource != "" && sys.Resource.String() == good.ExpensiveResource {
 		price = price * 4 / 3

@@ -16,15 +16,15 @@ type QuestEvent struct {
 func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 	var events []QuestEvent
 
-	if gs.Day > 10 && gs.Quests.States[QuestMoonForSale] == QuestUnavailable {
-		gs.Quests.States[QuestMoonForSale] = QuestAvailable
+	if gs.Day > 10 && gs.QuestState(QuestMoonForSale) == QuestUnavailable {
+		gs.SetQuestState(QuestMoonForSale, QuestAvailable)
 	}
 
 	sys := gs.Data.Systems[gs.CurrentSystemID]
 
-	if gs.Day > 5 && gs.Quests.States[QuestJapori] == QuestUnavailable && sys.TechLevel >= gamedata.TechIndustrial {
+	if gs.Day > 5 && gs.QuestState(QuestJapori) == QuestUnavailable && sys.TechLevel >= gamedata.TechIndustrial {
 		if gs.Rand.Intn(100) < 15 {
-			gs.Quests.States[QuestJapori] = QuestAvailable
+			gs.SetQuestState(QuestJapori, QuestAvailable)
 			events = append(events, QuestEvent{
 				Title:   "Japori Disease",
 				Message: "A terrible disease is sweeping Japori! 10 bays of medicine are desperately needed.\n\n  Reward: Skill training (+2 random skills)\n  Requires: 10 units of medicine in cargo\n  Deadline: None -- deliver at your own pace",
@@ -34,11 +34,11 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 	}
 
 	japoriSys := findSystem(gs, "Japori")
-	if gs.Quests.States[QuestJapori] == QuestActive && japoriSys >= 0 && gs.CurrentSystemID == japoriSys {
+	if gs.QuestState(QuestJapori) == QuestActive && japoriSys >= 0 && gs.CurrentSystemID == japoriSys {
 		medicine := gs.Player.Cargo[int(gamedata.GoodMedicine)]
 		if medicine >= 10 {
 			gs.Player.Cargo[int(gamedata.GoodMedicine)] -= 10
-			gs.Quests.States[QuestJapori] = QuestComplete
+			gs.SetQuestState(QuestJapori, QuestComplete)
 			skill1 := gs.Rand.Intn(formula.NumSkills)
 			skill2 := gs.Rand.Intn(formula.NumSkills)
 			gs.Player.Skills[skill1]++
@@ -56,9 +56,9 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 		}
 	}
 
-	if gs.Day > 15 && gs.Quests.States[QuestSkillIncrease] == QuestUnavailable {
+	if gs.Day > 15 && gs.QuestState(QuestSkillIncrease) == QuestUnavailable {
 		if gs.Rand.Intn(100) < 10 && sys.TechLevel >= gamedata.TechPostIndustrial {
-			gs.Quests.States[QuestSkillIncrease] = QuestAvailable
+			gs.SetQuestState(QuestSkillIncrease, QuestAvailable)
 			events = append(events, QuestEvent{
 				Title:   "Skill Training Available",
 				Message: "A renowned trainer offers to improve one of your skills.\n\n  Cost: 3,000 credits\n  Reward: +1 random skill",
@@ -67,9 +67,9 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 		}
 	}
 
-	if gs.Day > 8 && gs.Quests.States[QuestLotteryWinner] == QuestUnavailable {
+	if gs.Day > 8 && gs.QuestState(QuestLotteryWinner) == QuestUnavailable {
 		if gs.Rand.Intn(100) < 3 {
-			gs.Quests.States[QuestLotteryWinner] = QuestComplete
+			gs.SetQuestState(QuestLotteryWinner, QuestComplete)
 			winnings := 500 + gs.Rand.Intn(1500)
 			gs.Player.Credits += winnings
 			events = append(events, QuestEvent{
@@ -79,7 +79,7 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 		}
 	}
 
-	if gs.Quests.States[QuestCargoForSale] == QuestUnavailable && gs.Rand.Intn(100) < 5 {
+	if gs.QuestState(QuestCargoForSale) == QuestUnavailable && gs.Rand.Intn(100) < 5 {
 		goodIdx := gs.Rand.Intn(NumGoods)
 		for gs.Data.Goods[goodIdx].MinTech > sys.TechLevel {
 			goodIdx = gs.Rand.Intn(NumGoods)
@@ -97,8 +97,8 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 			if !good.Legal {
 				legalNote = " (illegal goods!)"
 			}
-			gs.Quests.States[QuestCargoForSale] = QuestAvailable
-			gs.Quests.Progress[QuestCargoForSale] = goodIdx
+			gs.SetQuestState(QuestCargoForSale, QuestAvailable)
+			gs.SetQuestProgress(QuestCargoForSale, goodIdx)
 			gs.cargoOfferQty = qty
 			events = append(events, QuestEvent{
 				Title:   "Cargo for Sale",
@@ -108,9 +108,9 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 		}
 	}
 
-	if gs.Quests.States[QuestEraseRecord] == QuestUnavailable && gs.Player.PoliceRecord < -10 {
+	if gs.QuestState(QuestEraseRecord) == QuestUnavailable && gs.Player.PoliceRecord < -10 {
 		if gs.Rand.Intn(100) < 8 && sys.PoliticalSystem == gamedata.PolAnarchy {
-			gs.Quests.States[QuestEraseRecord] = QuestAvailable
+			gs.SetQuestState(QuestEraseRecord, QuestAvailable)
 			events = append(events, QuestEvent{
 				Title:   "Hacker Contact",
 				Message: "A hacker offers to erase your police record for 5000 credits.",
@@ -181,10 +181,10 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 	switch questTitle {
 	case "Japori Disease":
 		if actionIdx == 0 {
-			gs.Quests.States[QuestJapori] = QuestActive
+			gs.SetQuestState(QuestJapori, QuestActive)
 			return "Mission accepted. Deliver 10 medicine to Japori."
 		}
-		gs.Quests.States[QuestJapori] = QuestUnavailable
+		gs.SetQuestState(QuestJapori, QuestUnavailable)
 		return "Mission declined."
 
 	case "Skill Training Available":
@@ -195,17 +195,17 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 			if gs.Player.Skills[skill] > formula.SkillMax {
 				gs.Player.Skills[skill] = formula.SkillMax
 			}
-			gs.Quests.States[QuestSkillIncrease] = QuestComplete
+			gs.SetQuestState(QuestSkillIncrease, QuestComplete)
 			return fmt.Sprintf("Your %s skill improved!", formula.SkillNames[skill])
 		} else if actionIdx == 0 {
 			return "Not enough credits."
 		}
-		gs.Quests.States[QuestSkillIncrease] = QuestUnavailable
+		gs.SetQuestState(QuestSkillIncrease, QuestUnavailable)
 		return "Maybe next time."
 
 	case "Cargo for Sale":
 		if actionIdx == 0 {
-			goodIdx := gs.Quests.Progress[QuestCargoForSale]
+			goodIdx := gs.QuestProgress(QuestCargoForSale)
 			qty := gs.cargoOfferQty
 			good := gs.Data.Goods[goodIdx]
 			price := good.BasePrice * qty / 2
@@ -214,22 +214,22 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 			}
 			gs.Player.Credits -= price
 			gs.Player.Cargo[goodIdx] += qty
-			gs.Quests.States[QuestCargoForSale] = QuestComplete
+			gs.SetQuestState(QuestCargoForSale, QuestComplete)
 			return fmt.Sprintf("Bought %d %s for %d credits (half price!).", qty, good.Name, price)
 		}
-		gs.Quests.States[QuestCargoForSale] = QuestUnavailable
+		gs.SetQuestState(QuestCargoForSale, QuestUnavailable)
 		return "Declined."
 
 	case "Hacker Contact":
 		if actionIdx == 0 && gs.Player.Credits >= 5000 {
 			gs.Player.Credits -= 5000
 			gs.Player.PoliceRecord = 0
-			gs.Quests.States[QuestEraseRecord] = QuestComplete
+			gs.SetQuestState(QuestEraseRecord, QuestComplete)
 			return "Your police record has been erased!"
 		} else if actionIdx == 0 {
 			return "Not enough credits."
 		}
-		gs.Quests.States[QuestEraseRecord] = QuestUnavailable
+		gs.SetQuestState(QuestEraseRecord, QuestUnavailable)
 		return "Declined."
 	}
 

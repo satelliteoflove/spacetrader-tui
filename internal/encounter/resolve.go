@@ -20,7 +20,7 @@ func Resolve(gs *game.GameState, enc *Encounter, action Action) Outcome {
 	case EncPirate:
 		return resolvePirate(gs, enc, action)
 	case EncTrader:
-		return resolveTrader(gs, action)
+		return resolveTrader(gs, enc, action)
 	case EncFamousCaptain:
 		return resolveFamousCaptain(gs, action)
 	case EncMarieCeleste:
@@ -55,7 +55,7 @@ func policeComply(gs *game.GameState) Outcome {
 		idx := int(g.ID)
 		if !g.Legal && gs.Player.Cargo[idx] > 0 {
 			qty := gs.Player.Cargo[idx]
-			fine := 500 * qty
+			fine := IllegalGoodFine * qty
 			totalFine += fine
 			illegalCargo[idx] = qty
 			gs.Player.Cargo[idx] = 0
@@ -92,13 +92,13 @@ func policeBribe(gs *game.GameState) Outcome {
 
 	worth := playerWorth(gs)
 	diff := int(gs.Difficulty)
-	bribeCost := worth / ((10 + 5*(4-diff)) * polData.BribeLevel)
-	bribeCost = (bribeCost / 100) * 100
-	if bribeCost < 100 {
-		bribeCost = 100
+	bribeCost := worth / ((BribeBaseDivisor + BribeDiffFactor*(BribeDiffBase-diff)) * polData.BribeLevel)
+	bribeCost = (bribeCost / BribeRounding) * BribeRounding
+	if bribeCost < MinBribeCost {
+		bribeCost = MinBribeCost
 	}
-	if bribeCost > 10000 {
-		bribeCost = 10000
+	if bribeCost > MaxBribeCost {
+		bribeCost = MaxBribeCost
 	}
 
 	if gs.Quests.States[game.QuestWild] == game.QuestActive ||
@@ -120,37 +120,14 @@ func policeBribe(gs *game.GameState) Outcome {
 }
 
 func policeFlee(gs *game.GameState) Outcome {
-	playerPilot := game.EffectivePlayerSkill(gs, formula.SkillPilot)
 	enemy := NewPoliceShip(gs)
-
-	if FleeAttempt(gs.Rand, playerPilot, enemy.PilotSkill, gs.Difficulty) {
-		gs.Player.PoliceRecord -= 1
-		return Outcome{
-			Message:      "Escaped the police!",
-			RecordChange: -1,
-			Fled:         true,
-		}
+	gs.Player.PoliceRecord -= 1
+	outcome := handleFlee(gs, enemy, -1)
+	if !outcome.Fled {
+		gs.Player.PoliceRecord -= 2
+		outcome.RecordChange = -3
 	}
-
-	gs.Player.PoliceRecord -= 3
-	round := FleeDamage(gs.Rand, enemy, gs)
-	combatLog := FormatCombatLog([]CombatRound{round})
-
-	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
-		return Outcome{
-			Message:      fmt.Sprintf("Failed to flee! %s", destroyMsg),
-			CombatLog:    combatLog,
-			HullDamage:   round.HullDamage,
-			RecordChange: -3,
-		}
-	}
-
-	return Outcome{
-		Message:      fmt.Sprintf("Failed to flee! Took %d hull damage. Record worsened.", round.HullDamage),
-		CombatLog:    combatLog,
-		HullDamage:   round.HullDamage,
-		RecordChange: -3,
-	}
+	return outcome
 }
 
 func policeSurrender(gs *game.GameState) Outcome {
@@ -173,8 +150,8 @@ func policeSurrender(gs *game.GameState) Outcome {
 	}
 
 	prisonDays := -record
-	if prisonDays < 30 {
-		prisonDays = 30
+	if prisonDays < MinPrisonDays {
+		prisonDays = MinPrisonDays
 	}
 
 	allCargo := map[int]int{}
@@ -188,7 +165,7 @@ func policeSurrender(gs *game.GameState) Outcome {
 
 	gs.Player.Credits = max(0, gs.Player.Credits-fine)
 	gs.Day += prisonDays
-	gs.Player.PoliceRecord = -5
+	gs.Player.PoliceRecord = ArrestedRecordReset
 
 	msg := fmt.Sprintf("Arrested! Fined %d credits, %d days in prison. All cargo confiscated. Record reset to Dubious.", fine, prisonDays)
 
@@ -196,15 +173,16 @@ func policeSurrender(gs *game.GameState) Outcome {
 		Message:       msg,
 		CreditsChange: -fine,
 		CargoLost:     allCargo,
-		RecordChange:  -5 - record,
+		RecordChange:  ArrestedRecordReset - record,
 	}
 }
 
 func confiscateShip(gs *game.GameState) Outcome {
-	fleaDef := gs.Data.Ships[0]
+	fleaID := game.ShipFlea
+	fleaDef := gs.Data.Ships[fleaID]
 
 	gs.Player.Ship = game.Ship{
-		TypeID:  0,
+		TypeID:  fleaID,
 		Hull:    fleaDef.Hull,
 		Fuel:    fleaDef.Range,
 		Weapons: []int{},
@@ -271,7 +249,7 @@ func resolvePirate(gs *game.GameState, enc *Encounter, action Action) Outcome {
 	case ActionFight:
 		return pirateFight(gs, enc)
 	case ActionFlee:
-		return pirateFlee(gs)
+		return pirateFlee(gs, enc)
 	case ActionSurrender:
 		return pirateSurrender(gs)
 	}
@@ -279,7 +257,12 @@ func resolvePirate(gs *game.GameState, enc *Encounter, action Action) Outcome {
 }
 
 func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
-	enemy := NewPirateShip(gs)
+	var enemy EnemyShip
+	if enc.PirateShip != nil {
+		enemy = *enc.PirateShip
+	} else {
+		enemy = NewPirateShip(gs)
+	}
 	result := RunCombat(gs, enemy, 10)
 	combatLog := FormatCombatLog(result.Rounds)
 
@@ -302,7 +285,7 @@ func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
 		}
 	}
 
-	lost := min(gs.Player.Credits, 100+gs.Rand.Intn(400))
+	lost := min(gs.Player.Credits, PirateLossMin+gs.Rand.Intn(PirateLossRange))
 	gs.Player.Credits -= lost
 
 	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
@@ -322,14 +305,24 @@ func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
 	}
 }
 
-func pirateFlee(gs *game.GameState) Outcome {
+func pirateFlee(gs *game.GameState, enc *Encounter) Outcome {
+	var enemy EnemyShip
+	if enc.PirateShip != nil {
+		enemy = *enc.PirateShip
+	} else {
+		enemy = NewPirateShip(gs)
+	}
+	return handleFlee(gs, enemy, 0)
+}
+
+func handleFlee(gs *game.GameState, enemy EnemyShip, recordChange int) Outcome {
 	playerPilot := game.EffectivePlayerSkill(gs, formula.SkillPilot)
-	enemy := NewPirateShip(gs)
 
 	if FleeAttempt(gs.Rand, playerPilot, enemy.PilotSkill, gs.Difficulty) {
 		return Outcome{
-			Message: "Escaped the pirates!",
-			Fled:    true,
+			Message:      fmt.Sprintf("Escaped the %s!", enemy.Name),
+			RecordChange: recordChange,
+			Fled:         true,
 		}
 	}
 
@@ -338,26 +331,28 @@ func pirateFlee(gs *game.GameState) Outcome {
 
 	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
 		return Outcome{
-			Message:    fmt.Sprintf("Failed to flee! %s", destroyMsg),
-			CombatLog:  combatLog,
-			HullDamage: round.HullDamage,
+			Message:      fmt.Sprintf("Failed to flee! %s", destroyMsg),
+			CombatLog:    combatLog,
+			HullDamage:   round.HullDamage,
+			RecordChange: recordChange,
 		}
 	}
 
 	return Outcome{
-		Message:    fmt.Sprintf("Failed to flee! Took %d hull damage.", round.HullDamage),
-		CombatLog:  combatLog,
-		HullDamage: round.HullDamage,
+		Message:      fmt.Sprintf("Failed to flee! Took %d hull damage.", round.HullDamage),
+		CombatLog:    combatLog,
+		HullDamage:   round.HullDamage,
+		RecordChange: recordChange,
 	}
 }
 
 func pirateSurrender(gs *game.GameState) Outcome {
-	lost := min(gs.Player.Credits, 200+gs.Rand.Intn(800))
+	lost := min(gs.Player.Credits, PirateSurrenderMin+gs.Rand.Intn(PirateSurrenderRange))
 	gs.Player.Credits -= lost
 
 	cargoLost := map[int]int{}
 	for i := range gs.Player.Cargo {
-		if gs.Player.Cargo[i] > 0 && gs.Rand.Intn(100) < 50 {
+		if gs.Player.Cargo[i] > 0 && gs.Rand.Intn(CargoLossDenom) < CargoLossChance {
 			cargoLost[i] = gs.Player.Cargo[i]
 			gs.Player.Cargo[i] = 0
 		}
@@ -370,44 +365,25 @@ func pirateSurrender(gs *game.GameState) Outcome {
 	}
 }
 
-func resolveTrader(gs *game.GameState, action Action) Outcome {
+func resolveTrader(gs *game.GameState, enc *Encounter, action Action) Outcome {
 	switch action {
 	case ActionTrade:
-		return traderTrade(gs)
+		return traderTrade(gs, enc)
 	case ActionDecline:
 		return Outcome{Message: "Declined to trade."}
 	}
 	return Outcome{Message: "Invalid action."}
 }
 
-func traderTrade(gs *game.GameState) Outcome {
-	sysState := &gs.Systems[gs.CurrentSystemID]
-
-	available := []int{}
-	for i := 0; i < game.NumGoods; i++ {
-		if sysState.Prices[i] > 0 {
-			available = append(available, i)
-		}
-	}
-	if len(available) == 0 {
-		return Outcome{Message: "Trader has nothing to offer."}
-	}
-
-	goodIdx := available[gs.Rand.Intn(len(available))]
+func traderTrade(gs *game.GameState, enc *Encounter) Outcome {
+	goodIdx := enc.TraderGoodIdx
+	price := enc.TraderPrice
 	good := gs.Data.Goods[goodIdx]
-
-	traderSkill := game.EffectivePlayerSkill(gs, formula.SkillTrader)
-
-	discount := 90 + traderSkill
-	if discount > 98 {
-		discount = 98
-	}
-	price := sysState.Prices[goodIdx] * discount / 100
 
 	dp := &game.GameDataProvider{Data: gs.Data}
 	if gs.Player.Credits < price || gs.Player.FreeCargo(dp) < 1 {
 		return Outcome{
-			Message: fmt.Sprintf("Trader offered %s for %d credits, but you can't afford it or have no space.", good.Name, price),
+			Message: fmt.Sprintf("Can't afford %s for %d cr, or no cargo space.", good.Name, price),
 		}
 	}
 
@@ -415,7 +391,7 @@ func traderTrade(gs *game.GameState) Outcome {
 	gs.Player.Cargo[goodIdx]++
 
 	return Outcome{
-		Message:       fmt.Sprintf("Bought 1 %s from trader for %d credits (market price: %d).", good.Name, price, sysState.Prices[goodIdx]),
+		Message:       fmt.Sprintf("Bought 1 %s for %d cr.", good.Name, price),
 		CreditsChange: -price,
 	}
 }
@@ -497,7 +473,7 @@ func resolveMarieCeleste(gs *game.GameState, action Action) Outcome {
 	if gs.Player.FreeCargo(dp) < 3 {
 		return Outcome{Message: "Not enough cargo space to salvage."}
 	}
-	narcIdx := 8
+	narcIdx := int(gamedata.GoodNarcotics)
 	gs.Player.Cargo[narcIdx] += 3
 	gs.Player.PoliceRecord -= 1
 	return Outcome{
@@ -510,10 +486,10 @@ func resolveBottle(gs *game.GameState, action Action) Outcome {
 	if action == ActionDecline {
 		return Outcome{Message: "You leave the bottle floating in space."}
 	}
-	skill := gs.Rand.Intn(4)
+	skill := gs.Rand.Intn(formula.NumSkills)
 	gs.Player.Skills[skill]++
-	if gs.Player.Skills[skill] > 10 {
-		gs.Player.Skills[skill] = 10
+	if gs.Player.Skills[skill] > formula.SkillMax {
+		gs.Player.Skills[skill] = formula.SkillMax
 	}
 
 	if gs.Rand.Intn(100) < 20 && gs.Quests.TribbleQty == 0 {
@@ -526,30 +502,6 @@ func resolveBottle(gs *game.GameState, action Action) Outcome {
 	return Outcome{
 		Message: fmt.Sprintf("The tonic improved your %s skill!", formula.SkillNames[skill]),
 	}
-}
-
-func piratePowerForDifficulty(gs *game.GameState) int {
-	base := 10
-	spread := 40
-	switch gs.Difficulty {
-	case 0: // Beginner
-		base = 5
-		spread = 20
-	case 1: // Easy
-		base = 8
-		spread = 30
-	case 2: // Normal
-		base = 10
-		spread = 40
-	case 3: // Hard
-		base = 15
-		spread = 50
-	case 4: // Impossible
-		base = 25
-		spread = 60
-	}
-	dayBonus := gs.Day / 20
-	return base + gs.Rand.Intn(spread) + dayBonus
 }
 
 func checkShipDestroyed(gs *game.GameState) (destroyed bool, message string) {
@@ -580,9 +532,10 @@ func checkShipDestroyed(gs *game.GameState) (destroyed bool, message string) {
 			gs.Player.HasInsurance = false
 		}
 
-		gnatDef := gs.Data.Ships[1]
+		gnatID := game.ShipGnat
+		gnatDef := gs.Data.Ships[gnatID]
 		gs.Player.Ship = game.Ship{
-			TypeID:  1,
+			TypeID:  gnatID,
 			Hull:    gnatDef.Hull,
 			Fuel:    gnatDef.Range,
 			Weapons: []int{},
