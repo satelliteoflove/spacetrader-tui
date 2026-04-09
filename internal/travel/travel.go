@@ -135,12 +135,12 @@ func applyDailyCosts(gs *game.GameState) {
 func applyCrewWages(gs *game.GameState) {
 	totalWages := 0
 	for _, m := range gs.Player.Crew {
-		totalWages += m.Wage
+		totalWages += m.Wage()
 	}
 	gs.Player.Credits -= totalWages
 	if gs.Player.Credits < 0 {
 		gs.Player.Credits = 0
-		gs.Player.Crew = nil
+		game.ClearCrewAndResetQuests(gs)
 	}
 }
 

@@ -49,6 +49,12 @@ func NewGameWithSeed(data *gamedata.GameData, name string, skills [formula.NumSk
 	gs.CurrentSystemID = startIdx
 	gs.Systems[startIdx].Visited = true
 
+	sysCoords := make([][2]int, len(data.Systems))
+	for i, s := range data.Systems {
+		sysCoords[i] = [2]int{s.X, s.Y}
+	}
+	gs.Mercenaries = GenerateMercenaries(rng, len(data.Systems), startIdx, sysCoords, gs.EffectiveRange())
+
 	initializeMarkets(gs)
 	GenerateWormholes(gs)
 	GenerateEvents(gs)

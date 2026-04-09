@@ -249,34 +249,53 @@ func checkJarek(gs *GameState) []QuestEvent {
 	state := gs.QuestState(QuestJarek)
 
 	if state == QuestUnavailable && gs.Day > 12 && gs.Rand.Intn(100) < 10 {
-		aldIdx, distStr := systemDistanceStr(gs, "Aldebaran")
-		if aldIdx >= 0 && gs.HopsToSystem(aldIdx) > 10 {
+		devIdx, distStr := systemDistanceStr(gs, "Devidia")
+		if devIdx >= 0 && gs.HopsToSystem(devIdx) > 10 {
 			return nil
 		}
 		gs.SetQuestState(QuestJarek, QuestAvailable)
 		return []QuestEvent{{
 			Title:   "Ambassador Jarek",
-			Message: fmt.Sprintf("Ambassador Jarek needs transport to Aldebaran for urgent diplomatic negotiations.\n\n  Destination: Aldebaran%s\n  Reward: 5,000 credits + reputation\n  Deadline: 10 stops -- he leaves if not delivered in time\n  Failure: No penalty, ambassador departs", distStr),
+			Message: fmt.Sprintf("Ambassador Jarek needs transport to Devidia. A recent political crisis has forced him to flee.\n\n  Destination: Devidia%s\n  Reward: Haggling Computer (+1 Trader skill)\n  Deadline: 10 stops -- he leaves if not delivered in time\n  Note: Uses one crew quarter", distStr),
 			Actions: []string{"Accept passenger", "Decline"},
 		}}
 	}
 
 	if state == QuestActive {
-		aldebaran := findSystem(gs, "Aldebaran")
-		if aldebaran >= 0 && gs.CurrentSystemID == aldebaran {
+		devidia := findSystem(gs, "Devidia")
+		if devidia >= 0 && gs.CurrentSystemID == devidia {
 			gs.SetQuestState(QuestJarek, QuestComplete)
-			gs.Player.Credits += 5000
-			gs.Player.Reputation += 2
+			RemoveQuestCrew(gs, "Jarek")
 			return []QuestEvent{{
 				Title:   "Ambassador Delivered!",
-				Message: "Ambassador Jarek thanks you. 5,000 credits and increased reputation.",
+				Message: "Ambassador Jarek is very grateful. As a reward, he gives you an experimental handheld haggling computer, which gives you larger discounts on purchases.",
 			}}
 		}
 
 		gs.SetQuestProgress(QuestJarek, gs.QuestProgress(QuestJarek)+1)
-		if gs.QuestProgress(QuestJarek) > 10 {
+		progress := gs.QuestProgress(QuestJarek)
+		if progress == 5 {
+			return []QuestEvent{{
+				Title:   "Jarek Concerned",
+				Message: "Ambassador Jarek is wondering why the journey is taking so long.",
+			}}
+		}
+		if progress == 9 {
+			for i, m := range gs.Player.Crew {
+				if m.Name == "Jarek" && m.IsQuest {
+					gs.Player.Crew[i].Skills = [formula.NumSkills]int{0, 0, 0, 0}
+					break
+				}
+			}
+			return []QuestEvent{{
+				Title:   "Jarek Impatient",
+				Message: "Ambassador Jarek is no longer of much help in negotiating trades.",
+			}}
+		}
+		if progress > 10 {
 			gs.SetQuestState(QuestJarek, QuestUnavailable)
 			gs.SetQuestProgress(QuestJarek, 0)
+			RemoveQuestCrew(gs, "Jarek")
 			return []QuestEvent{{
 				Title:   "Ambassador Impatient",
 				Message: "Ambassador Jarek has lost patience and left your ship at the next port.",
@@ -384,25 +403,56 @@ func checkWild(gs *GameState) []QuestEvent {
 	if state == QuestUnavailable && gs.Day > 18 && gs.Rand.Intn(100) < 7 {
 		sys := gs.Data.Systems[gs.CurrentSystemID]
 		if sys.PoliticalSystem == gamedata.PolAnarchy || sys.PoliticalSystem == gamedata.PolFeudal {
-			_, distStr := systemDistanceStr(gs, "Adahn")
+			_, distStr := systemDistanceStr(gs, "Kravat")
 			gs.SetQuestState(QuestWild, QuestAvailable)
 			return []QuestEvent{{
 				Title:   "Jonathan Wild",
-				Message: fmt.Sprintf("The notorious criminal Jonathan Wild wants passage to Adahn.\n\n  Destination: Adahn%s\n  Reward: 15,000 credits\n  Risk: Police record worsens (-5)\n  Deadline: None", distStr),
+				Message: fmt.Sprintf("The notorious criminal Jonathan Wild wants passage to Kravat.\n\n  Destination: Kravat%s\n  Reward: Police record cleaned + Zeethibal (free mercenary)\n  Risk: Increased police encounters\n  Requires: Beam Laser, free crew quarter\n  Deadline: None", distStr),
 				Actions: []string{"Take him aboard", "Refuse"},
 			}}
 		}
 	}
 
 	if state == QuestActive {
-		adahn := findSystem(gs, "Adahn")
-		if adahn >= 0 && gs.CurrentSystemID == adahn {
+		kravat := findSystem(gs, "Kravat")
+		if kravat >= 0 && gs.CurrentSystemID == kravat {
 			gs.SetQuestState(QuestWild, QuestComplete)
-			gs.Player.Credits += 15000
-			gs.Player.PoliceRecord -= 5
+			RemoveQuestCrew(gs, "Wild")
+			gs.Player.PoliceRecord = 0
+			CreateZeethibal(gs)
 			return []QuestEvent{{
 				Title:   "Wild Delivered",
-				Message: "Jonathan Wild disappears into the crowd. 15,000 credits, but your record suffers.",
+				Message: "Jonathan Wild is most grateful. As a reward, he has one of his Cyber Criminals hack into the Police Database and clean up your record. He also offers you the opportunity to take his talented nephew Zeethibal along as a mercenary with no pay.",
+			}}
+		}
+
+		gs.SetQuestProgress(QuestWild, gs.QuestProgress(QuestWild)+1)
+		progress := gs.QuestProgress(QuestWild)
+		if progress == 5 {
+			return []QuestEvent{{
+				Title:   "Wild Concerned",
+				Message: "Jonathan Wild is wondering why the journey is taking so long.",
+			}}
+		}
+		if progress == 9 {
+			for i, m := range gs.Player.Crew {
+				if m.Name == "Wild" && m.IsQuest {
+					gs.Player.Crew[i].Skills = [formula.NumSkills]int{0, 0, 0, 0}
+					break
+				}
+			}
+			return []QuestEvent{{
+				Title:   "Wild Impatient",
+				Message: "Jonathan Wild is getting impatient, and will no longer aid your crew along the way.",
+			}}
+		}
+		if progress > 10 {
+			gs.SetQuestState(QuestWild, QuestUnavailable)
+			gs.SetQuestProgress(QuestWild, 0)
+			RemoveQuestCrew(gs, "Wild")
+			return []QuestEvent{{
+				Title:   "Wild Leaves",
+				Message: "Jonathan Wild has left your ship and gone into hiding.",
 			}}
 		}
 	}
@@ -488,6 +538,7 @@ func checkReactor(gs *GameState) []QuestEvent {
 		if gs.Player.HasEscapePod {
 			gs.SetQuestProgress(QuestReactor, ReactorStatusNotStarted)
 			gs.SetQuestState(QuestReactor, QuestUnavailable)
+			ClearCrewAndResetQuests(gs)
 			gs.Player.Ship = NewStartingShip(gs.Data)
 			gs.Player.Cargo = [10]int{}
 			return []QuestEvent{{
@@ -566,20 +617,41 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 
 	case "Ambassador Jarek":
 		if actionIdx == 0 {
+			if FreeCrewQuarters(gs) <= 0 {
+				return "You don't have any crew quarters available for a passenger."
+			}
+			jarekSkills := [formula.NumSkills]int{3, 2, 10, 4}
+			AddQuestCrew(gs, "Jarek", jarekSkills)
 			gs.SetQuestState(QuestJarek, QuestActive)
 			gs.SetQuestProgress(QuestJarek, 0)
-			return "Ambassador Jarek boards your ship. Deliver him to Aldebaran."
+			return "Ambassador Jarek boards your ship. Deliver him to Devidia."
 		}
 		gs.SetQuestState(QuestJarek, QuestUnavailable)
 		return "Declined."
 
 	case "Jonathan Wild":
 		if actionIdx == 0 {
+			if FreeCrewQuarters(gs) <= 0 {
+				return "You don't have any crew quarters available for a passenger."
+			}
+			hasBeamLaser := false
+			for _, wID := range gs.Player.Ship.Weapons {
+				name := gs.Data.Equipment[wID].Name
+				if name == "Beam Laser" || name == "Military Laser" || name == "Morgan's Laser" {
+					hasBeamLaser = true
+					break
+				}
+			}
+			if !hasBeamLaser {
+				return "Jonathan Wild isn't willing to go with you if you're not armed with at least a Beam Laser."
+			}
 			if ReactorOnBoard(gs) {
 				return "Jonathan Wild doesn't like the looks of that Ion Reactor. He thinks it's too dangerous, and won't get on board."
 			}
+			wildSkills := [formula.NumSkills]int{7, 10, 2, 5}
+			AddQuestCrew(gs, "Wild", wildSkills)
 			gs.SetQuestState(QuestWild, QuestActive)
-			return "Jonathan Wild is now aboard. Deliver him to Adahn -- but watch out for police."
+			return "Jonathan Wild is now aboard. Deliver him to Kravat -- but watch out for police."
 		}
 		gs.SetQuestState(QuestWild, QuestUnavailable)
 		return "You refuse to smuggle a criminal."
@@ -592,6 +664,7 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 			}
 			wildWasActive := gs.QuestState(QuestWild) == QuestActive
 			if wildWasActive {
+				RemoveQuestCrew(gs, "Wild")
 				gs.SetQuestState(QuestWild, QuestUnavailable)
 				gs.SetQuestProgress(QuestWild, 0)
 			}

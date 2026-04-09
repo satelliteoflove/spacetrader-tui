@@ -32,6 +32,9 @@ func EffectivePlayerSkill(gs *GameState, skillIdx int) int {
 		crew[i] = &gs.Player.Crew[i]
 	}
 	gadgetBonus := GadgetSkillBonus(gs, skillIdx)
+	if skillIdx == formula.SkillTrader && gs.Quests.States[QuestJarek] == QuestComplete {
+		gadgetBonus++
+	}
 	return formula.EffectiveSkill(
 		gs.Player.Skills[skillIdx],
 		crew,

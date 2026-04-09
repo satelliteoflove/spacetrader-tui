@@ -22,7 +22,7 @@ type PersonnelScreen struct {
 	tab        personnelTab
 	cursor     int
 	message    string
-	available  []game.Mercenary
+	available  []int
 	confirming bool
 }
 
@@ -92,14 +92,19 @@ func (s *PersonnelScreen) handleSelect() {
 	switch s.tab {
 	case tabCrew:
 		if s.cursor < len(s.gs.Player.Crew) {
-			name := s.gs.Player.Crew[s.cursor].Name
-			s.message = SelectedStyle.Render(fmt.Sprintf("Fire %s? (y/n)", name))
+			m := s.gs.Player.Crew[s.cursor]
+			if m.IsQuest {
+				s.message = DimStyle.Render(fmt.Sprintf("%s is a passenger and cannot be dismissed.", m.Name))
+				return
+			}
+			s.message = SelectedStyle.Render(fmt.Sprintf("Fire %s? (y/n)", m.Name))
 			s.confirming = true
 			return
 		}
 	case tabHire:
 		if s.cursor < len(s.available) {
-			ok, msg := game.HireMercenary(s.gs, s.available[s.cursor])
+			mercIdx := s.available[s.cursor]
+			ok, msg := game.HireMercenary(s.gs, mercIdx)
 			s.message = msg
 			if ok {
 				s.available = game.AvailableMercenaries(s.gs)
@@ -132,9 +137,9 @@ func (s *PersonnelScreen) View() string {
 	}
 	b.WriteString("\n\n")
 
-	skillHeader := fmt.Sprintf("  %-10s %4s %4s %4s %4s %6s", "NAME", "PLT", "FGT", "TRD", "ENG", "WAGE")
+	skillHeader := fmt.Sprintf("  %-12s %4s %4s %4s %4s %8s", "NAME", "PLT", "FGT", "TRD", "ENG", "WAGE")
 	b.WriteString(DimStyle.Render(skillHeader) + "\n")
-	b.WriteString("  " + strings.Repeat("-", 42) + "\n")
+	b.WriteString("  " + strings.Repeat("-", 44) + "\n")
 
 	switch s.tab {
 	case tabCrew:
@@ -143,25 +148,45 @@ func (s *PersonnelScreen) View() string {
 		}
 		crewLines := make([]string, len(s.gs.Player.Crew))
 		for i, m := range s.gs.Player.Crew {
-			crewLines[i] = fmt.Sprintf("%-10s %4d %4d %4d %4d %5d/d",
-				m.Name, m.Skills[0], m.Skills[1], m.Skills[2], m.Skills[3], m.Wage)
+			wageStr := fmt.Sprintf("%d/d", m.Wage())
+			if m.IsQuest {
+				wageStr = "free"
+			}
+			tag := ""
+			if m.IsQuest {
+				tag = " *"
+			}
+			crewLines[i] = fmt.Sprintf("%-12s %4d %4d %4d %4d %8s%s",
+				m.Name, m.Skills[0], m.Skills[1], m.Skills[2], m.Skills[3], wageStr, tag)
 		}
 		RenderMenuItems(&b, crewLines, s.cursor)
 		if len(s.gs.Player.Crew) > 0 {
-			b.WriteString("\n" + DimStyle.Render("  enter to fire"))
+			hasRegular := false
+			for _, m := range s.gs.Player.Crew {
+				if !m.IsQuest {
+					hasRegular = true
+					break
+				}
+			}
+			if hasRegular {
+				b.WriteString("\n" + DimStyle.Render("  enter to fire (* = passenger, cannot dismiss)"))
+			} else {
+				b.WriteString("\n" + DimStyle.Render("  * = passenger, cannot dismiss"))
+			}
 		}
 	case tabHire:
 		if len(s.available) == 0 {
 			b.WriteString("  No mercenaries available here.\n")
 		}
 		hireLines := make([]string, len(s.available))
-		for i, m := range s.available {
-			hireLines[i] = fmt.Sprintf("%-10s %4d %4d %4d %4d %5d/d",
-				m.Name, m.Skills[0], m.Skills[1], m.Skills[2], m.Skills[3], m.Wage)
+		for i, mercIdx := range s.available {
+			m := s.gs.Mercenaries[mercIdx]
+			hireLines[i] = fmt.Sprintf("%-12s %4d %4d %4d %4d %6d/d",
+				m.Name, m.Skills[0], m.Skills[1], m.Skills[2], m.Skills[3], m.Wage())
 		}
 		RenderMenuItems(&b, hireLines, s.cursor)
 		if len(s.available) > 0 {
-			b.WriteString("\n" + DimStyle.Render("  enter to hire (signing bonus = daily wage)"))
+			b.WriteString("\n" + DimStyle.Render("  enter to hire"))
 		}
 	}
 

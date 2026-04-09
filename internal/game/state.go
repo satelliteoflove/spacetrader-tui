@@ -15,7 +15,7 @@ const (
 	StatusDead
 )
 
-const CurrentSaveVersion = 5
+const CurrentSaveVersion = 6
 
 type NewsEntry struct {
 	Headline  string `json:"headline"`
@@ -46,6 +46,7 @@ type GameState struct {
 	ActiveRoute       int             `json:"active_route"`
 	ActiveRouteOrigin int            `json:"active_route_origin"`
 	HasActiveRoute    bool           `json:"has_active_route"`
+	Mercenaries       []Mercenary    `json:"mercenaries"`
 
 	Rand         *rand.Rand       `json:"-"`
 	Data         *gamedata.GameData `json:"-"`

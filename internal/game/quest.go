@@ -109,9 +109,9 @@ func (gs *GameState) QuestDescription(id QuestID) string {
 	case QuestJarek:
 		if state == QuestActive {
 			remaining := 10 - progress
-			return fmt.Sprintf("Transport to Aldebaran (%d stops remaining)", remaining)
+			return fmt.Sprintf("Transport Jarek to Devidia (%d stops remaining)", remaining)
 		}
-		return "Transport to Aldebaran"
+		return "Transport Jarek to Devidia"
 
 	case QuestGemulon:
 		if state == QuestAvailable {
@@ -139,7 +139,7 @@ func (gs *GameState) QuestDescription(id QuestID) string {
 		return fmt.Sprintf("Deliver reactor to Nix (%d bays, %d fuel bays)", ReactorBays, fuelBays)
 
 	case QuestWild:
-		return "Smuggle to Adahn (police danger!)"
+		return "Smuggle Wild to Kravat (police danger!)"
 
 	case QuestJapori:
 		carried := gs.Player.Cargo[findGoodIndex(gs, "Medicine")]
@@ -179,7 +179,7 @@ func (gs *GameState) QuestDestination(id QuestID) int {
 		}
 		return findSystem(gs, path[len(path)-1])
 	case QuestJarek:
-		return findSystem(gs, "Aldebaran")
+		return findSystem(gs, "Devidia")
 	case QuestGemulon:
 		return findSystem(gs, "Gemulon")
 	case QuestFehler:
@@ -190,7 +190,7 @@ func (gs *GameState) QuestDestination(id QuestID) int {
 		}
 		return findSystem(gs, "Nix")
 	case QuestWild:
-		return findSystem(gs, "Adahn")
+		return findSystem(gs, "Kravat")
 	case QuestJapori:
 		return findSystem(gs, "Japori")
 	case QuestSpaceMonster:

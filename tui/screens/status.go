@@ -139,7 +139,12 @@ func (s *StatusScreen) View() string {
 	if len(p.Crew) > 0 {
 		b.WriteString("  Crew:")
 		for _, m := range p.Crew {
-			b.WriteString(fmt.Sprintf(" %s (%d/d)", m.Name, m.Wage))
+			wage := m.Wage()
+			if m.IsQuest {
+				b.WriteString(fmt.Sprintf(" %s (free)", m.Name))
+			} else {
+				b.WriteString(fmt.Sprintf(" %s (%d/d)", m.Name, wage))
+			}
 		}
 		b.WriteString("\n")
 	}

@@ -127,7 +127,7 @@ func TestTravelLoanInterest(t *testing.T) {
 func TestTravelCrewWages(t *testing.T) {
 	gs := newTestGame(t)
 	gs.Player.Crew = []game.Mercenary{
-		{Name: "Test", Skills: [4]int{3, 3, 3, 3}, Wage: 50},
+		{Name: "Test", Skills: [4]int{3, 3, 3, 3}, SystemIdx: -1},
 	}
 
 	reachable := travel.ReachableSystems(gs)
@@ -147,7 +147,7 @@ func TestTravelCrewFiredWhenBroke(t *testing.T) {
 	gs := newTestGame(t)
 	gs.Player.Credits = 10
 	gs.Player.Crew = []game.Mercenary{
-		{Name: "Test", Skills: [4]int{3, 3, 3, 3}, Wage: 50},
+		{Name: "Test", Skills: [4]int{3, 3, 3, 3}, SystemIdx: -1},
 	}
 
 	reachable := travel.ReachableSystems(gs)

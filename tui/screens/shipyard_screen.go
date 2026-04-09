@@ -151,9 +151,9 @@ func (s *ShipyardScreen) View() string {
 	case tabShips:
 		lines := make([]string, len(s.ships))
 		for i, ship := range s.ships {
-			lines[i] = fmt.Sprintf("%-14s %6d cr  cargo:%d  range:%d  wpn:%d  shd:%d  gdt:%d",
+			lines[i] = fmt.Sprintf("%-14s %6d cr  cargo:%d  range:%d  wpn:%d  shd:%d  gdt:%d  crew:%d",
 				ship.Name, ship.Price, ship.CargoBays, ship.Range,
-				ship.WeaponSlots, ship.ShieldSlots, ship.GadgetSlots)
+				ship.WeaponSlots, ship.ShieldSlots, ship.GadgetSlots, ship.CrewQuarters-1)
 		}
 		RenderMenuItems(&b, lines, s.cursor)
 	case tabEquipment:

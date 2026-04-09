@@ -82,7 +82,29 @@ func BuyShip(gs *game.GameState, shipTypeID int) Result {
 		return Result{Message: "New ship doesn't have enough cargo bays for your current cargo."}
 	}
 
+	newMaxCrew := newShip.CrewQuarters - 1
+	hasQuestCrew := false
+	for _, m := range gs.Player.Crew {
+		if m.IsQuest {
+			hasQuestCrew = true
+			break
+		}
+	}
+	if hasQuestCrew && newMaxCrew < 1 {
+		return Result{Message: "New ship has no quarters for your passenger."}
+	}
+
 	gs.Player.Credits -= cost
+
+	for len(gs.Player.Crew) > newMaxCrew {
+		for i := len(gs.Player.Crew) - 1; i >= 0; i-- {
+			if !gs.Player.Crew[i].IsQuest {
+				game.FireMercenary(gs, i)
+				break
+			}
+		}
+	}
+
 	gs.Player.Ship = game.Ship{
 		TypeID:  shipTypeID,
 		Hull:    newShip.Hull,

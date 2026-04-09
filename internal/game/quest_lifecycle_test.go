@@ -282,25 +282,22 @@ func TestJarekCompletion(t *testing.T) {
 
 	gs.SetQuestState(QuestJarek, QuestActive)
 	gs.SetQuestProgress(QuestJarek, 0)
+	gs.Player.Crew = append(gs.Player.Crew, Mercenary{
+		Name: "Jarek", Skills: [formula.NumSkills]int{3, 2, 10, 4}, SystemIdx: -1, IsQuest: true,
+	})
 
-	startCredits := gs.Player.Credits
-	startRep := gs.Player.Reputation
-
-	aldebaran := findSystem(gs, "Aldebaran")
-	if aldebaran < 0 {
-		t.Fatal("Aldebaran not found")
+	devidia := findSystem(gs, "Devidia")
+	if devidia < 0 {
+		t.Fatal("Devidia not found")
 	}
-	gs.CurrentSystemID = aldebaran
+	gs.CurrentSystemID = devidia
 	events := CheckQuestsOnArrival(gs)
 
 	if gs.QuestState(QuestJarek) != QuestComplete {
 		t.Error("expected Jarek quest Complete")
 	}
-	if gs.Player.Credits != startCredits+5000 {
-		t.Errorf("expected credits %d, got %d", startCredits+5000, gs.Player.Credits)
-	}
-	if gs.Player.Reputation != startRep+2 {
-		t.Errorf("expected rep %d, got %d", startRep+2, gs.Player.Reputation)
+	if HasQuestCrew(gs, "Jarek") {
+		t.Error("expected Jarek removed from crew")
 	}
 
 	found := false
@@ -320,10 +317,13 @@ func TestJarekTimeout(t *testing.T) {
 
 	gs.SetQuestState(QuestJarek, QuestActive)
 	gs.SetQuestProgress(QuestJarek, 10)
+	gs.Player.Crew = append(gs.Player.Crew, Mercenary{
+		Name: "Jarek", Skills: [formula.NumSkills]int{3, 2, 10, 4}, SystemIdx: -1, IsQuest: true,
+	})
 
 	otherSys := 0
-	aldebaran := findSystem(gs, "Aldebaran")
-	if otherSys == aldebaran {
+	devidia := findSystem(gs, "Devidia")
+	if otherSys == devidia {
 		otherSys = 1
 	}
 	gs.CurrentSystemID = otherSys
@@ -331,6 +331,9 @@ func TestJarekTimeout(t *testing.T) {
 
 	if gs.QuestState(QuestJarek) != QuestUnavailable {
 		t.Errorf("expected Jarek quest Unavailable after timeout, got %d", gs.QuestState(QuestJarek))
+	}
+	if HasQuestCrew(gs, "Jarek") {
+		t.Error("expected Jarek removed from crew after timeout")
 	}
 
 	found := false

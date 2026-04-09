@@ -193,7 +193,7 @@ func confiscateShip(gs *game.GameState) Outcome {
 	for i := range gs.Player.Cargo {
 		gs.Player.Cargo[i] = 0
 	}
-	gs.Player.Crew = nil
+	game.ClearCrewAndResetQuests(gs)
 	gs.Player.PoliceRecord -= 5
 
 	return Outcome{
@@ -512,7 +512,7 @@ func checkShipDestroyed(gs *game.GameState) (destroyed bool, message string) {
 
 	if gs.Player.HasEscapePod {
 		gs.Player.HasEscapePod = false
-		gs.Player.Crew = nil
+		game.ClearCrewAndResetQuests(gs)
 
 		insurancePayout := 0
 		if gs.Player.HasInsurance {

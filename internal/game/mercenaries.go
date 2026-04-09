@@ -1,57 +1,111 @@
 package game
 
-import "github.com/the4ofus/spacetrader-tui/internal/formula"
+import (
+	"math"
+	"math/rand"
 
-var MercenaryPool = []Mercenary{
-	{Name: "Alyssa", Skills: [formula.NumSkills]int{7, 3, 2, 5}, Wage: 30},
-	{Name: "Bones", Skills: [formula.NumSkills]int{2, 2, 4, 8}, Wage: 35},
-	{Name: "Cassie", Skills: [formula.NumSkills]int{5, 6, 3, 3}, Wage: 25},
-	{Name: "Drake", Skills: [formula.NumSkills]int{3, 8, 2, 2}, Wage: 40},
-	{Name: "Echo", Skills: [formula.NumSkills]int{8, 3, 4, 2}, Wage: 35},
-	{Name: "Faye", Skills: [formula.NumSkills]int{2, 4, 8, 3}, Wage: 30},
-	{Name: "Grit", Skills: [formula.NumSkills]int{4, 7, 2, 5}, Wage: 35},
-	{Name: "Harper", Skills: [formula.NumSkills]int{3, 2, 7, 6}, Wage: 30},
-	{Name: "Iris", Skills: [formula.NumSkills]int{6, 5, 5, 3}, Wage: 30},
-	{Name: "Jet", Skills: [formula.NumSkills]int{4, 3, 3, 7}, Wage: 25},
-	{Name: "Knox", Skills: [formula.NumSkills]int{2, 9, 1, 3}, Wage: 45},
-	{Name: "Luna", Skills: [formula.NumSkills]int{9, 2, 3, 4}, Wage: 45},
-	{Name: "Mason", Skills: [formula.NumSkills]int{3, 5, 6, 4}, Wage: 30},
-	{Name: "Nyx", Skills: [formula.NumSkills]int{5, 4, 4, 6}, Wage: 30},
-	{Name: "Orla", Skills: [formula.NumSkills]int{4, 6, 5, 3}, Wage: 30},
+	"github.com/the4ofus/spacetrader-tui/internal/formula"
+)
+
+var mercenaryNames = []string{
+	"Alyssa", "Armatur", "Bentos", "C2U2", "Chi'Ti",
+	"Crystal", "Dane", "Deirdre", "Doc", "Draco",
+	"Iranda", "Jeremiah", "Jujubal", "Krydon", "Luis",
+	"Mercedez", "Milete", "Muri-L", "Mystyc", "Nandi",
+	"Orestes", "Pancho", "PS37", "Quarck", "Sosumi",
+	"Uma", "Wesley", "Wonton", "Yorvick",
 }
 
-func AvailableMercenaries(gs *GameState) []Mercenary {
+func randomSkill(rng *rand.Rand) int {
+	return 1 + rng.Intn(5) + rng.Intn(6)
+}
+
+func GenerateMercenaries(rng *rand.Rand, numSystems int, startIdx int, systems [][2]int, maxRange int) []Mercenary {
+	mercs := make([]Mercenary, len(mercenaryNames))
+	sysCounts := make([]int, numSystems)
+
+	for i, name := range mercenaryNames {
+		skills := [formula.NumSkills]int{
+			randomSkill(rng),
+			randomSkill(rng),
+			randomSkill(rng),
+			randomSkill(rng),
+		}
+
+		sysIdx := pickMercSystem(rng, startIdx, systems, maxRange, sysCounts)
+		mercs[i] = Mercenary{
+			Name:      name,
+			Skills:    skills,
+			SystemIdx: sysIdx,
+		}
+		if sysIdx >= 0 {
+			sysCounts[sysIdx]++
+		}
+	}
+	return mercs
+}
+
+func pickMercSystem(rng *rand.Rand, startIdx int, systems [][2]int, maxRange int, counts []int) int {
+	start := systems[startIdx]
+	var candidates []int
+	for i, sys := range systems {
+		if i == startIdx {
+			continue
+		}
+		dx := float64(start[0] - sys[0])
+		dy := float64(start[1] - sys[1])
+		dist := math.Sqrt(dx*dx + dy*dy)
+		if int(math.Ceil(dist)) <= maxRange*2 && counts[i] < 3 {
+			candidates = append(candidates, i)
+		}
+	}
+	if len(candidates) == 0 {
+		for i := range systems {
+			if i != startIdx && counts[i] < 3 {
+				candidates = append(candidates, i)
+			}
+		}
+	}
+	if len(candidates) == 0 {
+		return rng.Intn(len(systems))
+	}
+	return candidates[rng.Intn(len(candidates))]
+}
+
+func AvailableMercenaries(gs *GameState) []int {
+	var indices []int
 	hired := map[string]bool{}
 	for _, m := range gs.Player.Crew {
 		hired[m.Name] = true
 	}
-
-	count := 2 + gs.Rand.Intn(3)
-
-	var available []Mercenary
-	perm := gs.Rand.Perm(len(MercenaryPool))
-	for _, idx := range perm {
-		m := MercenaryPool[idx]
-		if !hired[m.Name] {
-			available = append(available, m)
-			if len(available) >= count {
-				break
-			}
+	for i, m := range gs.Mercenaries {
+		if m.SystemIdx == gs.CurrentSystemID && !hired[m.Name] {
+			indices = append(indices, i)
 		}
 	}
-	return available
+	return indices
 }
 
-func HireMercenary(gs *GameState, merc Mercenary) (bool, string) {
+func FreeCrewQuarters(gs *GameState) int {
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
-	if len(gs.Player.Crew)+1 > shipDef.CrewQuarters-1 {
+	return shipDef.CrewQuarters - 1 - len(gs.Player.Crew)
+}
+
+func HireMercenary(gs *GameState, mercIdx int) (bool, string) {
+	if mercIdx < 0 || mercIdx >= len(gs.Mercenaries) {
+		return false, "Invalid mercenary."
+	}
+	merc := &gs.Mercenaries[mercIdx]
+	if merc.SystemIdx != gs.CurrentSystemID {
+		return false, "Mercenary is not at this system."
+	}
+
+	if FreeCrewQuarters(gs) <= 0 {
 		return false, "No crew quarters available."
 	}
-	if gs.Player.Credits < merc.Wage {
-		return false, "Not enough credits for signing bonus."
-	}
-	gs.Player.Credits -= merc.Wage
-	gs.Player.Crew = append(gs.Player.Crew, merc)
+
+	merc.SystemIdx = -1
+	gs.Player.Crew = append(gs.Player.Crew, *merc)
 	return true, merc.Name + " hired."
 }
 
@@ -59,7 +113,139 @@ func FireMercenary(gs *GameState, idx int) (bool, string) {
 	if idx < 0 || idx >= len(gs.Player.Crew) {
 		return false, "Invalid crew member."
 	}
-	name := gs.Player.Crew[idx].Name
+	merc := gs.Player.Crew[idx]
+	if merc.IsQuest {
+		return false, merc.Name + " is a passenger and cannot be dismissed."
+	}
+
+	name := merc.Name
 	gs.Player.Crew = append(gs.Player.Crew[:idx], gs.Player.Crew[idx+1:]...)
+
+	for i, m := range gs.Mercenaries {
+		if m.Name == name {
+			gs.Mercenaries[i].SystemIdx = pickNearbySystem(gs)
+			break
+		}
+	}
+
 	return true, name + " fired."
+}
+
+func pickNearbySystem(gs *GameState) int {
+	cur := gs.Data.Systems[gs.CurrentSystemID]
+	maxRange := gs.EffectiveRange()
+	var candidates []int
+	for i, sys := range gs.Data.Systems {
+		if i == gs.CurrentSystemID {
+			continue
+		}
+		dist := formula.Distance(cur.X, cur.Y, sys.X, sys.Y)
+		if int(math.Ceil(dist)) <= maxRange*2 {
+			candidates = append(candidates, i)
+		}
+	}
+	if len(candidates) == 0 {
+		return gs.Rand.Intn(len(gs.Data.Systems))
+	}
+	return candidates[gs.Rand.Intn(len(candidates))]
+}
+
+func NthLowestSkill(skills [formula.NumSkills]int, n int) int {
+	ids := []int{0, 1, 2, 3}
+	for j := 0; j < 3; j++ {
+		for i := 0; i < 3-j; i++ {
+			if skills[ids[i]] > skills[ids[i+1]] {
+				ids[i], ids[i+1] = ids[i+1], ids[i]
+			}
+		}
+	}
+	return ids[n-1]
+}
+
+func AddQuestCrew(gs *GameState, name string, skills [formula.NumSkills]int) bool {
+	if FreeCrewQuarters(gs) <= 0 {
+		return false
+	}
+	gs.Player.Crew = append(gs.Player.Crew, Mercenary{
+		Name:      name,
+		Skills:    skills,
+		SystemIdx: -1,
+		IsQuest:   true,
+	})
+	return true
+}
+
+func RemoveQuestCrew(gs *GameState, name string) {
+	for i, m := range gs.Player.Crew {
+		if m.Name == name && m.IsQuest {
+			gs.Player.Crew = append(gs.Player.Crew[:i], gs.Player.Crew[i+1:]...)
+			return
+		}
+	}
+}
+
+func HasQuestCrew(gs *GameState, name string) bool {
+	for _, m := range gs.Player.Crew {
+		if m.Name == name && m.IsQuest {
+			return true
+		}
+	}
+	return false
+}
+
+func ClearCrewAndResetQuests(gs *GameState) {
+	for _, m := range gs.Player.Crew {
+		if m.IsQuest {
+			switch m.Name {
+			case "Jarek":
+				gs.SetQuestState(QuestJarek, QuestUnavailable)
+				gs.SetQuestProgress(QuestJarek, 0)
+			case "Wild":
+				gs.SetQuestState(QuestWild, QuestUnavailable)
+				gs.SetQuestProgress(QuestWild, 0)
+			}
+		} else {
+			for i, pm := range gs.Mercenaries {
+				if pm.Name == m.Name {
+					gs.Mercenaries[i].SystemIdx = gs.CurrentSystemID
+					break
+				}
+			}
+		}
+	}
+	gs.Player.Crew = nil
+}
+
+func CreateZeethibal(gs *GameState) {
+	lowest1 := NthLowestSkill(gs.Player.Skills, 1)
+	lowest2 := NthLowestSkill(gs.Player.Skills, 2)
+
+	var skills [formula.NumSkills]int
+	for i := range skills {
+		if i == lowest1 {
+			skills[i] = 10
+		} else if i == lowest2 {
+			skills[i] = 8
+		} else {
+			skills[i] = 5
+		}
+	}
+
+	kravat := findSystem(gs, "Kravat")
+	if kravat < 0 {
+		return
+	}
+
+	for _, m := range gs.Mercenaries {
+		if m.Name == "Zeethibal" {
+			return
+		}
+	}
+
+	gs.Mercenaries = append(gs.Mercenaries, Mercenary{
+		Name:      "Zeethibal",
+		Skills:    skills,
+		SystemIdx: kravat,
+		IsQuest:   true,
+	})
 }

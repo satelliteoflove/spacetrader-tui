@@ -3,6 +3,7 @@ package game
 import (
 	"testing"
 
+	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
@@ -266,6 +267,9 @@ func TestReactorWildMutualExclusion(t *testing.T) {
 	gs.Player.Cargo = [10]int{}
 
 	gs.SetQuestState(QuestWild, QuestActive)
+	gs.Player.Crew = append(gs.Player.Crew, Mercenary{
+		Name: "Wild", Skills: [formula.NumSkills]int{7, 10, 2, 5}, SystemIdx: -1, IsQuest: true,
+	})
 	gs.SetQuestState(QuestReactor, QuestAvailable)
 
 	result := resolveQuestChainAction(gs, "Reactor Delivery", 0)
@@ -278,6 +282,9 @@ func TestReactorWildMutualExclusion(t *testing.T) {
 	}
 	if gs.QuestState(QuestWild) != QuestUnavailable {
 		t.Errorf("expected Wild quest reset to Unavailable, got %d", gs.QuestState(QuestWild))
+	}
+	if HasQuestCrew(gs, "Wild") {
+		t.Error("expected Wild removed from crew")
 	}
 }
 
