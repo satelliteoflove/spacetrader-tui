@@ -18,7 +18,14 @@ func newTestGame(t *testing.T) *game.GameState {
 		t.Fatalf("LoadAll: %v", err)
 	}
 	skills := [formula.NumSkills]int{4, 4, 4, 4}
-	return game.NewGameWithSeed(gd, "Test", skills, gamedata.DiffNormal, 12345)
+	gs := game.NewGameWithSeed(gd, "Test", skills, gamedata.DiffNormal, 42)
+	for i, sys := range gd.Systems {
+		if sys.TechLevel >= gamedata.TechIndustrial {
+			gs.CurrentSystemID = i
+			break
+		}
+	}
+	return gs
 }
 
 func TestAvailableShips(t *testing.T) {

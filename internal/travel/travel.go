@@ -74,14 +74,49 @@ func ExecuteTravel(gs *game.GameState, destIdx int) TravelResult {
 	applyEngineerRepair(gs)
 	applyPoliceRecordDecay(gs)
 	applyQuestDailyTick(gs)
+
+	actualDest := gs.CurrentSystemID
+	actualName := gs.Data.Systems[actualDest].Name
+	warped := actualDest != destIdx
+
 	game.GenerateEvents(gs)
-	game.RefreshSystemPrices(gs, destIdx)
+	game.RefreshSystemPrices(gs, actualDest)
+
+	msg := fmt.Sprintf("Arrived at %s. Day %d.", actualName, gs.Day)
+	if warped {
+		msg = fmt.Sprintf("A tear in the timespace fabric warped you to %s! Day %d.", actualName, gs.Day)
+	}
 
 	return TravelResult{
 		Success:     true,
-		Message:     fmt.Sprintf("Arrived at %s. Day %d.", dest.Name, gs.Day),
+		Message:     msg,
 		FuelUsed:    fuelNeeded,
 		DaysElapsed: 1,
+	}
+}
+
+func ExecuteJump(gs *game.GameState, destIdx int) TravelResult {
+	if destIdx < 0 || destIdx >= len(gs.Data.Systems) {
+		return TravelResult{Message: "Invalid destination."}
+	}
+	if destIdx == gs.CurrentSystemID {
+		return TravelResult{Message: "Already at this system."}
+	}
+	if !gs.Quests.HasSingularity {
+		return TravelResult{Message: "No Portable Singularity available."}
+	}
+
+	gs.Quests.HasSingularity = false
+	gs.CurrentSystemID = destIdx
+	gs.Systems[destIdx].Visited = true
+
+	game.GenerateEvents(gs)
+	game.RefreshSystemPrices(gs, destIdx)
+
+	dest := gs.Data.Systems[destIdx]
+	return TravelResult{
+		Success: true,
+		Message: fmt.Sprintf("The Portable Singularity tears open space! You arrive at %s instantly.", dest.Name),
 	}
 }
 
@@ -150,17 +185,26 @@ func applyQuestDailyTick(gs *game.GameState) {
 		}
 	}
 
-	if gs.Quests.States[game.QuestReactor] == game.QuestActive {
+	if game.ReactorOnBoard(gs) {
+		status := gs.QuestProgress(game.QuestReactor)
+		status++
+		gs.SetQuestProgress(game.QuestReactor, status)
+
 		if gs.Quests.TribbleQty > 0 {
-			gs.Quests.TribbleQty /= 2
+			if gs.Quests.TribbleQty < 20 {
+				gs.Quests.TribbleQty = 0
+			} else {
+				gs.Quests.TribbleQty /= 2
+			}
 		}
 	}
 
 	if gs.Quests.FabricRipDays > 0 {
+		isFirst := gs.Quests.FabricRipDays == 25
 		gs.Quests.FabricRipDays--
 		if gs.Quests.FabricRipDays <= 0 {
 			gs.Quests.States[game.QuestFabricRip] = game.QuestComplete
-		} else if gs.Rand.Intn(25) < gs.Quests.FabricRipDays {
+		} else if isFirst || gs.Rand.Intn(100) < gs.Quests.FabricRipDays {
 			dest := gs.Rand.Intn(len(gs.Data.Systems))
 			gs.CurrentSystemID = dest
 			gs.Systems[dest].Visited = true
@@ -190,14 +234,18 @@ func applyEngineerRepair(gs *game.GameState) {
 	engSkill := game.EffectivePlayerSkill(gs, formula.SkillEngineer)
 
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
-	if gs.Player.Ship.Hull < shipDef.Hull {
+	maxHull := shipDef.Hull
+	if gs.Player.Ship.HullUpgraded {
+		maxHull += game.ScarabHullBonus
+	}
+	if gs.Player.Ship.Hull < maxHull {
 		repair := engSkill / 2
 		if repair < 1 {
 			repair = 1
 		}
 		gs.Player.Ship.Hull += repair
-		if gs.Player.Ship.Hull > shipDef.Hull {
-			gs.Player.Ship.Hull = shipDef.Hull
+		if gs.Player.Ship.Hull > maxHull {
+			gs.Player.Ship.Hull = maxHull
 		}
 	}
 }

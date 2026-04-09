@@ -30,6 +30,8 @@ const (
 	ScreenGuide
 	ScreenNews
 	ScreenSettings
+	ScreenRoutePlanner
+	ScreenDebug
 )
 
 type NavigateMsg struct {

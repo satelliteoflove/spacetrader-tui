@@ -3,6 +3,7 @@ package game
 import (
 	"math/rand"
 
+	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
@@ -14,7 +15,7 @@ const (
 	StatusDead
 )
 
-const CurrentSaveVersion = 3
+const CurrentSaveVersion = 5
 
 type NewsEntry struct {
 	Headline  string `json:"headline"`
@@ -42,6 +43,9 @@ type GameState struct {
 	Seed            int64             `json:"seed"`
 	NewsLog         []NewsEntry       `json:"news_log"`
 	Bookmarks       []Bookmark        `json:"bookmarks"`
+	ActiveRoute       int             `json:"active_route"`
+	ActiveRouteOrigin int            `json:"active_route_origin"`
+	HasActiveRoute    bool           `json:"has_active_route"`
 
 	Rand         *rand.Rand       `json:"-"`
 	Data         *gamedata.GameData `json:"-"`
@@ -114,4 +118,16 @@ func (gs *GameState) EffectiveRange() int {
 		bonus += gs.Data.Equipment[gID].RangeBonus
 	}
 	return shipDef.Range + bonus
+}
+
+func (gs *GameState) HopsToSystem(destIdx int) int {
+	systems := make([][2]int, len(gs.Data.Systems))
+	for i, sys := range gs.Data.Systems {
+		systems[i] = [2]int{sys.X, sys.Y}
+	}
+	wormholes := make([]formula.WormholePair, len(gs.Wormholes))
+	for i, wh := range gs.Wormholes {
+		wormholes[i] = formula.WormholePair{A: wh.SystemA, B: wh.SystemB}
+	}
+	return formula.ShortestPathHops(systems, gs.EffectiveRange(), wormholes, gs.CurrentSystemID, destIdx)
 }

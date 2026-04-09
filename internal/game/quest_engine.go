@@ -16,8 +16,11 @@ type QuestEvent struct {
 func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 	var events []QuestEvent
 
-	if gs.Day > 10 && gs.QuestState(QuestMoonForSale) == QuestUnavailable {
-		gs.SetQuestState(QuestMoonForSale, QuestAvailable)
+	if gs.QuestState(QuestMoonForSale) == QuestUnavailable {
+		dp := &GameDataProvider{Data: gs.Data}
+		if gs.Player.Worth(dp) > 400000 {
+			gs.SetQuestState(QuestMoonForSale, QuestAvailable)
+		}
 	}
 
 	sys := gs.Data.Systems[gs.CurrentSystemID]
@@ -36,6 +39,12 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 	japoriSys := findSystem(gs, "Japori")
 	if gs.QuestState(QuestJapori) == QuestActive && japoriSys >= 0 && gs.CurrentSystemID == japoriSys {
 		medicine := gs.Player.Cargo[int(gamedata.GoodMedicine)]
+		if medicine < 10 {
+			events = append(events, QuestEvent{
+				Title:   "Japori Disease",
+				Message: fmt.Sprintf("The people of Japori are desperate for medicine! You have %d of the 10 units needed.", medicine),
+			})
+		}
 		if medicine >= 10 {
 			gs.Player.Cargo[int(gamedata.GoodMedicine)] -= 10
 			gs.SetQuestState(QuestJapori, QuestComplete)
@@ -174,6 +183,10 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 		}
 	}
 
+	if pending := CheckPendingRewards(gs); len(pending) > 0 {
+		events = append(events, pending...)
+	}
+
 	return events
 }
 
@@ -195,9 +208,10 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 			if gs.Player.Skills[skill] > formula.SkillMax {
 				gs.Player.Skills[skill] = formula.SkillMax
 			}
-			gs.SetQuestState(QuestSkillIncrease, QuestComplete)
+			gs.SetQuestState(QuestSkillIncrease, QuestUnavailable)
 			return fmt.Sprintf("Your %s skill improved!", formula.SkillNames[skill])
 		} else if actionIdx == 0 {
+			gs.SetQuestState(QuestSkillIncrease, QuestUnavailable)
 			return "Not enough credits."
 		}
 		gs.SetQuestState(QuestSkillIncrease, QuestUnavailable)
@@ -210,11 +224,12 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 			good := gs.Data.Goods[goodIdx]
 			price := good.BasePrice * qty / 2
 			if gs.Player.Credits < price {
+				gs.SetQuestState(QuestCargoForSale, QuestUnavailable)
 				return "Not enough credits."
 			}
 			gs.Player.Credits -= price
 			gs.Player.Cargo[goodIdx] += qty
-			gs.SetQuestState(QuestCargoForSale, QuestComplete)
+			gs.SetQuestState(QuestCargoForSale, QuestUnavailable)
 			return fmt.Sprintf("Bought %d %s for %d credits (half price!).", qty, good.Name, price)
 		}
 		gs.SetQuestState(QuestCargoForSale, QuestUnavailable)
@@ -224,9 +239,10 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 		if actionIdx == 0 && gs.Player.Credits >= 5000 {
 			gs.Player.Credits -= 5000
 			gs.Player.PoliceRecord = 0
-			gs.SetQuestState(QuestEraseRecord, QuestComplete)
+			gs.SetQuestState(QuestEraseRecord, QuestUnavailable)
 			return "Your police record has been erased!"
 		} else if actionIdx == 0 {
+			gs.SetQuestState(QuestEraseRecord, QuestUnavailable)
 			return "Not enough credits."
 		}
 		gs.SetQuestState(QuestEraseRecord, QuestUnavailable)

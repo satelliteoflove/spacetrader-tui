@@ -60,6 +60,9 @@ func BuyShip(gs *game.GameState, shipTypeID int) Result {
 	if shipTypeID < 0 || shipTypeID >= len(gs.Data.Ships) {
 		return Result{Message: "Invalid ship type."}
 	}
+	if game.ReactorOnBoard(gs) {
+		return Result{Message: "Can't trade ships while carrying the Ion Reactor. Deliver it first."}
+	}
 
 	newShip := gs.Data.Ships[shipTypeID]
 	sys := gs.Data.Systems[gs.CurrentSystemID]
@@ -164,9 +167,18 @@ func SellEquipment(gs *game.GameState, category gamedata.EquipCategory, slotIdx 
 	}
 }
 
+func MaxHull(gs *game.GameState) int {
+	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
+	maxHull := shipDef.Hull
+	if gs.Player.Ship.HullUpgraded {
+		maxHull += game.ScarabHullBonus
+	}
+	return maxHull
+}
+
 func RepairCost(gs *game.GameState) int {
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
-	damage := shipDef.Hull - gs.Player.Ship.Hull
+	damage := MaxHull(gs) - gs.Player.Ship.Hull
 	return damage * shipDef.RepairCost
 }
 
@@ -189,9 +201,8 @@ func Repair(gs *game.GameState) Result {
 		}
 	}
 
-	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
 	gs.Player.Credits -= cost
-	gs.Player.Ship.Hull = shipDef.Hull
+	gs.Player.Ship.Hull = MaxHull(gs)
 
 	return Result{
 		Success: true,

@@ -36,10 +36,10 @@ func findEquipByName(gs *GameState, name string) int {
 	return -1
 }
 
-func giveQuestEquipment(gs *GameState, equipName string) string {
+func tryGiveQuestEquipment(gs *GameState, equipName string) (string, bool) {
 	eqID := findEquipByName(gs, equipName)
 	if eqID < 0 {
-		return ""
+		return "", false
 	}
 	eq := gs.Data.Equipment[eqID]
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
@@ -48,23 +48,62 @@ func giveQuestEquipment(gs *GameState, equipName string) string {
 	case gamedata.EquipWeapon:
 		if len(gs.Player.Ship.Weapons) < shipDef.WeaponSlots {
 			gs.Player.Ship.Weapons = append(gs.Player.Ship.Weapons, eqID)
-			return fmt.Sprintf("Received %s!", equipName)
+			return fmt.Sprintf("Received %s!", equipName), true
 		}
-		return fmt.Sprintf("Received %s! (No weapon slot -- sell an existing weapon to install it.)", equipName)
+		return fmt.Sprintf("No free weapon slot for %s. Free a slot and return here to claim it.", equipName), false
 	case gamedata.EquipShield:
 		if len(gs.Player.Ship.Shields) < shipDef.ShieldSlots {
 			gs.Player.Ship.Shields = append(gs.Player.Ship.Shields, eqID)
-			return fmt.Sprintf("Received %s!", equipName)
+			return fmt.Sprintf("Received %s!", equipName), true
 		}
-		return fmt.Sprintf("Received %s! (No shield slot -- sell an existing shield to install it.)", equipName)
+		return fmt.Sprintf("No free shield slot for %s. Free a slot and return here to claim it.", equipName), false
 	case gamedata.EquipGadget:
 		if len(gs.Player.Ship.Gadgets) < shipDef.GadgetSlots {
 			gs.Player.Ship.Gadgets = append(gs.Player.Ship.Gadgets, eqID)
-			return fmt.Sprintf("Received %s!", equipName)
+			return fmt.Sprintf("Received %s!", equipName), true
 		}
-		return fmt.Sprintf("Received %s! (No gadget slot -- sell an existing gadget to install it.)", equipName)
+		return fmt.Sprintf("No free gadget slot for %s. Free a slot and return here to claim it.", equipName), false
 	}
-	return ""
+	return "", false
+}
+
+func addPendingReward(gs *GameState, questID QuestID, equipment string, systemIdx int) {
+	for _, pr := range gs.Quests.PendingRewards {
+		if pr.QuestID == questID {
+			return
+		}
+	}
+	gs.Quests.PendingRewards = append(gs.Quests.PendingRewards, PendingReward{
+		QuestID:   questID,
+		Equipment: equipment,
+		SystemIdx: systemIdx,
+	})
+}
+
+func CheckPendingRewards(gs *GameState) []QuestEvent {
+	var events []QuestEvent
+	var remaining []PendingReward
+	for _, pr := range gs.Quests.PendingRewards {
+		if gs.CurrentSystemID == pr.SystemIdx {
+			msg, installed := tryGiveQuestEquipment(gs, pr.Equipment)
+			if installed {
+				events = append(events, QuestEvent{
+					Title:   "Equipment Installed!",
+					Message: msg,
+				})
+			} else {
+				events = append(events, QuestEvent{
+					Title:   "Equipment Available",
+					Message: msg,
+				})
+				remaining = append(remaining, pr)
+			}
+		} else {
+			remaining = append(remaining, pr)
+		}
+	}
+	gs.Quests.PendingRewards = remaining
+	return events
 }
 
 var dragonflyPath = []string{"Arouan", "Halley", "Regulus", "Linnet"}
@@ -98,8 +137,14 @@ func checkDragonfly(gs *GameState) []QuestEvent {
 			progress++
 			gs.SetQuestProgress(QuestDragonfly, progress)
 			if progress >= len(dragonflyPath) {
-				gs.SetQuestState(QuestDragonfly, QuestComplete)
-				reward := giveQuestEquipment(gs, "Lightning Shield")
+				reward, installed := tryGiveQuestEquipment(gs, "Lightning Shield")
+				if installed {
+					gs.SetQuestState(QuestDragonfly, QuestComplete)
+				} else {
+					lastSys := findSystem(gs, dragonflyPath[len(dragonflyPath)-1])
+					addPendingReward(gs, QuestDragonfly, "Lightning Shield", lastSys)
+					gs.SetQuestState(QuestDragonfly, QuestComplete)
+				}
 				return []QuestEvent{{
 					Title:   "Dragonfly Destroyed!",
 					Message: fmt.Sprintf("You destroyed the Dragonfly! %s", reward),
@@ -153,7 +198,7 @@ func checkScarab(gs *GameState) []QuestEvent {
 		gs.SetQuestState(QuestScarab, QuestAvailable)
 		return []QuestEvent{{
 			Title:   "Scarab Sighting",
-			Message: "The legendary Scarab ship has been spotted hiding near a wormhole exit. It is said to have an impenetrable hull.\n\n  Location: Near wormhole exits (chance encounter)\n  Reward: Salvaged hull plating (+20 max hull)\n  Deadline: None",
+			Message: "Captain Renwick's Scarab has been spotted near a wormhole exit. He developed an organic hull that cannot be damaged except by Pulse lasers.\n\n  Location: Near wormhole exits (chance encounter)\n  Reward: Salvaged hull plating (+50 max hull)\n  Deadline: None",
 		}}
 	}
 
@@ -204,7 +249,10 @@ func checkJarek(gs *GameState) []QuestEvent {
 	state := gs.QuestState(QuestJarek)
 
 	if state == QuestUnavailable && gs.Day > 12 && gs.Rand.Intn(100) < 10 {
-		_, distStr := systemDistanceStr(gs, "Aldebaran")
+		aldIdx, distStr := systemDistanceStr(gs, "Aldebaran")
+		if aldIdx >= 0 && gs.HopsToSystem(aldIdx) > 10 {
+			return nil
+		}
 		gs.SetQuestState(QuestJarek, QuestAvailable)
 		return []QuestEvent{{
 			Title:   "Ambassador Jarek",
@@ -242,7 +290,10 @@ func checkGemulon(gs *GameState) []QuestEvent {
 	state := gs.QuestState(QuestGemulon)
 
 	if state == QuestUnavailable && gs.Day > 35 && gs.Rand.Intn(100) < 6 {
-		_, distStr := systemDistanceStr(gs, "Gemulon")
+		gemIdx, distStr := systemDistanceStr(gs, "Gemulon")
+		if gemIdx >= 0 && gs.HopsToSystem(gemIdx) > 7 {
+			return nil
+		}
 		gs.SetQuestState(QuestGemulon, QuestAvailable)
 		gs.SetQuestProgress(QuestGemulon, gs.Day)
 		return []QuestEvent{{
@@ -257,14 +308,23 @@ func checkGemulon(gs *GameState) []QuestEvent {
 		if gs.Day-startDay > 7 {
 			gs.SetQuestState(QuestGemulon, QuestUnavailable)
 			gs.SetQuestProgress(QuestGemulon, 0)
+			if gemulon >= 0 {
+				gs.Data.Systems[gemulon].TechLevel = gamedata.TechPreAgricultural
+				gs.Data.Systems[gemulon].PoliticalSystem = gamedata.PolAnarchy
+			}
 			return []QuestEvent{{
 				Title:   "Gemulon Invaded",
-				Message: "You arrived too late. Gemulon has been invaded.",
+				Message: "You arrived too late. Gemulon has been invaded. The system has fallen to anarchy.",
 			}}
 		}
 		if gemulon >= 0 && gs.CurrentSystemID == gemulon {
-			gs.SetQuestState(QuestGemulon, QuestComplete)
-			reward := giveQuestEquipment(gs, "Fuel Compactor")
+			reward, installed := tryGiveQuestEquipment(gs, "Fuel Compactor")
+			if installed {
+				gs.SetQuestState(QuestGemulon, QuestComplete)
+			} else {
+				addPendingReward(gs, QuestGemulon, "Fuel Compactor", gemulon)
+				gs.SetQuestState(QuestGemulon, QuestComplete)
+			}
 			return []QuestEvent{{
 				Title:   "Gemulon Saved!",
 				Message: fmt.Sprintf("You warned Gemulon in time! %s", reward),
@@ -278,7 +338,10 @@ func checkFehler(gs *GameState) []QuestEvent {
 	state := gs.QuestState(QuestFehler)
 
 	if state == QuestUnavailable && gs.Day > 40 && gs.Rand.Intn(100) < 5 {
-		_, distStr := systemDistanceStr(gs, "Deneb")
+		denIdx, distStr := systemDistanceStr(gs, "Deneb")
+		if denIdx >= 0 && gs.HopsToSystem(denIdx) > 5 {
+			return nil
+		}
 		gs.SetQuestState(QuestFehler, QuestAvailable)
 		gs.SetQuestProgress(QuestFehler, gs.Day)
 		return []QuestEvent{{
@@ -346,63 +409,118 @@ func checkWild(gs *GameState) []QuestEvent {
 	return nil
 }
 
+func ReactorOnBoard(gs *GameState) bool {
+	status := gs.QuestProgress(QuestReactor)
+	return gs.QuestState(QuestReactor) == QuestActive && status >= ReactorStatusFuelOk && status < ReactorStatusDate
+}
+
+func ReactorCargoBays(gs *GameState) int {
+	if !ReactorOnBoard(gs) {
+		return 0
+	}
+	status := gs.QuestProgress(QuestReactor)
+	fuelBays := ReactorFuelBays - (status-1)/2
+	if fuelBays < 0 {
+		fuelBays = 0
+	}
+	return ReactorBays + fuelBays
+}
+
 func checkReactor(gs *GameState) []QuestEvent {
 	state := gs.QuestState(QuestReactor)
+	status := gs.QuestProgress(QuestReactor)
 
-	if state == QuestUnavailable && gs.Day > 45 && gs.Rand.Intn(100) < 5 {
-		dp := &GameDataProvider{Data: gs.Data}
-		if gs.Player.FreeCargo(dp) >= 5 {
-			_, distStr := systemDistanceStr(gs, "Eridani")
+	if state == QuestUnavailable && status == ReactorStatusNotStarted &&
+		gs.Day > 45 && gs.Player.PoliceRecord < -5 && gs.Player.Reputation >= 40 {
+		if gs.Rand.Intn(100) < 5 {
+			nixIdx, distStr := systemDistanceStr(gs, "Nix")
+			if nixIdx >= 0 && gs.HopsToSystem(nixIdx) > 20 {
+				return nil
+			}
 			gs.SetQuestState(QuestReactor, QuestAvailable)
 			return []QuestEvent{{
 				Title:   "Reactor Delivery",
-				Message: fmt.Sprintf("Henry Morgan needs an unstable reactor delivered to Eridani.\n\n  Destination: Eridani%s\n  Reward: Morgan's Laser\n  Cost: 5 cargo bays while carrying\n  Risk: Reactor leaks fuel (-1 per stop)\n  Deadline: None", distStr),
+				Message: fmt.Sprintf("Galactic criminal Henry Morgan wants an illegal ion reactor delivered to Nix. It's very dangerous!\n\n  Destination: Nix%s\n  Reward: Morgan's Laser (most powerful weapon)\n  Cost: 15 cargo bays (5 reactor + 10 fuel, fuel frees over time)\n  Risk: Fuel consumed, meltdown if too slow (19 warps)\n  Warning: Reactor is illegal cargo!", distStr),
 				Actions: []string{"Accept the reactor", "Decline"},
 			}}
 		}
 	}
 
-	if state == QuestActive {
-		gs.SetQuestProgress(QuestReactor, gs.QuestProgress(QuestReactor)+1)
-		status := gs.QuestProgress(QuestReactor)
-
-		gs.Player.Ship.Fuel -= 1
-		if gs.Player.Ship.Fuel < 0 {
-			gs.Player.Ship.Fuel = 0
-		}
-
-		if status >= 21 {
-			gs.SetQuestState(QuestReactor, QuestUnavailable)
-			gs.SetQuestProgress(QuestReactor, 0)
-			damage := gs.Data.Ships[gs.Player.Ship.TypeID].Hull / 2
-			gs.Player.Ship.Hull -= damage
-			if gs.Player.Ship.Hull < 1 {
-				gs.Player.Ship.Hull = 1
+	if state == QuestActive && status >= ReactorStatusFuelOk && status < ReactorStatusDate {
+		nix := findSystem(gs, "Nix")
+		if nix >= 0 && gs.CurrentSystemID == nix {
+			reward, installed := tryGiveQuestEquipment(gs, "Morgan's Laser")
+			if installed {
+				gs.SetQuestProgress(QuestReactor, ReactorStatusDone)
+				gs.SetQuestState(QuestReactor, QuestComplete)
+			} else {
+				gs.SetQuestProgress(QuestReactor, ReactorStatusDelivered)
+				addPendingReward(gs, QuestReactor, "Morgan's Laser", nix)
 			}
 			return []QuestEvent{{
-				Title:   "Reactor Meltdown!",
-				Message: fmt.Sprintf("The reactor has melted down! Massive damage (%d hull) and the reactor is lost!", damage),
-			}}
-		}
-
-		eridani := findSystem(gs, "Eridani")
-		if eridani >= 0 && gs.CurrentSystemID == eridani {
-			gs.SetQuestState(QuestReactor, QuestComplete)
-			gs.SetQuestProgress(QuestReactor, 0)
-			reward := giveQuestEquipment(gs, "Morgan's Laser")
-			return []QuestEvent{{
 				Title:   "Reactor Delivered!",
-				Message: fmt.Sprintf("Henry Morgan is pleased. %s", reward),
+				Message: fmt.Sprintf("Henry Morgan takes delivery with great glee. His men immediately stabilize the fuel system. %s", reward),
 			}}
 		}
 
-		if status > 15 {
-			return []QuestEvent{{
+		var events []QuestEvent
+		switch status {
+		case ReactorStatusFuelOk + 1:
+			events = append(events, QuestEvent{
 				Title:   "Reactor Warning",
-				Message: fmt.Sprintf("The reactor is becoming unstable! Status: %d/20. Deliver it soon!", status),
+				Message: "The Ion Reactor has begun to consume fuel rapidly. In a single day, it burned nearly half a bay of fuel!",
+			})
+		case ReactorStatusDate - 4:
+			events = append(events, QuestEvent{
+				Title:   "Reactor Warning",
+				Message: "The Ion Reactor is emitting a shrill whine and shaking. The display indicates fuel starvation.",
+			})
+		case ReactorStatusDate - 2:
+			events = append(events, QuestEvent{
+				Title:   "Reactor Critical!",
+				Message: "The Ion Reactor is smoking and making loud noises. The core is close to melting temperature!",
+			})
+		}
+		return events
+	}
+
+	if state == QuestActive && status >= ReactorStatusDate {
+		if gs.Player.HasEscapePod {
+			gs.SetQuestProgress(QuestReactor, ReactorStatusNotStarted)
+			gs.SetQuestState(QuestReactor, QuestUnavailable)
+			gs.Player.Ship = NewStartingShip(gs.Data)
+			gs.Player.Cargo = [10]int{}
+			return []QuestEvent{{
+				Title:   "Reactor Meltdown!",
+				Message: "The reactor explodes! Your escape pod saves you, but your ship and all cargo are lost. You find yourself in a new Flea.",
+			}}
+		}
+		gs.EndStatus = StatusDead
+		return []QuestEvent{{
+			Title:   "Reactor Meltdown!",
+			Message: "The reactor explodes into a huge radioactive fireball! Without an escape pod, you perish in the explosion.",
+		}}
+	}
+
+	if state == QuestActive && status == ReactorStatusDelivered {
+		nix := findSystem(gs, "Nix")
+		if nix >= 0 && gs.CurrentSystemID == nix {
+			reward, installed := tryGiveQuestEquipment(gs, "Morgan's Laser")
+			if installed {
+				gs.SetQuestProgress(QuestReactor, ReactorStatusDone)
+				gs.SetQuestState(QuestReactor, QuestComplete)
+				return []QuestEvent{{
+					Title:   "Morgan's Laser",
+					Message: reward,
+				}}
+			}
+			return []QuestEvent{{
+				Title:   "Morgan's Laser",
+				Message: reward,
 			}}
 		}
 	}
+
 	return nil
 }
 
@@ -410,26 +528,7 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 	switch title {
 	case "Space Monster!":
 		if actionIdx == 0 {
-			fighterSkill := EffectivePlayerSkill(gs, formula.SkillFighter)
-			weaponPower := 0
-			for _, w := range gs.Player.Ship.Weapons {
-				weaponPower += gs.Data.Equipment[w].Power
-			}
-			power := fighterSkill*2 + weaponPower
-			monsterPower := 30 + gs.Rand.Intn(20)
-
-			if power >= monsterPower {
-				gs.SetQuestState(QuestSpaceMonster, QuestComplete)
-				gs.Player.Credits += 10000
-				gs.Player.Reputation += 5
-				return "You destroyed the Space Monster! 10,000 credits bounty and fame across the galaxy!"
-			}
-			damage := 20 + gs.Rand.Intn(30)
-			gs.Player.Ship.Hull -= damage
-			if gs.Player.Ship.Hull < 1 {
-				gs.Player.Ship.Hull = 1
-			}
-			return fmt.Sprintf("The monster is too powerful! You barely escape with %d hull damage.", damage)
+			return resolveMonsterCombat(gs)
 		}
 		return "You flee from the Space Monster."
 
@@ -447,12 +546,13 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 				}
 			}
 			if !hasPulse && !hasMorgans {
-				return "Your weapons have no effect on the Scarab's hull! It seems impervious to energy weapons. Perhaps a simpler weapon would work..."
+				return "Your weapons bounce off the Scarab's organic hull! Only Pulse lasers can penetrate it."
 			}
 			gs.SetQuestState(QuestScarab, QuestComplete)
+			gs.Player.Ship.HullUpgraded = true
 			shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
-			gs.Player.Ship.Hull = shipDef.Hull + 20
-			return "You destroyed the Scarab! Its hull plating was salvaged -- your hull is permanently reinforced (+20 max hull)."
+			gs.Player.Ship.Hull = shipDef.Hull + ScarabHullBonus
+			return fmt.Sprintf("You destroyed the Scarab! Its hull plating was salvaged -- your hull is permanently reinforced (+%d max hull).", ScarabHullBonus)
 		}
 		return "You leave the Scarab alone."
 
@@ -475,6 +575,9 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 
 	case "Jonathan Wild":
 		if actionIdx == 0 {
+			if ReactorOnBoard(gs) {
+				return "Jonathan Wild doesn't like the looks of that Ion Reactor. He thinks it's too dangerous, and won't get on board."
+			}
 			gs.SetQuestState(QuestWild, QuestActive)
 			return "Jonathan Wild is now aboard. Deliver him to Adahn -- but watch out for police."
 		}
@@ -484,15 +587,95 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 	case "Reactor Delivery":
 		if actionIdx == 0 {
 			dp := &GameDataProvider{Data: gs.Data}
-			if gs.Player.FreeCargo(dp) < 5 {
-				return "Not enough cargo space for the reactor (need 5 free bays)."
+			if gs.Player.FreeCargo(dp) < ReactorTotalBays {
+				return fmt.Sprintf("Not enough cargo space for the reactor (need %d free bays).", ReactorTotalBays)
+			}
+			wildWasActive := gs.QuestState(QuestWild) == QuestActive
+			if wildWasActive {
+				gs.SetQuestState(QuestWild, QuestUnavailable)
+				gs.SetQuestProgress(QuestWild, 0)
 			}
 			gs.SetQuestState(QuestReactor, QuestActive)
-			gs.SetQuestProgress(QuestReactor, 5)
-			return "Reactor loaded (5 cargo bays). It will slowly leak fuel. Deliver to Eridani."
+			gs.SetQuestProgress(QuestReactor, ReactorStatusFuelOk)
+			msg := fmt.Sprintf("Reactor loaded. %d bays contain the reactor, %d bays contain enriched fuel. Deliver to Nix before it melts down!", ReactorBays, ReactorFuelBays)
+			if wildWasActive {
+				msg += "\n\nJonathan Wild refuses to stay aboard with the reactor and has departed."
+			}
+			return msg
 		}
 		gs.SetQuestState(QuestReactor, QuestUnavailable)
 		return "Declined."
 	}
 	return ""
+}
+
+func resolveMonsterCombat(gs *GameState) string {
+	if gs.Quests.MonsterHull <= 0 {
+		gs.Quests.MonsterHull = MonsterMaxHull
+	}
+
+	fighterSkill := EffectivePlayerSkill(gs, formula.SkillFighter)
+	engineerSkill := EffectivePlayerSkill(gs, formula.SkillEngineer)
+
+	playerWeaponPower := 0
+	for _, w := range gs.Player.Ship.Weapons {
+		playerWeaponPower += gs.Data.Equipment[w].Power
+	}
+	if playerWeaponPower == 0 {
+		return "You have no weapons! The Space Monster drives you away."
+	}
+
+	monsterWeapon := 35
+	monsterFighter := 8 + int(gs.Difficulty)
+	monsterPilot := 8 + int(gs.Difficulty)
+	monsterEngineer := 1 + int(gs.Difficulty)
+	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
+
+	var log string
+	maxRounds := 8
+	for round := 0; round < maxRounds; round++ {
+		playerHit := gs.Rand.Intn(fighterSkill+3) >= gs.Rand.Intn(monsterPilot/2+5)
+		if playerHit {
+			dmg := 1 + gs.Rand.Intn(playerWeaponPower*(100+2*engineerSkill)/100+1)
+			gs.Quests.MonsterHull -= dmg
+			log += fmt.Sprintf("  You hit the Monster for %d damage.\n", dmg)
+		} else {
+			log += "  You fire -- miss!\n"
+		}
+
+		if gs.Quests.MonsterHull <= 0 {
+			gs.Quests.MonsterHull = 0
+			gs.SetQuestState(QuestSpaceMonster, QuestComplete)
+			gs.Player.Credits += 10000
+			gs.Player.Reputation += 5
+			return log + "\nThe Space Monster is destroyed! 10,000 credits bounty and fame across the galaxy!"
+		}
+
+		monsterHit := gs.Rand.Intn(monsterFighter+3) >= gs.Rand.Intn(EffectivePlayerSkill(gs, formula.SkillPilot)/2+5)
+		if monsterHit {
+			dmg := 1 + gs.Rand.Intn(monsterWeapon*(100+2*monsterEngineer)/100+1)
+			dmg -= gs.Rand.Intn(max(1, EffectivePlayerSkill(gs, formula.SkillPilot)))
+			if dmg < 1 {
+				dmg = 1
+			}
+			gs.Player.Ship.Hull -= dmg
+			log += fmt.Sprintf("  Monster hits you for %d hull damage.\n", dmg)
+		} else {
+			log += "  Monster attacks -- miss!\n"
+		}
+
+		if gs.Player.Ship.Hull <= 0 {
+			gs.Player.Ship.Hull = 1
+			log += fmt.Sprintf("\nYou barely escape with your ship intact! Monster hull: %d/%d.", gs.Quests.MonsterHull, MonsterMaxHull)
+			return log
+		}
+	}
+
+	maxHull := shipDef.Hull
+	if gs.Player.Ship.HullUpgraded {
+		maxHull += ScarabHullBonus
+	}
+	log += fmt.Sprintf("\nThe battle is inconclusive. You disengage.\n  Your hull: %d/%d  |  Monster hull: %d/%d",
+		gs.Player.Ship.Hull, maxHull, gs.Quests.MonsterHull, MonsterMaxHull)
+	return log
 }

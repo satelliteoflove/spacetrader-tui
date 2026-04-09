@@ -59,6 +59,22 @@ func GenerateForClick(gs *game.GameState, destIdx int) *Encounter {
 		}
 	}
 
+	if gs.Quests.States[game.QuestWild] == game.QuestActive {
+		kravat := -1
+		for i, sys := range gs.Data.Systems {
+			if sys.Name == "Kravat" {
+				kravat = i
+				break
+			}
+		}
+		if kravat >= 0 && destIdx == kravat {
+			policeChance := 100 / max(2, min(4, 5-int(gs.Difficulty)))
+			if gs.Rand.Intn(100) < policeChance {
+				return newPoliceForAttitude(gs)
+			}
+		}
+	}
+
 	pirateStrength := polData.PirateStrength
 	policeStrength := polData.PoliceStrength
 	traderStrength := polData.TraderStrength

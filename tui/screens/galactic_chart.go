@@ -193,6 +193,22 @@ func (s *GalacticChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					s.confirming = true
 				}
 			}
+		case msg.String() == "J":
+			if s.gs.Quests.HasSingularity {
+				if selIdx, ok := s.selectedSystem(); ok {
+					result := travel.ExecuteJump(s.gs, selIdx)
+					if !result.Success {
+						s.message = result.Message
+						return s, nil
+					}
+					s.message = result.Message
+					return s, func() tea.Msg { return TravelMsg{DestIdx: selIdx} }
+				}
+			}
+		case msg.String() == "p":
+			if selIdx, ok := s.selectedSystem(); ok {
+				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: selIdx} }
+			}
 		case msg.String() == "L":
 			selIdx := -1
 			if idx, ok := s.selectedSystem(); ok {
@@ -441,7 +457,12 @@ func (s *GalacticChartScreen) View() string {
 		b.WriteString("  / " + s.searchInput.View() + "\n")
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  arrows/hjkl move, / search, enter travel, b bookmark, L list, esc back"))
+	helpLine := "  arrows/hjkl move, / search, enter travel, p plan route"
+	if s.gs.Quests.HasSingularity {
+		helpLine += ", J jump (singularity)"
+	}
+	b.WriteString("\n" + DimStyle.Render(helpLine))
+	b.WriteString("\n" + DimStyle.Render("  b bookmark, L list, esc back"))
 	return b.String()
 }
 
@@ -571,6 +592,22 @@ func (s *GalacticListScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				entry := s.filtered[s.cursor]
 				s.gs.ToggleBookmark(entry.sysIdx, autoBookmarkNote(s.gs, entry.sysIdx))
 				s.rebuildEntries()
+			}
+		case msg.String() == "J":
+			if s.gs.Quests.HasSingularity && len(s.filtered) > 0 {
+				entry := s.filtered[s.cursor]
+				result := travel.ExecuteJump(s.gs, entry.sysIdx)
+				if !result.Success {
+					s.message = result.Message
+					return s, nil
+				}
+				s.message = result.Message
+				return s, func() tea.Msg { return TravelMsg{DestIdx: entry.sysIdx} }
+			}
+		case msg.String() == "p":
+			if len(s.filtered) > 0 {
+				entry := s.filtered[s.cursor]
+				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: entry.sysIdx} }
 			}
 		case key.Matches(msg, Keys.Enter):
 			if len(s.filtered) > 0 {
@@ -799,7 +836,11 @@ func (s *GalacticListScreen) View() string {
 		b.WriteString("\n  " + s.message + "\n")
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  enter travel, r refuel, w wormhole, b bookmark"))
+	listHelp := "  enter travel, p plan route, r refuel, w wormhole, b bookmark"
+	if s.gs.Quests.HasSingularity {
+		listHelp += ", J jump"
+	}
+	b.WriteString("\n" + DimStyle.Render(listHelp))
 	b.WriteString("\n" + DimStyle.Render("  a all/range, 1-5 sort, / filter, m map, esc back"))
 	return b.String()
 }

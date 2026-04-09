@@ -75,18 +75,15 @@ func TestGenerateMinDistance(t *testing.T) {
 }
 
 func TestGenerateConnectivity(t *testing.T) {
-	systems := Generate(42)
-	for i, sys := range systems {
-		hasNeighbor := false
-		for j, other := range systems {
-			if i != j && dist(sys.X, sys.Y, other.X, other.Y) <= CloseDistance+1 {
-				hasNeighbor = true
-				break
-			}
+	for _, seed := range []int64{42, 12345, 99999, 7, 314159} {
+		systems := Generate(seed)
+		coords := make([][2]int, len(systems))
+		for i, s := range systems {
+			coords[i] = [2]int{s.X, s.Y}
 		}
-		if !hasNeighbor {
-			t.Errorf("system %q at (%d,%d) has no neighbor within %d parsecs",
-				sys.Name, sys.X, sys.Y, CloseDistance)
+		components := connectedComponents(coords, MaxShipRange)
+		if len(components) != 1 {
+			t.Errorf("seed %d: galaxy has %d connected components, want 1", seed, len(components))
 		}
 	}
 }

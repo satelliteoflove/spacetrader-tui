@@ -11,8 +11,9 @@ const (
 	GalaxyWidth    = 150
 	GalaxyHeight   = 110
 	NumSystems     = 120
-	MinDistance     = 6
-	CloseDistance   = 13
+	MinDistance      = 5
+	CloseDistance    = 13
+	MaxShipRange    = 17
 	MaxPlaceRetries = 1000
 )
 
@@ -218,48 +219,77 @@ func forcePlace(rng *rand.Rand, existing [][2]int) [2]int {
 }
 
 func ensureConnectivity(rng *rand.Rand, coords [][2]int) {
-	for i := range coords {
-		hasNeighbor := false
-		for j := range coords {
-			if i != j && dist(coords[i][0], coords[i][1], coords[j][0], coords[j][1]) <= CloseDistance {
-				hasNeighbor = true
-				break
-			}
+	for attempt := 0; attempt < 200; attempt++ {
+		components := connectedComponents(coords, MaxShipRange)
+		if len(components) <= 1 {
+			return
 		}
-		if !hasNeighbor {
-			nearest := -1
-			nearestDist := math.MaxFloat64
-			for j := range coords {
-				if i == j {
-					continue
-				}
-				d := dist(coords[i][0], coords[i][1], coords[j][0], coords[j][1])
-				if d < nearestDist {
-					nearestDist = d
-					nearest = j
+		main := components[0]
+		for _, island := range components[1:] {
+			bridgeNode := island[0]
+			bestTarget := -1
+			bestDist := math.MaxFloat64
+			for _, mi := range main {
+				d := dist(coords[bridgeNode][0], coords[bridgeNode][1], coords[mi][0], coords[mi][1])
+				if d < bestDist {
+					bestDist = d
+					bestTarget = mi
 				}
 			}
-			if nearest >= 0 {
-				nudgeCloser(rng, coords, i, nearest)
+			if bestTarget >= 0 {
+				nudgeCloser(rng, coords, bridgeNode, bestTarget)
 			}
+			main = append(main, island...)
 		}
 	}
+}
+
+func connectedComponents(coords [][2]int, maxRange int) [][]int {
+	n := len(coords)
+	visited := make([]bool, n)
+	rangeF := float64(maxRange)
+	var components [][]int
+
+	for start := 0; start < n; start++ {
+		if visited[start] {
+			continue
+		}
+		var component []int
+		queue := []int{start}
+		visited[start] = true
+		for len(queue) > 0 {
+			cur := queue[0]
+			queue = queue[1:]
+			component = append(component, cur)
+			for j := 0; j < n; j++ {
+				if visited[j] {
+					continue
+				}
+				if math.Ceil(dist(coords[cur][0], coords[cur][1], coords[j][0], coords[j][1])) <= rangeF {
+					visited[j] = true
+					queue = append(queue, j)
+				}
+			}
+		}
+		components = append(components, component)
+	}
+	return components
 }
 
 func nudgeCloser(rng *rand.Rand, coords [][2]int, isolated, target int) {
 	tx, ty := coords[target][0], coords[target][1]
 	ix, iy := coords[isolated][0], coords[isolated][1]
 
-	dx := tx - ix
-	dy := ty - iy
 	d := dist(ix, iy, tx, ty)
-	if d <= CloseDistance {
+	if math.Ceil(d) <= float64(MaxShipRange) {
 		return
 	}
 
-	moveRatio := (d - CloseDistance + 1) / d
-	newX := ix + int(float64(dx)*moveRatio)
-	newY := iy + int(float64(dy)*moveRatio)
+	dx := float64(tx - ix)
+	dy := float64(ty - iy)
+	moveRatio := (d - float64(MaxShipRange) + 2) / d
+	newX := ix + int(math.Round(dx*moveRatio))
+	newY := iy + int(math.Round(dy*moveRatio))
 
 	if newX < 0 {
 		newX = 0

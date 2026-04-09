@@ -35,6 +35,12 @@ const (
 	QuestComplete
 )
 
+type PendingReward struct {
+	QuestID   QuestID `json:"quest_id"`
+	Equipment string  `json:"equipment"`
+	SystemIdx int     `json:"system_idx"`
+}
+
 type QuestData struct {
 	States         [NumQuests]QuestState `json:"states"`
 	Progress       [NumQuests]int        `json:"progress"`
@@ -42,7 +48,19 @@ type QuestData struct {
 	MonsterHull    int                   `json:"monster_hull"`
 	FabricRipDays  int                   `json:"fabric_rip_days"`
 	HasSingularity bool                  `json:"has_singularity"`
+	PendingRewards []PendingReward       `json:"pending_rewards"`
 }
+
+const (
+	ReactorStatusNotStarted = 0
+	ReactorStatusFuelOk     = 1
+	ReactorStatusDate       = 20
+	ReactorStatusDelivered  = 21
+	ReactorStatusDone       = 22
+	ReactorBays             = 5
+	ReactorFuelBays         = 10
+	ReactorTotalBays        = 15
+)
 
 const MonsterMaxHull = 500
 
@@ -110,7 +128,15 @@ func (gs *GameState) QuestDescription(id QuestID) string {
 		return "Stop experiment at Deneb"
 
 	case QuestReactor:
-		return "Deliver reactor to Eridani (fuel leak!)"
+		status := gs.Quests.Progress[id]
+		if status == ReactorStatusDelivered {
+			return "Collect Morgan's Laser at Nix"
+		}
+		fuelBays := ReactorFuelBays - (status-1)/2
+		if fuelBays < 0 {
+			fuelBays = 0
+		}
+		return fmt.Sprintf("Deliver reactor to Nix (%d bays, %d fuel bays)", ReactorBays, fuelBays)
 
 	case QuestWild:
 		return "Smuggle to Adahn (police danger!)"
@@ -141,6 +167,40 @@ func joinArrow(parts []string) string {
 		result += " -> " + p
 	}
 	return result
+}
+
+func (gs *GameState) QuestDestination(id QuestID) int {
+	switch id {
+	case QuestDragonfly:
+		path := []string{"Arouan", "Halley", "Regulus", "Linnet"}
+		progress := gs.Quests.Progress[id]
+		if progress < len(path) {
+			return findSystem(gs, path[progress])
+		}
+		return findSystem(gs, path[len(path)-1])
+	case QuestJarek:
+		return findSystem(gs, "Aldebaran")
+	case QuestGemulon:
+		return findSystem(gs, "Gemulon")
+	case QuestFehler:
+		return findSystem(gs, "Deneb")
+	case QuestReactor:
+		if gs.Quests.Progress[id] == ReactorStatusDelivered {
+			return findSystem(gs, "Nix")
+		}
+		return findSystem(gs, "Nix")
+	case QuestWild:
+		return findSystem(gs, "Adahn")
+	case QuestJapori:
+		return findSystem(gs, "Japori")
+	case QuestSpaceMonster:
+		return findSystem(gs, "Acamar")
+	case QuestAlienArtifact:
+		return -1
+	case QuestScarab:
+		return -1
+	}
+	return -1
 }
 
 func findGoodIndex(gs *GameState, name string) int {
@@ -215,6 +275,19 @@ func questUrgency(gs *GameState, id QuestID) QuestUrgencyLevel {
 			return QuestUrgencyCritical
 		}
 		if elapsed >= 5 {
+			return QuestUrgencyStale
+		}
+		return QuestUrgencyFresh
+
+	case QuestReactor:
+		if gs.Quests.States[id] != QuestActive {
+			return QuestUrgencyNone
+		}
+		status := gs.Quests.Progress[id]
+		if status >= ReactorStatusDate-2 {
+			return QuestUrgencyCritical
+		}
+		if status >= ReactorStatusDate-4 {
 			return QuestUrgencyStale
 		}
 		return QuestUrgencyFresh

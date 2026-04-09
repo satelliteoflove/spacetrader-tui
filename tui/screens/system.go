@@ -31,16 +31,22 @@ func NewSystemScreenWithCursor(gs *game.GameState, cursor int) *SystemScreen {
 	items := []menuItem{
 		{"Market", ScreenMarket},
 		{"Navigation", ScreenGalacticList},
-		{"Galaxy News", ScreenNews},
-		{"Status", ScreenStatus},
-		{"Shipyard", ScreenShipyard},
-		{"Personnel", ScreenPersonnel},
-		{"Bank", ScreenBank},
-		{"Trader's Guide", ScreenGuide},
-		{"Settings", ScreenSettings},
 	}
+	if gs.HasActiveRoute {
+		destName := gs.Data.Systems[gs.ActiveRoute].Name
+		items = append(items, menuItem{fmt.Sprintf("Route -> %s", destName), ScreenRoutePlanner})
+	}
+	items = append(items,
+		menuItem{"Galaxy News", ScreenNews},
+		menuItem{"Status", ScreenStatus},
+		menuItem{"Shipyard", ScreenShipyard},
+		menuItem{"Personnel", ScreenPersonnel},
+		menuItem{"Bank", ScreenBank},
+		menuItem{"Trader's Guide", ScreenGuide},
+		menuItem{"Settings", ScreenSettings},
+	)
 
-	if gs.Player.Credits >= 500000 && gs.Player.LoanBalance == 0 && gs.QuestState(game.QuestMoonForSale) == game.QuestAvailable {
+	if gs.Player.Credits >= 500000 && gs.Player.LoanBalance == 0 && gs.QuestState(game.QuestMoonForSale) == game.QuestAvailable && !gs.Player.MoonPurchased {
 		items = append(items, menuItem{"Buy Moon and Retire!", ScreenGameOver})
 	}
 
@@ -70,10 +76,17 @@ func (s *SystemScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				s.gs.EndStatus = game.StatusRetired
 			}
 			cursor := s.cursor
-			return s, func() tea.Msg { return NavigateMsg{Screen: target, RestoreCursor: cursor} }
+			selectedSys := 0
+			if target == ScreenRoutePlanner && s.gs.HasActiveRoute {
+				selectedSys = s.gs.ActiveRoute
+			}
+			return s, func() tea.Msg { return NavigateMsg{Screen: target, RestoreCursor: cursor, SelectedSystem: selectedSys} }
 		case msg.String() == "s":
 			cursor := s.cursor
 			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSave, RestoreCursor: cursor} }
+		case msg.String() == "`":
+			cursor := s.cursor
+			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenDebug, RestoreCursor: cursor} }
 		}
 	}
 	return s, nil

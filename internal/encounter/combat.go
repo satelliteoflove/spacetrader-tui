@@ -90,6 +90,20 @@ func NewPoliceShip(gs *game.GameState) EnemyShip {
 	}
 }
 
+func NewSpaceMonster(gs *game.GameState) EnemyShip {
+	diff := int(gs.Difficulty)
+	hull := gs.Quests.MonsterHull
+	if hull <= 0 {
+		hull = game.MonsterMaxHull
+	}
+	return EnemyShip{
+		Name: "Space Monster", Hull: hull, MaxHull: game.MonsterMaxHull,
+		Shields: nil, WeaponPower: 35,
+		PilotSkill: 8 + diff, FighterSkill: 8 + diff,
+		EngineerSkill: 1 + diff, ShipPrice: 50000, ShipSize: 3,
+	}
+}
+
 func RunCombat(gs *game.GameState, enemy EnemyShip, maxRounds int) CombatResult {
 	result := CombatResult{}
 	rng := gs.Rand

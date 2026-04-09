@@ -206,8 +206,8 @@ func skillDescription(idx, level int) string {
 		if discount > 10 {
 			discount = 10
 		}
-		chance := 20 + level*5
-		return fmt.Sprintf("Price discount: %d%%. Negotiate: %d%% success.", discount, chance)
+		markup := 3 + (10 - discount)
+		return fmt.Sprintf("Buy markup: %d%% above base price.", markup)
 	case formula.SkillEngineer:
 		repair := level / 2
 		if repair < 1 {

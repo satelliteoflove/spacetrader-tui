@@ -177,6 +177,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) arriveAtSystem() (tea.Model, tea.Cmd) {
 	m.fadeFrame = 0
+	if m.gs.HasActiveRoute && m.gs.CurrentSystemID == m.gs.ActiveRoute {
+		m.gs.HasActiveRoute = false
+	}
 	events := game.CheckQuestsOnArrival(m.gs)
 	if len(events) > 0 {
 		s := screens.NewQuestEventScreen(m.gs, events)
@@ -221,6 +224,10 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 		s = screens.NewNewsScreen(m.gs)
 	case screens.ScreenSettings:
 		s = screens.NewSettingsScreen(m.config, m.gs != nil)
+	case screens.ScreenRoutePlanner:
+		s = screens.NewRoutePlannerScreen(m.gs, msg.SelectedSystem)
+	case screens.ScreenDebug:
+		s = screens.NewDebugScreen(m.gs)
 	default:
 		return m, nil
 	}

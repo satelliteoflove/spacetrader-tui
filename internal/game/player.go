@@ -41,6 +41,19 @@ func (p *Player) FreeCargo(data ShipDataProvider) int {
 	return p.CargoCapacity(data) - p.TotalCargo()
 }
 
+func (p *Player) FreeCargoWithReactor(data ShipDataProvider, reactorBays int) int {
+	return p.CargoCapacity(data) - p.TotalCargo() - reactorBays
+}
+
+func (p *Player) Worth(data ShipDataProvider) int {
+	shipDef := data.ShipDef(p.Ship.TypeID)
+	worth := p.Credits - p.LoanBalance + shipDef.Price*3/4
+	for _, c := range p.Cargo {
+		worth += c * 100
+	}
+	return worth
+}
+
 func (p *Player) CrewMercs() []formula.Mercenary {
 	mercs := make([]formula.Mercenary, len(p.Crew))
 	for i, m := range p.Crew {

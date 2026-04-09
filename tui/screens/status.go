@@ -12,20 +12,62 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
+type activeQuest struct {
+	id     game.QuestID
+	name   string
+	desc   string
+	destID int
+}
+
 type StatusScreen struct {
-	gs *game.GameState
+	gs      *game.GameState
+	quests  []activeQuest
+	cursor  int
+	message string
 }
 
 func NewStatusScreen(gs *game.GameState) *StatusScreen {
-	return &StatusScreen{gs: gs}
+	quests := buildActiveQuests(gs)
+	return &StatusScreen{gs: gs, quests: quests}
 }
 
 func (s *StatusScreen) Init() tea.Cmd { return nil }
 
 func (s *StatusScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if len(s.quests) == 0 {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			if key.Matches(msg, Keys.Back) {
+				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
+			}
+		}
+		return s, nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if key.Matches(msg, Keys.Back) {
+		switch {
+		case key.Matches(msg, Keys.Up):
+			s.cursor = wrapCursor(s.cursor, -1, len(s.quests))
+			s.message = ""
+		case key.Matches(msg, Keys.Down):
+			s.cursor = wrapCursor(s.cursor, 1, len(s.quests))
+			s.message = ""
+		case msg.String() == "m":
+			q := s.quests[s.cursor]
+			if q.destID >= 0 {
+				destIdx := q.destID
+				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenGalacticChart, SelectedSystem: destIdx} }
+			}
+			s.message = DimStyle.Render("No fixed destination for this quest.")
+		case msg.String() == "p":
+			q := s.quests[s.cursor]
+			if q.destID >= 0 {
+				destIdx := q.destID
+				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: destIdx} }
+			}
+			s.message = DimStyle.Render("No fixed destination for this quest.")
+		case key.Matches(msg, Keys.Back):
 			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 		}
 	}
@@ -139,20 +181,29 @@ func (s *StatusScreen) View() string {
 		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Fabric Rip: %d days remaining", s.gs.Quests.FabricRipDays)) + "\n")
 	}
 
-	activeQuests := getActiveQuests(s.gs)
-	if len(activeQuests) > 0 {
+	if len(s.quests) > 0 {
 		b.WriteString("\n" + div + "\n")
 		b.WriteString(CyanStyle.Render("  Active Quests") + "\n")
-		for _, q := range activeQuests {
-			b.WriteString("    " + renderQuestLine(q) + "\n")
+		for i, q := range s.quests {
+			line := renderQuestLine(q.name + " - " + q.desc)
+			if i == s.cursor {
+				b.WriteString(SelectedStyle.Render("  > ") + line + "\n")
+			} else {
+				b.WriteString("    " + line + "\n")
+			}
 		}
+		if s.message != "" {
+			b.WriteString("  " + s.message + "\n")
+		}
+		b.WriteString("\n" + DimStyle.Render("  j/k select quest  m map  p plan route  esc back"))
+	} else {
+		b.WriteString("\n" + DimStyle.Render("  esc back"))
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  esc to go back"))
 	return b.String()
 }
 
-func getActiveQuests(gs *game.GameState) []string {
+func buildActiveQuests(gs *game.GameState) []activeQuest {
 	type questInfo struct {
 		id   game.QuestID
 		name string
@@ -169,12 +220,16 @@ func getActiveQuests(gs *game.GameState) []string {
 		{game.QuestWild, "Jonathan Wild"},
 		{game.QuestReactor, "Reactor Delivery"},
 	}
-	var quests []string
+	var quests []activeQuest
 	for _, c := range checks {
 		state := gs.Quests.States[c.id]
 		if state == game.QuestActive || state == game.QuestAvailable {
-			desc := gs.QuestDescription(c.id)
-			quests = append(quests, c.name+" - "+desc)
+			quests = append(quests, activeQuest{
+				id:     c.id,
+				name:   c.name,
+				desc:   gs.QuestDescription(c.id),
+				destID: gs.QuestDestination(c.id),
+			})
 		}
 	}
 	return quests

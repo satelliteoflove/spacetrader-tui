@@ -91,6 +91,18 @@ func pickStartingSystem(gs *GameState) int {
 	return candidates[gs.Rand.Intn(len(candidates))]
 }
 
+func NewStartingShip(data *gamedata.GameData) Ship {
+	fleaDef := data.Ships[ShipFlea]
+	return Ship{
+		TypeID:  ShipFlea,
+		Hull:    fleaDef.Hull,
+		Fuel:    fleaDef.Range,
+		Weapons: []int{},
+		Shields: []int{},
+		Gadgets: []int{},
+	}
+}
+
 func initializeMarkets(gs *GameState) {
 	for i := range gs.Data.Systems {
 		RefreshSystemPrices(gs, i)
