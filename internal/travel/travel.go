@@ -80,7 +80,7 @@ func ExecuteTravel(gs *game.GameState, destIdx int) TravelResult {
 	warped := actualDest != destIdx
 
 	game.GenerateEvents(gs)
-	game.RefreshSystemPrices(gs, actualDest)
+	game.RefreshOtherSystemPrices(gs, actualDest)
 
 	msg := fmt.Sprintf("Arrived at %s. Day %d.", actualName, gs.Day)
 	if warped {
@@ -111,7 +111,7 @@ func ExecuteJump(gs *game.GameState, destIdx int) TravelResult {
 	gs.Systems[destIdx].Visited = true
 
 	game.GenerateEvents(gs)
-	game.RefreshSystemPrices(gs, destIdx)
+	game.RefreshOtherSystemPrices(gs, destIdx)
 
 	dest := gs.Data.Systems[destIdx]
 	return TravelResult{

@@ -58,6 +58,7 @@ func NewGameWithSeed(data *gamedata.GameData, name string, skills [formula.NumSk
 	initializeMarkets(gs)
 	GenerateWormholes(gs)
 	GenerateEvents(gs)
+	ensureNearbyEvent(gs)
 
 	if diff == gamedata.DiffBeginner {
 		gs.Player.Credits += 1000
@@ -109,9 +110,56 @@ func NewStartingShip(data *gamedata.GameData) Ship {
 	}
 }
 
+func ensureNearbyEvent(gs *GameState) {
+	cur := gs.Data.Systems[gs.CurrentSystemID]
+	for i, sys := range gs.Data.Systems {
+		if gs.Systems[i].Event != "" {
+			dist := formula.Distance(cur.X, cur.Y, sys.X, sys.Y)
+			if dist < 30 {
+				return
+			}
+		}
+	}
+
+	var candidates []int
+	for i, sys := range gs.Data.Systems {
+		if i == gs.CurrentSystemID {
+			continue
+		}
+		dist := formula.Distance(cur.X, cur.Y, sys.X, sys.Y)
+		if dist < 30 {
+			candidates = append(candidates, i)
+		}
+	}
+	if len(candidates) == 0 {
+		return
+	}
+
+	gs.Rand.Shuffle(len(candidates), func(i, j int) {
+		candidates[i], candidates[j] = candidates[j], candidates[i]
+	})
+	for _, idx := range candidates {
+		event := eventNames[gs.Rand.Intn(len(eventNames))]
+		if eventHasTradeableGoods(gs, idx, event) {
+			gs.Systems[idx].Event = event
+			gs.Systems[idx].EventDay = gs.Day
+			RefreshSystemPrices(gs, idx)
+			return
+		}
+	}
+}
+
 func initializeMarkets(gs *GameState) {
 	for i := range gs.Data.Systems {
 		RefreshSystemPrices(gs, i)
+	}
+}
+
+func RefreshOtherSystemPrices(gs *GameState, skipIdx int) {
+	for i := range gs.Data.Systems {
+		if i != skipIdx {
+			RefreshSystemPrices(gs, i)
+		}
 	}
 }
 

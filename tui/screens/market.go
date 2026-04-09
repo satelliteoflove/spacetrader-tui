@@ -144,7 +144,6 @@ func (s *MarketScreen) View() string {
 
 	dp := &game.GameDataProvider{Data: s.gs.Data}
 	freeCargo := s.gs.Player.FreeCargo(dp)
-	sysState := s.gs.Systems[s.gs.CurrentSystemID]
 	sysName := s.gs.Data.Systems[s.gs.CurrentSystemID].Name
 
 	b.WriteString(HeaderStyle.Render(fmt.Sprintf("  %s - LOCAL MARKET  ", sysName)) + "\n")
@@ -159,13 +158,13 @@ func (s *MarketScreen) View() string {
 
 	for i, goodIdx := range s.goods {
 		good := s.gs.Data.Goods[goodIdx]
-		price := sysState.Prices[goodIdx]
+		buyP := market.BuyPrice(s.gs, goodIdx)
 		owned := s.gs.Player.Cargo[goodIdx]
 		avg := s.avgPrices[goodIdx]
 
-		priceStr := fmt.Sprintf("%6d", price)
+		priceStr := fmt.Sprintf("%6d", buyP)
 		avgStr := fmt.Sprintf("%6d", avg)
-		if price < 0 {
+		if buyP < 0 {
 			priceStr = fmt.Sprintf("%6s", "--")
 			avgStr = fmt.Sprintf("%6s", "--")
 		}
@@ -183,8 +182,8 @@ func (s *MarketScreen) View() string {
 		}
 
 		trendCol := "  "
-		if price > 0 {
-			hint := market.PriceVsAverage(price, avg)
+		if buyP > 0 {
+			hint := market.PriceVsAverage(buyP, avg)
 			switch hint {
 			case "very cheap":
 				trendCol = SuccessStyle.Render("<<")
@@ -212,19 +211,21 @@ func (s *MarketScreen) View() string {
 
 	if s.mode == modeBuyQty || s.mode == modeSellQty {
 		goodIdx := s.goods[s.cursor]
-		price := sysState.Prices[goodIdx]
 		goodName := s.gs.Data.Goods[goodIdx].Name
 
+		var displayPrice int
 		if s.mode == modeBuyQty {
-			b.WriteString(fmt.Sprintf("  Buy %s @ %d cr: ", goodName, price))
+			displayPrice = market.BuyPrice(s.gs, goodIdx)
+			b.WriteString(fmt.Sprintf("  Buy %s @ %d cr: ", goodName, displayPrice))
 		} else {
-			b.WriteString(fmt.Sprintf("  Sell %s @ %d cr: ", goodName, price))
+			displayPrice = market.SellPrice(s.gs, goodIdx)
+			b.WriteString(fmt.Sprintf("  Sell %s @ %d cr: ", goodName, displayPrice))
 		}
 		b.WriteString(s.qtyInput.View() + "\n")
 
 		qtyStr := strings.TrimSpace(s.qtyInput.Value())
 		if qty, err := strconv.Atoi(qtyStr); err == nil && qty > 0 {
-			total := price * qty
+			total := displayPrice * qty
 			if s.mode == modeBuyQty {
 				remaining := s.gs.Player.Credits - total
 				if remaining < 0 {
