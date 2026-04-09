@@ -186,31 +186,29 @@ func shortResource(r gamedata.Resource) string {
 	case gamedata.ResourceNone:
 		return ""
 	case gamedata.ResourceMineralRich:
-		return "+Minerals"
-	case gamedata.ResourceWaterWorld:
-		return "+Water"
-	case gamedata.ResourceRichFauna:
-		return "+Fauna"
-	case gamedata.ResourceRichSoil:
-		return "+Soil"
-	case gamedata.ResourceGoodClinic:
-		return "+Good med"
-	case gamedata.ResourceRobotWorkers:
-		return "+Robots"
+		return "+Ore cheap"
+	case gamedata.ResourceMineralPoor:
+		return "-Ore pricey"
 	case gamedata.ResourceDesert:
-		return "-Desert"
-	case gamedata.ResourcePoor:
-		return "-Poor"
-	case gamedata.ResourceLifeless:
-		return "-Lifeless"
+		return "-Water pricey"
+	case gamedata.ResourceSweetOceans:
+		return "+Water cheap"
+	case gamedata.ResourceRichSoil:
+		return "+Food cheap"
 	case gamedata.ResourcePoorSoil:
-		return "-Poor soil"
-	case gamedata.ResourcePoorClinic:
-		return "-Poor med"
-	case gamedata.ResourceLackOfWorkers:
-		return "-Low labor"
-	case gamedata.ResourceIndustrial:
-		return "~Industrial"
+		return "-Food pricey"
+	case gamedata.ResourceRichFauna:
+		return "+Furs cheap"
+	case gamedata.ResourceLifeless:
+		return "-Furs pricey"
+	case gamedata.ResourceWeirdMushrooms:
+		return "+Narco cheap"
+	case gamedata.ResourceSpecialHerbs:
+		return "+Meds cheap"
+	case gamedata.ResourceArtistic:
+		return "+Games cheap"
+	case gamedata.ResourceWarlike:
+		return "+Arms cheap"
 	}
 	return r.String()
 }
@@ -226,14 +224,13 @@ func colorResource(r gamedata.Resource, text string) string {
 	switch r {
 	case gamedata.ResourceNone:
 		return text
-	case gamedata.ResourceMineralRich, gamedata.ResourceWaterWorld, gamedata.ResourceRichFauna,
-		gamedata.ResourceRichSoil, gamedata.ResourceGoodClinic, gamedata.ResourceRobotWorkers:
+	case gamedata.ResourceMineralRich, gamedata.ResourceSweetOceans, gamedata.ResourceRichFauna,
+		gamedata.ResourceRichSoil, gamedata.ResourceWeirdMushrooms, gamedata.ResourceSpecialHerbs,
+		gamedata.ResourceArtistic, gamedata.ResourceWarlike:
 		return SuccessStyle.Render(text)
-	case gamedata.ResourceDesert, gamedata.ResourcePoor, gamedata.ResourceLifeless,
-		gamedata.ResourcePoorSoil, gamedata.ResourcePoorClinic, gamedata.ResourceLackOfWorkers:
+	case gamedata.ResourceMineralPoor, gamedata.ResourceDesert, gamedata.ResourceLifeless,
+		gamedata.ResourcePoorSoil:
 		return DangerStyle.Render(text)
-	case gamedata.ResourceIndustrial:
-		return SelectedStyle.Render(text)
 	}
 	return text
 }

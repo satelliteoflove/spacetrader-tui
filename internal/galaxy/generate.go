@@ -25,14 +25,15 @@ func Generate(seed int64) []gamedata.SystemDef {
 	coords := placeCoordinates(rng)
 
 	for i := 0; i < NumSystems; i++ {
+		tech := gamedata.TechLevel(rng.Intn(int(gamedata.NumTechLevels)))
 		systems[i] = gamedata.SystemDef{
 			ID:              i,
 			Name:            names[i],
 			X:               coords[i][0],
 			Y:               coords[i][1],
-			TechLevel:       gamedata.TechLevel(rng.Intn(int(gamedata.NumTechLevels))),
+			TechLevel:       tech,
 			PoliticalSystem: gamedata.PoliticalSystem(rng.Intn(int(gamedata.NumPoliticalSystems))),
-			Resource:        randomResource(rng),
+			Resource:        randomResource(rng, tech),
 			Size:            gamedata.SystemSize(rng.Intn(int(gamedata.NumSystemSizes))),
 		}
 	}
@@ -307,11 +308,38 @@ func nudgeCloser(rng *rand.Rand, coords [][2]int, isolated, target int) {
 	coords[isolated] = [2]int{newX, newY}
 }
 
-func randomResource(rng *rand.Rand) gamedata.Resource {
+var validResources = []struct {
+	Resource gamedata.Resource
+	MinTech  gamedata.TechLevel
+}{
+	{gamedata.ResourceMineralRich, gamedata.TechMedieval},
+	{gamedata.ResourceMineralPoor, gamedata.TechMedieval},
+	{gamedata.ResourceDesert, gamedata.TechPreAgricultural},
+	{gamedata.ResourceSweetOceans, gamedata.TechPreAgricultural},
+	{gamedata.ResourceRichSoil, gamedata.TechAgricultural},
+	{gamedata.ResourcePoorSoil, gamedata.TechAgricultural},
+	{gamedata.ResourceRichFauna, gamedata.TechPreAgricultural},
+	{gamedata.ResourceLifeless, gamedata.TechPreAgricultural},
+	{gamedata.ResourceWeirdMushrooms, gamedata.TechIndustrial},
+	{gamedata.ResourceSpecialHerbs, gamedata.TechEarlyIndustrial},
+	{gamedata.ResourceArtistic, gamedata.TechRenaissance},
+	{gamedata.ResourceWarlike, gamedata.TechRenaissance},
+}
+
+func randomResource(rng *rand.Rand, tech gamedata.TechLevel) gamedata.Resource {
 	if rng.Intn(100) < 60 {
 		return gamedata.ResourceNone
 	}
-	return gamedata.Resource(1 + rng.Intn(int(gamedata.NumResources)-1))
+	var candidates []gamedata.Resource
+	for _, vr := range validResources {
+		if tech >= vr.MinTech {
+			candidates = append(candidates, vr.Resource)
+		}
+	}
+	if len(candidates) == 0 {
+		return gamedata.ResourceNone
+	}
+	return candidates[rng.Intn(len(candidates))]
 }
 
 func dist(x1, y1, x2, y2 int) float64 {

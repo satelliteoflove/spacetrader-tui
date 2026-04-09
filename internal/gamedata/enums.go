@@ -106,37 +106,35 @@ type Resource int
 
 const (
 	ResourceNone Resource = iota
-	ResourceDesert
 	ResourceMineralRich
-	ResourceIndustrial
-	ResourceWaterWorld
-	ResourcePoor
-	ResourceRichFauna
+	ResourceMineralPoor
+	ResourceDesert
+	ResourceSweetOceans
 	ResourceRichSoil
-	ResourceLifeless
 	ResourcePoorSoil
-	ResourcePoorClinic
-	ResourceGoodClinic
-	ResourceLackOfWorkers
-	ResourceRobotWorkers
+	ResourceRichFauna
+	ResourceLifeless
+	ResourceWeirdMushrooms
+	ResourceSpecialHerbs
+	ResourceArtistic
+	ResourceWarlike
 	NumResources
 )
 
 var resourceNames = [NumResources]string{
 	"No Special Resources",
-	"Desert",
 	"Mineral Rich",
-	"Industrial",
-	"Water World",
-	"Poor",
-	"Rich Fauna",
+	"Mineral Poor",
+	"Desert",
+	"Sweet Oceans",
 	"Rich Soil",
-	"Lifeless",
 	"Poor Soil",
-	"Poor Clinic",
-	"Good Clinic",
-	"Lack of Workers",
-	"Robot Workers",
+	"Rich Fauna",
+	"Lifeless",
+	"Weird Mushrooms",
+	"Special Herbs",
+	"Artistic",
+	"Warlike",
 }
 
 func (r Resource) String() string {
