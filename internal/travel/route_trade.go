@@ -49,12 +49,9 @@ func AnalyzeRouteTrades(gs *game.GameState, route Route) []HopTradeInfo {
 			continue
 		}
 
-		fromPrices := gs.Systems[fromIdx].Prices
-		toPrices := gs.Systems[toIdx].Prices
-
 		for g, good := range gs.Data.Goods {
-			buyPrice := fromPrices[g]
-			sellPrice := toPrices[g]
+			buyPrice := game.BuyPriceAt(gs, fromIdx, g)
+			sellPrice := game.SellPriceAt(gs, toIdx, g)
 			if buyPrice <= 0 || sellPrice <= 0 {
 				continue
 			}

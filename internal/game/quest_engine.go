@@ -58,9 +58,15 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 			if gs.Player.Skills[skill2] > formula.SkillMax {
 				gs.Player.Skills[skill2] = formula.SkillMax
 			}
+			var skillMsg string
+			if skill1 == skill2 {
+				skillMsg = fmt.Sprintf("Your %s skill improved by 2.", formula.SkillNames[skill1])
+			} else {
+				skillMsg = fmt.Sprintf("Your %s and %s skills improved.", formula.SkillNames[skill1], formula.SkillNames[skill2])
+			}
 			events = append(events, QuestEvent{
 				Title:   "Japori Disease - Complete!",
-				Message: fmt.Sprintf("The medicine was delivered! Your %s and %s skills improved.", formula.SkillNames[skill1], formula.SkillNames[skill2]),
+				Message: "The medicine was delivered! " + skillMsg,
 			})
 		}
 	}

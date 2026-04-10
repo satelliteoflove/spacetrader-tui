@@ -3,7 +3,6 @@ package market
 import (
 	"fmt"
 
-	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 )
 
@@ -13,45 +12,12 @@ type TransactionResult struct {
 	TotalPrice int
 }
 
-func effectiveTraderSkill(gs *game.GameState) int {
-	return game.EffectivePlayerSkill(gs, formula.SkillTrader)
-}
-
 func SellPrice(gs *game.GameState, goodIdx int) int {
-	basePrice := gs.Systems[gs.CurrentSystemID].Prices[goodIdx]
-	if basePrice < 0 {
-		return -1
-	}
-	if gs.Player.PoliceRecord < -5 {
-		basePrice = basePrice * 90 / 100
-	}
-	if basePrice < 1 {
-		basePrice = 1
-	}
-	return basePrice
+	return game.SellPriceAt(gs, gs.CurrentSystemID, goodIdx)
 }
 
 func BuyPrice(gs *game.GameState, goodIdx int) int {
-	sellPrice := SellPrice(gs, goodIdx)
-	if sellPrice < 0 {
-		return -1
-	}
-
-	base := sellPrice
-	if gs.Player.PoliceRecord < -5 {
-		base = base * 100 / 90
-	}
-
-	traderSkill := effectiveTraderSkill(gs)
-	if traderSkill > 10 {
-		traderSkill = 10
-	}
-	buyPrice := base * (103 + (10 - traderSkill)) / 100
-
-	if buyPrice <= sellPrice {
-		buyPrice = sellPrice + 1
-	}
-	return buyPrice
+	return game.BuyPriceAt(gs, gs.CurrentSystemID, goodIdx)
 }
 
 func Buy(gs *game.GameState, goodIdx int, qty int) TransactionResult {

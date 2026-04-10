@@ -174,37 +174,23 @@ func GenerateNewsBriefing(gs *GameState, entry NewsEntry) NewsBriefing {
 	brief.EventActive = true
 	brief.Blurb = eventBlurb(event, sys.Name)
 
-	curPrices := gs.Systems[gs.CurrentSystemID].Prices
-	destPrices := gs.Systems[sysIdx].Prices
-
 	for g, good := range gs.Data.Goods {
-		if destPrices[g] < 0 {
+		destSell := SellPriceAt(gs, sysIdx, g)
+		if destSell < 0 {
 			continue
 		}
 
-		if good.PriceIncreaseEvent == event {
-			if curPrices[g] > 0 {
-				profit := destPrices[g] - curPrices[g]
+		if good.PriceIncreaseEvent == event || good.PriceDecreaseEvent == event {
+			curBuy := BuyPriceAt(gs, gs.CurrentSystemID, g)
+			if curBuy > 0 {
+				profit := destSell - curBuy
 				brief.PriceLines = append(brief.PriceLines,
-					fmt.Sprintf("%-10s here %d cr | there ~%d cr (est. %+d/unit)",
-						good.Name+":", curPrices[g], destPrices[g], profit))
+					fmt.Sprintf("%-10s buy %d cr | sell ~%d cr (est. %+d/unit)",
+						good.Name+":", curBuy, destSell, profit))
 			} else {
 				brief.PriceLines = append(brief.PriceLines,
-					fmt.Sprintf("%-10s there ~%d cr (not sold here)",
-						good.Name+":", destPrices[g]))
-			}
-		}
-
-		if good.PriceDecreaseEvent == event {
-			if curPrices[g] > 0 {
-				profit := destPrices[g] - curPrices[g]
-				brief.PriceLines = append(brief.PriceLines,
-					fmt.Sprintf("%-10s here %d cr | there ~%d cr (est. %+d/unit)",
-						good.Name+":", curPrices[g], destPrices[g], profit))
-			} else {
-				brief.PriceLines = append(brief.PriceLines,
-					fmt.Sprintf("%-10s there ~%d cr (not sold here)",
-						good.Name+":", destPrices[g]))
+					fmt.Sprintf("%-10s sell ~%d cr (not available here)",
+						good.Name+":", destSell))
 			}
 		}
 
