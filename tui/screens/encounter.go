@@ -105,7 +105,18 @@ func (s *EncounterScreen) View() string {
 		if s.tw.Done() {
 			actionLabels := make([]string, len(s.enc.Actions))
 			for i, a := range s.enc.Actions {
-				actionLabels[i] = a.String()
+				label := a.String()
+				if a == encounter.ActionBribe && s.enc.Type == encounter.EncPolice {
+					cost := encounter.BribeCost(s.gs)
+					if cost < 0 {
+						label += " (impossible)"
+					} else if cost > s.gs.Player.Credits {
+						label += fmt.Sprintf(" (%d cr -- can't afford)", cost)
+					} else {
+						label += fmt.Sprintf(" (%d cr)", cost)
+					}
+				}
+				actionLabels[i] = label
 			}
 			RenderMenuItems(&b, actionLabels, s.cursor)
 			b.WriteString("\n" + DimStyle.Render("  j/k to choose, enter to act"))

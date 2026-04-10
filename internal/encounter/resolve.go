@@ -80,14 +80,12 @@ func policeComply(gs *game.GameState) Outcome {
 	}
 }
 
-func policeBribe(gs *game.GameState) Outcome {
+func BribeCost(gs *game.GameState) int {
 	sys := gs.Data.Systems[gs.CurrentSystemID]
 	polData := gamedata.PoliticalSystems[sys.PoliticalSystem]
 
 	if polData.BribeLevel <= 0 {
-		return Outcome{
-			Message: fmt.Sprintf("Bribery is impossible in %s systems.", polData.Name),
-		}
+		return -1
 	}
 
 	worth := playerWorth(gs)
@@ -104,6 +102,20 @@ func policeBribe(gs *game.GameState) Outcome {
 	if gs.Quests.States[game.QuestWild] == game.QuestActive ||
 		gs.Quests.States[game.QuestReactor] == game.QuestActive {
 		bribeCost *= 2
+	}
+
+	return bribeCost
+}
+
+func policeBribe(gs *game.GameState) Outcome {
+	bribeCost := BribeCost(gs)
+
+	if bribeCost < 0 {
+		sys := gs.Data.Systems[gs.CurrentSystemID]
+		polData := gamedata.PoliticalSystems[sys.PoliticalSystem]
+		return Outcome{
+			Message: fmt.Sprintf("Bribery is impossible in %s systems.", polData.Name),
+		}
 	}
 
 	if gs.Player.Credits < bribeCost {
