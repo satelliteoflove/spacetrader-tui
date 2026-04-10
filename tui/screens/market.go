@@ -151,21 +151,24 @@ func (s *MarketScreen) View() string {
 		s.gs.Player.Credits, s.gs.Player.TotalCargo(),
 		s.gs.Player.CargoCapacity(dp), freeCargo))
 
-	header := fmt.Sprintf("  %-12s %6s  %4s  %6s  %-2s",
-		"GOOD", "PRICE", "HELD", "AVG", "TREND")
+	header := fmt.Sprintf("  %-12s %8s  %6s %6s  %6s",
+		"GOOD", "HELD", "BUY", "SELL", "AVG")
 	b.WriteString(DimStyle.Render(header) + "\n")
-	b.WriteString("  " + strings.Repeat("-", 40) + "\n")
+	b.WriteString("  " + strings.Repeat("-", 48) + "\n")
 
 	for i, goodIdx := range s.goods {
 		good := s.gs.Data.Goods[goodIdx]
 		buyP := market.BuyPrice(s.gs, goodIdx)
+		sellP := market.SellPrice(s.gs, goodIdx)
 		owned := s.gs.Player.Cargo[goodIdx]
 		avg := s.avgPrices[goodIdx]
 
-		priceStr := fmt.Sprintf("%6d", buyP)
+		buyStr := fmt.Sprintf("%6d", buyP)
+		sellStr := fmt.Sprintf("%6d", sellP)
 		avgStr := fmt.Sprintf("%6d", avg)
 		if buyP < 0 {
-			priceStr = fmt.Sprintf("%6s", "--")
+			buyStr = fmt.Sprintf("%6s", "--")
+			sellStr = fmt.Sprintf("%6s", "--")
 			avgStr = fmt.Sprintf("%6s", "--")
 		}
 
@@ -176,29 +179,15 @@ func (s *MarketScreen) View() string {
 			illegalCol = DangerStyle.Render("!")
 		}
 
-		heldCol := fmt.Sprintf("%4d", owned)
+		var heldCol string
 		if owned == 0 {
-			heldCol = DimStyle.Render(fmt.Sprintf("%4s", "-"))
+			heldCol = DimStyle.Render(fmt.Sprintf("%8s", "-"))
+		} else {
+			avgCost := s.gs.Player.CargoCost[goodIdx] / owned
+			heldCol = fmt.Sprintf("%8s", fmt.Sprintf("%d@%d", owned, avgCost))
 		}
 
-		trendCol := "  "
-		if buyP > 0 {
-			hint := market.PriceVsAverage(buyP, avg)
-			switch hint {
-			case "very cheap":
-				trendCol = SuccessStyle.Render("<<")
-			case "cheap":
-				trendCol = SuccessStyle.Render("< ")
-			case "very expensive":
-				trendCol = DangerStyle.Render(">>")
-			case "expensive":
-				trendCol = DangerStyle.Render("> ")
-			default:
-				trendCol = DimStyle.Render("= ")
-			}
-		}
-
-		row := nameCol + illegalCol + priceStr + "  " + heldCol + "  " + avgStr + "  " + trendCol
+		row := nameCol + illegalCol + heldCol + "  " + buyStr + " " + sellStr + "  " + avgStr
 
 		if i == s.cursor {
 			b.WriteString(SelectedStyle.Render("> ") + row + "\n")
@@ -264,6 +253,6 @@ func (s *MarketScreen) View() string {
 		b.WriteString("  " + s.message + "\n")
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  b buy  s sell  << cheap  >> pricey  ! illegal  esc back"))
+	b.WriteString("\n" + DimStyle.Render("  b buy  s sell  ! illegal  esc back"))
 	return b.String()
 }

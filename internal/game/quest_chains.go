@@ -163,19 +163,32 @@ func checkDragonfly(gs *GameState) []QuestEvent {
 func checkSpaceMonster(gs *GameState) []QuestEvent {
 	state := gs.QuestState(QuestSpaceMonster)
 
+	acamar := findSystem(gs, "Acamar")
+
 	if state == QuestUnavailable && gs.Day > 15 && gs.Rand.Intn(100) < 8 {
 		_, distStr := systemDistanceStr(gs, "Acamar")
 		if distStr != "" {
 			distStr = "\n  Location: Acamar" + distStr
 		}
 		gs.SetQuestState(QuestSpaceMonster, QuestAvailable)
-		return []QuestEvent{{
+		events := []QuestEvent{{
 			Title:   "Space Monster",
 			Message: fmt.Sprintf("A terrifying Space Monster is attacking ships near Acamar! Bounty offered for its destruction.\n%s\n  Reward: 10,000 credits + reputation\n  Risk: Combat -- strength depends on fighter skill and weapons\n  Deadline: None", distStr),
 		}}
+		if gs.CurrentSystemID == acamar {
+			monsterHull := gs.Quests.MonsterHull
+			if monsterHull == 0 {
+				monsterHull = MonsterMaxHull
+			}
+			events = append(events, QuestEvent{
+				Title:   "Space Monster!",
+				Message: fmt.Sprintf("The Space Monster attacks! Monster hull: %d/%d. It regenerates 5%% hull per day -- don't delay!", monsterHull, MonsterMaxHull),
+				Actions: []string{"Fight!", "Flee"},
+			})
+		}
+		return events
 	}
 
-	acamar := findSystem(gs, "Acamar")
 	if state == QuestAvailable && gs.CurrentSystemID == acamar {
 		monsterHull := gs.Quests.MonsterHull
 		if monsterHull == 0 {
