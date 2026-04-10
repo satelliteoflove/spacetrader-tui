@@ -26,6 +26,7 @@ func TestDragonflyFullPath(t *testing.T) {
 
 	gs.SetQuestState(QuestDragonfly, QuestAvailable)
 	gs.SetQuestProgress(QuestDragonfly, 0)
+	gs.Player.Ship.Weapons = []int{0}
 
 	path := []string{"Arouan", "Halley", "Regulus", "Linnet"}
 	for i, name := range path {
@@ -53,17 +54,21 @@ func TestDragonflyFullPath(t *testing.T) {
 				t.Errorf("step %d: expected Dragonfly Spotted event", i)
 			}
 		} else {
-			if gs.QuestState(QuestDragonfly) != QuestComplete {
-				t.Errorf("final step: expected Complete state, got %d", gs.QuestState(QuestDragonfly))
-			}
 			found := false
 			for _, e := range events {
-				if e.Title == "Dragonfly Destroyed!" {
+				if e.Title == "Dragonfly Cornered!" {
 					found = true
 				}
 			}
 			if !found {
-				t.Errorf("final step: expected Dragonfly Destroyed! event")
+				t.Errorf("final step: expected Dragonfly Cornered! event")
+			}
+
+			gs.Quests.DragonflyHull = 1
+			resolveDragonflyCombat(gs)
+
+			if gs.QuestState(QuestDragonfly) != QuestComplete {
+				t.Errorf("expected Complete after combat, got %d", gs.QuestState(QuestDragonfly))
 			}
 		}
 	}
@@ -89,6 +94,7 @@ func TestDragonflyEquipmentPending(t *testing.T) {
 	gs.Player.Ship.TypeID = fireflyIdx
 	shipDef := gs.Data.Ships[fireflyIdx]
 	gs.Player.Ship.Hull = shipDef.Hull
+	gs.Player.Ship.Weapons = []int{0}
 
 	gs.Player.Ship.Shields = nil
 	for len(gs.Player.Ship.Shields) < shipDef.ShieldSlots {
@@ -104,6 +110,9 @@ func TestDragonflyEquipmentPending(t *testing.T) {
 		gs.CurrentSystemID = sysIdx
 		CheckQuestsOnArrival(gs)
 	}
+
+	gs.Quests.DragonflyHull = 1
+	resolveDragonflyCombat(gs)
 
 	if gs.QuestState(QuestDragonfly) != QuestComplete {
 		t.Fatalf("expected Complete, got %d", gs.QuestState(QuestDragonfly))

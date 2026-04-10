@@ -46,6 +46,7 @@ type QuestData struct {
 	Progress       [NumQuests]int        `json:"progress"`
 	TribbleQty     int                   `json:"tribble_qty"`
 	MonsterHull    int                   `json:"monster_hull"`
+	DragonflyHull  int                   `json:"dragonfly_hull"`
 	FabricRipDays  int                   `json:"fabric_rip_days"`
 	HasSingularity bool                  `json:"has_singularity"`
 	PendingRewards []PendingReward       `json:"pending_rewards"`
@@ -63,6 +64,7 @@ const (
 )
 
 const MonsterMaxHull = 500
+const DragonflyMaxHull = 150
 
 func (gs *GameState) QuestState(id QuestID) QuestState {
 	return gs.Quests.States[id]

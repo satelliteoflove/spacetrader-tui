@@ -129,6 +129,8 @@ func (s *DebugScreen) execute(cmd string) string {
 		return fmt.Sprintf("Escape pod: %v", s.gs.Player.HasEscapePod)
 	case "monsterhull":
 		return s.cmdSetInt(args, "monster hull", func(n int) { s.gs.Quests.MonsterHull = n })
+	case "dragonflyhull":
+		return s.cmdSetInt(args, "dragonfly hull", func(n int) { s.gs.Quests.DragonflyHull = n })
 	case "fabricrip":
 		return s.cmdSetInt(args, "fabric rip days", func(n int) { s.gs.Quests.FabricRipDays = n })
 	default:
@@ -154,6 +156,7 @@ func (s *DebugScreen) cmdHelp() string {
 		"singularity      -- toggle singularity",
 		"escapepod        -- toggle escape pod",
 		"monsterhull <N>  -- set monster hull",
+		"dragonflyhull <N> -- set dragonfly hull",
 		"fabricrip <N>    -- set fabric rip days",
 	}, "\n")
 }

@@ -138,22 +138,19 @@ func checkDragonfly(gs *GameState) []QuestEvent {
 		targetSys := findSystem(gs, targetName)
 		if gs.CurrentSystemID == targetSys {
 			gs.SetQuestState(QuestDragonfly, QuestActive)
-			progress++
-			gs.SetQuestProgress(QuestDragonfly, progress)
-			if progress >= len(dragonflyPath) {
-				reward, installed := tryGiveQuestEquipment(gs, "Lightning Shield")
-				if installed {
-					gs.SetQuestState(QuestDragonfly, QuestComplete)
-				} else {
-					lastSys := findSystem(gs, dragonflyPath[len(dragonflyPath)-1])
-					addPendingReward(gs, QuestDragonfly, "Lightning Shield", lastSys)
-					gs.SetQuestState(QuestDragonfly, QuestComplete)
+			if progress == len(dragonflyPath)-1 {
+				dragonflyHull := gs.Quests.DragonflyHull
+				if dragonflyHull == 0 {
+					dragonflyHull = DragonflyMaxHull
 				}
 				return []QuestEvent{{
-					Title:   "Dragonfly Destroyed!",
-					Message: fmt.Sprintf("You destroyed the Dragonfly! %s", reward),
+					Title:   "Dragonfly Cornered!",
+					Message: fmt.Sprintf("The Dragonfly is cornered and can't escape! Its experimental Lightning Shield crackles with energy.\n  Dragonfly hull: %d/%d", dragonflyHull, DragonflyMaxHull),
+					Actions: []string{"Attack!", "Back off"},
 				}}
 			}
+			progress++
+			gs.SetQuestProgress(QuestDragonfly, progress)
 			next := dragonflyPath[progress]
 			return []QuestEvent{{
 				Title:   "Dragonfly Spotted",
@@ -594,6 +591,12 @@ func checkReactor(gs *GameState) []QuestEvent {
 
 func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string {
 	switch title {
+	case "Dragonfly Cornered!":
+		if actionIdx == 0 {
+			return resolveDragonflyCombat(gs)
+		}
+		return "You back off. The Dragonfly remains cornered here."
+
 	case "Space Monster!":
 		if actionIdx == 0 {
 			return resolveMonsterCombat(gs)
@@ -697,6 +700,84 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 		return "Declined."
 	}
 	return ""
+}
+
+func resolveDragonflyCombat(gs *GameState) string {
+	if gs.Quests.DragonflyHull <= 0 {
+		gs.Quests.DragonflyHull = DragonflyMaxHull
+	}
+
+	fighterSkill := EffectivePlayerSkill(gs, formula.SkillFighter)
+	engineerSkill := EffectivePlayerSkill(gs, formula.SkillEngineer)
+
+	playerWeaponPower := 0
+	for _, w := range gs.Player.Ship.Weapons {
+		playerWeaponPower += gs.Data.Equipment[w].Power
+	}
+	if playerWeaponPower == 0 {
+		return "You have no weapons! The Dragonfly's shields hold easily."
+	}
+
+	dfWeapon := 20
+	dfFighter := 6 + int(gs.Difficulty)
+	dfPilot := 10 + int(gs.Difficulty)
+	dfEngineer := 3 + int(gs.Difficulty)
+	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
+
+	var log string
+	maxRounds := 8
+	for round := 0; round < maxRounds; round++ {
+		playerHit := gs.Rand.Intn(fighterSkill+3) >= gs.Rand.Intn(dfPilot/2+5)
+		if playerHit {
+			dmg := 1 + gs.Rand.Intn(playerWeaponPower*(100+2*engineerSkill)/100+1)
+			gs.Quests.DragonflyHull -= dmg
+			log += fmt.Sprintf("  You hit the Dragonfly for %d damage.\n", dmg)
+		} else {
+			log += "  You fire -- the Dragonfly evades!\n"
+		}
+
+		if gs.Quests.DragonflyHull <= 0 {
+			gs.Quests.DragonflyHull = 0
+			lastSys := findSystem(gs, dragonflyPath[len(dragonflyPath)-1])
+			reward, installed := tryGiveQuestEquipment(gs, "Lightning Shield")
+			if installed {
+				gs.SetQuestState(QuestDragonfly, QuestComplete)
+			} else {
+				addPendingReward(gs, QuestDragonfly, "Lightning Shield", lastSys)
+				gs.SetQuestState(QuestDragonfly, QuestComplete)
+			}
+			gs.SetQuestProgress(QuestDragonfly, len(dragonflyPath))
+			gs.Player.Reputation += 3
+			return log + fmt.Sprintf("\nThe Dragonfly explodes! %s", reward)
+		}
+
+		dfHit := gs.Rand.Intn(dfFighter+3) >= gs.Rand.Intn(EffectivePlayerSkill(gs, formula.SkillPilot)/2+5)
+		if dfHit {
+			dmg := 1 + gs.Rand.Intn(dfWeapon*(100+2*dfEngineer)/100+1)
+			dmg -= gs.Rand.Intn(max(1, EffectivePlayerSkill(gs, formula.SkillPilot)))
+			if dmg < 1 {
+				dmg = 1
+			}
+			gs.Player.Ship.Hull -= dmg
+			log += fmt.Sprintf("  Dragonfly hits you for %d hull damage.\n", dmg)
+		} else {
+			log += "  Dragonfly fires -- miss!\n"
+		}
+
+		if gs.Player.Ship.Hull <= 0 {
+			gs.Player.Ship.Hull = 1
+			log += fmt.Sprintf("\nYou barely escape! Dragonfly hull: %d/%d.", gs.Quests.DragonflyHull, DragonflyMaxHull)
+			return log
+		}
+	}
+
+	maxHull := shipDef.Hull
+	if gs.Player.Ship.HullUpgraded {
+		maxHull += ScarabHullBonus
+	}
+	log += fmt.Sprintf("\nThe battle is inconclusive. You disengage.\n  Your hull: %d/%d  |  Dragonfly hull: %d/%d",
+		gs.Player.Ship.Hull, maxHull, gs.Quests.DragonflyHull, DragonflyMaxHull)
+	return log
 }
 
 func resolveMonsterCombat(gs *GameState) string {
