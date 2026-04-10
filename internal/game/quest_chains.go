@@ -24,6 +24,10 @@ func systemDistanceStr(gs *GameState, name string) (int, string) {
 	cur := gs.Data.Systems[gs.CurrentSystemID]
 	dest := gs.Data.Systems[idx]
 	dist := formula.Distance(cur.X, cur.Y, dest.X, dest.Y)
+	hops := gs.HopsToSystem(idx)
+	if hops > 0 {
+		return idx, fmt.Sprintf(" (%.1f parsecs, ~%d hops)", dist, hops)
+	}
 	return idx, fmt.Sprintf(" (%.1f parsecs)", dist)
 }
 
@@ -323,7 +327,7 @@ func checkGemulon(gs *GameState) []QuestEvent {
 
 	if state == QuestUnavailable && gs.Day > 35 && gs.Rand.Intn(100) < 6 {
 		gemIdx, distStr := systemDistanceStr(gs, "Gemulon")
-		if gemIdx >= 0 && gs.HopsToSystem(gemIdx) > 7 {
+		if gemIdx >= 0 && gs.HopsToSystem(gemIdx) >= 7 {
 			return nil
 		}
 		gs.SetQuestState(QuestGemulon, QuestAvailable)
@@ -371,7 +375,7 @@ func checkFehler(gs *GameState) []QuestEvent {
 
 	if state == QuestUnavailable && gs.Day > 40 && gs.Rand.Intn(100) < 5 {
 		denIdx, distStr := systemDistanceStr(gs, "Deneb")
-		if denIdx >= 0 && gs.HopsToSystem(denIdx) > 5 {
+		if denIdx >= 0 && gs.HopsToSystem(denIdx) >= 5 {
 			return nil
 		}
 		gs.SetQuestState(QuestFehler, QuestAvailable)

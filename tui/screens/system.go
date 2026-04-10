@@ -9,6 +9,7 @@ import (
 
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
+	"github.com/the4ofus/spacetrader-tui/internal/shipyard"
 )
 
 type SystemScreen struct {
@@ -16,6 +17,7 @@ type SystemScreen struct {
 	cursor    int
 	items     []menuItem
 	headlines []string
+	message   string
 }
 
 type menuItem struct {
@@ -84,6 +86,9 @@ func (s *SystemScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return s, func() tea.Msg {
 				return NavigateMsg{Screen: target, RestoreCursor: cursor, SelectedSystem: selectedSys, ReturnScreen: returnScreen}
 			}
+		case msg.String() == "f":
+			result := shipyard.Refuel(s.gs)
+			s.message = result.Message
 		case msg.String() == "s":
 			cursor := s.cursor
 			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSave, RestoreCursor: cursor} }
@@ -137,6 +142,10 @@ func (s *SystemScreen) View() string {
 	}
 	RenderMenuItems(&b, labels, s.cursor)
 
-	b.WriteString("\n" + DimStyle.Render("  j/k navigate, enter select, s save, ctrl+c quit"))
+	if s.message != "" {
+		b.WriteString("\n  " + s.message)
+	}
+
+	b.WriteString("\n" + DimStyle.Render("  j/k navigate, enter select, f refuel, s save, ctrl+c quit"))
 	return b.String()
 }

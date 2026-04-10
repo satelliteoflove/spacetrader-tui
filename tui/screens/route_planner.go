@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/the4ofus/spacetrader-tui/internal/game"
+	"github.com/the4ofus/spacetrader-tui/internal/shipyard"
 	"github.com/the4ofus/spacetrader-tui/internal/travel"
 )
 
@@ -134,6 +135,9 @@ func (s *RoutePlannerScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				s.isActive = false
 				s.message = DimStyle.Render("Route cleared.")
 			}
+		case msg.String() == "f":
+			result := shipyard.Refuel(s.gs)
+			s.message = result.Message
 		case msg.String() == "b":
 			if s.route.Reachable && s.cursor < len(s.route.Hops) {
 				sysIdx := s.route.Hops[s.cursor].SystemIdx
@@ -286,14 +290,16 @@ func (s *RoutePlannerScreen) View() string {
 		}
 	}
 
-	helpParts := "  j/k navigate  t trade  m map  enter travel"
+	helpLine1 := "  j/k navigate  t trade  m map  f refuel  enter travel"
+	helpLine2 := "  "
 	if s.isActive {
-		helpParts += "  r clear route"
+		helpLine2 += "r clear route"
 	} else {
-		helpParts += "  r set route"
+		helpLine2 += "r set route"
 	}
-	helpParts += "  esc back"
-	b.WriteString("\n" + DimStyle.Render(helpParts))
+	helpLine2 += "  esc back"
+	b.WriteString("\n" + DimStyle.Render(helpLine1))
+	b.WriteString("\n" + DimStyle.Render(helpLine2))
 	return b.String()
 }
 

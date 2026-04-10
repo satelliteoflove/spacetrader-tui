@@ -578,7 +578,7 @@ func (s *GalacticListScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.String() == "a":
 			s.inRangeOnly = !s.inRangeOnly
 			s.rebuildEntries()
-		case msg.String() == "r":
+		case msg.String() == "f":
 			result := shipyard.Refuel(s.gs)
 			s.message = result.Message
 			s.rebuildEntries()
@@ -704,7 +704,7 @@ func (s *GalacticListScreen) View() string {
 
 	fuelCost := shipyard.RefuelCost(s.gs)
 	if fuelCost > 0 {
-		b.WriteString(DimStyle.Render(fmt.Sprintf("  Refuel cost: %d credits (press r)", fuelCost)) + "\n")
+		b.WriteString(DimStyle.Render(fmt.Sprintf("  Refuel cost: %d credits (press f)", fuelCost)) + "\n")
 	}
 
 	if dest, ok := game.WormholeDestination(s.gs, s.gs.CurrentSystemID); ok {
@@ -840,7 +840,7 @@ func (s *GalacticListScreen) View() string {
 		b.WriteString("\n  " + s.message + "\n")
 	}
 
-	listHelp := "  enter travel, p plan route, r refuel, w wormhole, b bookmark"
+	listHelp := "  enter travel, p plan route, f refuel, w wormhole, b bookmark"
 	if s.gs.Quests.HasSingularity {
 		listHelp += ", J jump"
 	}
