@@ -261,7 +261,7 @@ func checkAlienArtifact(gs *GameState) []QuestEvent {
 func checkJarek(gs *GameState) []QuestEvent {
 	state := gs.QuestState(QuestJarek)
 
-	if state == QuestUnavailable && gs.Day > 12 && gs.Rand.Intn(100) < 10 {
+	if state == QuestUnavailable && gs.Day > 12 && gs.Rand.Intn(100) < 10 && FreeCrewQuarters(gs) > 0 {
 		devIdx, distStr := systemDistanceStr(gs, "Devidia")
 		if devIdx >= 0 && gs.HopsToSystem(devIdx) > 10 {
 			return nil
@@ -413,7 +413,7 @@ func checkFehler(gs *GameState) []QuestEvent {
 func checkWild(gs *GameState) []QuestEvent {
 	state := gs.QuestState(QuestWild)
 
-	if state == QuestUnavailable && gs.Day > 18 && gs.Rand.Intn(100) < 7 {
+	if state == QuestUnavailable && gs.Day > 18 && gs.Rand.Intn(100) < 7 && FreeCrewQuarters(gs) > 0 {
 		sys := gs.Data.Systems[gs.CurrentSystemID]
 		if sys.PoliticalSystem == gamedata.PolAnarchy || sys.PoliticalSystem == gamedata.PolFeudal {
 			_, distStr := systemDistanceStr(gs, "Kravat")

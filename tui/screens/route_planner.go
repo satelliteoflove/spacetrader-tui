@@ -236,17 +236,6 @@ func (s *RoutePlannerScreen) View() string {
 			note = "DEST"
 		}
 
-		if game.IsWormholeSystem(s.gs, hop.SystemIdx) && !hop.IsWormhole {
-			whDest, ok := game.WormholeDestination(s.gs, hop.SystemIdx)
-			if ok {
-				whName := s.gs.Data.Systems[whDest].Name
-				if note != "" {
-					note += " "
-				}
-				note += fmt.Sprintf("WH->%s", whName)
-			}
-		}
-
 		line := fmt.Sprintf("%-3d %-16s %5s %5s %8s  %s",
 			i+1, truncate(sysName, 16), distStr, fuelStr, refuelStr, note)
 
