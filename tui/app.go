@@ -225,7 +225,7 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 	case screens.ScreenSettings:
 		s = screens.NewSettingsScreen(m.config, m.gs != nil)
 	case screens.ScreenRoutePlanner:
-		s = screens.NewRoutePlannerScreen(m.gs, msg.SelectedSystem)
+		s = screens.NewRoutePlannerScreen(m.gs, msg.SelectedSystem, msg.ReturnScreen)
 	case screens.ScreenDebug:
 		s = screens.NewDebugScreen(m.gs)
 	default:

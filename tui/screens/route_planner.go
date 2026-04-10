@@ -12,18 +12,19 @@ import (
 )
 
 type RoutePlannerScreen struct {
-	gs         *game.GameState
-	route      travel.Route
-	trades     []travel.HopTradeInfo
-	cursor     int
-	currentHop int
-	destIdx    int
-	confirming bool
-	message    string
-	isActive   bool
+	gs           *game.GameState
+	route        travel.Route
+	trades       []travel.HopTradeInfo
+	cursor       int
+	currentHop   int
+	destIdx      int
+	confirming   bool
+	message      string
+	isActive     bool
+	returnScreen ScreenType
 }
 
-func NewRoutePlannerScreen(gs *game.GameState, destIdx int) *RoutePlannerScreen {
+func NewRoutePlannerScreen(gs *game.GameState, destIdx int, returnScreen ScreenType) *RoutePlannerScreen {
 	isActive := gs.HasActiveRoute && gs.ActiveRoute == destIdx
 
 	var originIdx int
@@ -47,13 +48,14 @@ func NewRoutePlannerScreen(gs *game.GameState, destIdx int) *RoutePlannerScreen 
 	}
 
 	return &RoutePlannerScreen{
-		gs:         gs,
-		route:      route,
-		trades:     trades,
-		cursor:     currentHop,
-		currentHop: currentHop,
-		destIdx:    destIdx,
-		isActive:   isActive,
+		gs:           gs,
+		route:        route,
+		trades:       trades,
+		cursor:       currentHop,
+		currentHop:   currentHop,
+		destIdx:      destIdx,
+		isActive:     isActive,
+		returnScreen: returnScreen,
 	}
 }
 
@@ -160,7 +162,9 @@ func (s *RoutePlannerScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, Keys.Back):
-			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
+			ret := s.returnScreen
+			destIdx := s.destIdx
+			return s, func() tea.Msg { return NavigateMsg{Screen: ret, SelectedSystem: destIdx} }
 		}
 	}
 	return s, nil

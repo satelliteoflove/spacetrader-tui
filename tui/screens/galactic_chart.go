@@ -207,7 +207,9 @@ func (s *GalacticChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case msg.String() == "p":
 			if selIdx, ok := s.selectedSystem(); ok {
-				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: selIdx} }
+				return s, func() tea.Msg {
+					return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: selIdx, ReturnScreen: ScreenGalacticChart}
+				}
 			}
 		case msg.String() == "L":
 			selIdx := -1
@@ -607,7 +609,9 @@ func (s *GalacticListScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.String() == "p":
 			if len(s.filtered) > 0 {
 				entry := s.filtered[s.cursor]
-				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: entry.sysIdx} }
+				return s, func() tea.Msg {
+					return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: entry.sysIdx, ReturnScreen: ScreenGalacticList}
+				}
 			}
 		case key.Matches(msg, Keys.Enter):
 			if len(s.filtered) > 0 {

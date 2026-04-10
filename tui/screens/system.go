@@ -80,7 +80,10 @@ func (s *SystemScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if target == ScreenRoutePlanner && s.gs.HasActiveRoute {
 				selectedSys = s.gs.ActiveRoute
 			}
-			return s, func() tea.Msg { return NavigateMsg{Screen: target, RestoreCursor: cursor, SelectedSystem: selectedSys} }
+			returnScreen := ScreenSystem
+			return s, func() tea.Msg {
+				return NavigateMsg{Screen: target, RestoreCursor: cursor, SelectedSystem: selectedSys, ReturnScreen: returnScreen}
+			}
 		case msg.String() == "s":
 			cursor := s.cursor
 			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSave, RestoreCursor: cursor} }

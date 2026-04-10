@@ -38,6 +38,7 @@ type NavigateMsg struct {
 	Screen         ScreenType
 	RestoreCursor  int
 	SelectedSystem int
+	ReturnScreen   ScreenType
 }
 
 func wrapCursor(cursor, delta, length int) int {
