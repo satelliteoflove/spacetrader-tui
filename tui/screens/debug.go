@@ -35,10 +35,10 @@ var questNameMap = map[string]game.QuestID{
 }
 
 var questStateMap = map[string]game.QuestState{
-	"unavail":  game.QuestUnavailable,
-	"avail":    game.QuestAvailable,
-	"active":   game.QuestActive,
-	"complete": game.QuestComplete,
+	"unavailable": game.QuestUnavailable,
+	"available":   game.QuestAvailable,
+	"active":      game.QuestActive,
+	"complete":    game.QuestComplete,
 }
 
 type DebugScreen struct {
@@ -146,7 +146,7 @@ func (s *DebugScreen) cmdHelp() string {
 		"hull <N>         -- set ship hull",
 		"goto <system>    -- teleport to system",
 		"quest <name> <state> -- set quest state",
-		"  states: unavail/avail/active/complete",
+		"  states: unavailable/available/active/complete",
 		"questprog <name> <N> -- set quest progress",
 		"cargo <good> <N> -- set cargo amount",
 		"equip <name>     -- add equipment",
@@ -199,7 +199,7 @@ func (s *DebugScreen) cmdQuest(args []string) string {
 	stateName := strings.ToLower(args[1])
 	state, ok := questStateMap[stateName]
 	if !ok {
-		return fmt.Sprintf("Unknown state: %s (use unavail/avail/active/complete)", args[1])
+		return fmt.Sprintf("Unknown state: %s (use unavailable/available/active/complete)", args[1])
 	}
 	s.gs.SetQuestState(qid, state)
 	return fmt.Sprintf("Set quest %s to %s", args[0], stateName)
