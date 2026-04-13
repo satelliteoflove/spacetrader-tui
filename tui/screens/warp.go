@@ -107,9 +107,9 @@ func (s *WarpScreen) advanceClick() tea.Cmd {
 func (s *WarpScreen) View() string {
 	var b strings.Builder
 
-	brightStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
+	brightStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "0", Dark: "15"}).Bold(true)
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "242", Dark: "8"})
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "30", Dark: "14"}).Bold(true)
 
 	b.WriteString("\n")
 	b.WriteString(labelStyle.Render("  Warping to " + s.destName + "..."))

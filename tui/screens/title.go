@@ -92,14 +92,14 @@ func (s *TitleScreen) View() string {
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("14"))
+		Foreground(lipgloss.AdaptiveColor{Light: "30", Dark: "14"})
 
 	b.WriteString("\n")
 	b.WriteString(titleStyle.Render(s.tw.View()))
 	b.WriteString("\n")
 
 	subtitle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).
+		Foreground(lipgloss.AdaptiveColor{Light: "242", Dark: "8"}).
 		Render("Terminal Edition")
 
 	b.WriteString(subtitle + "\n\n")

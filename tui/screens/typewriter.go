@@ -6,10 +6,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var fadeColors = []lipgloss.Color{
-	lipgloss.Color("236"),
-	lipgloss.Color("240"),
-	lipgloss.Color("244"),
+var fadeColors = []lipgloss.TerminalColor{
+	lipgloss.AdaptiveColor{Light: "252", Dark: "236"},
+	lipgloss.AdaptiveColor{Light: "249", Dark: "240"},
+	lipgloss.AdaptiveColor{Light: "245", Dark: "244"},
 }
 
 type Typewriter struct {

@@ -99,26 +99,28 @@ func init() {
 }
 
 func InitStyles(colorblind bool) {
-	dangerColor := lipgloss.Color("9")
-	successColor := lipgloss.Color("10")
-	wormholeColor := lipgloss.Color("13")
+	var dangerColor, successColor, wormholeColor lipgloss.TerminalColor
 	if colorblind {
-		dangerColor = lipgloss.Color("208")
-		successColor = lipgloss.Color("14")
-		wormholeColor = lipgloss.Color("5")
+		dangerColor = lipgloss.AdaptiveColor{Light: "166", Dark: "208"}
+		successColor = lipgloss.AdaptiveColor{Light: "30", Dark: "14"}
+		wormholeColor = lipgloss.AdaptiveColor{Light: "5", Dark: "5"}
+	} else {
+		dangerColor = lipgloss.AdaptiveColor{Light: "1", Dark: "9"}
+		successColor = lipgloss.AdaptiveColor{Light: "2", Dark: "10"}
+		wormholeColor = lipgloss.AdaptiveColor{Light: "5", Dark: "13"}
 	}
 
 	TitleStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("15")).
+		Foreground(lipgloss.AdaptiveColor{Light: "0", Dark: "15"}).
 		Padding(1, 0)
 
 	SelectedStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("11")).
+		Foreground(lipgloss.AdaptiveColor{Light: "130", Dark: "11"}).
 		Bold(true)
 
 	NormalStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("7"))
+		Foreground(lipgloss.AdaptiveColor{Light: "0", Dark: "7"})
 
 	DangerStyle = lipgloss.NewStyle().
 		Foreground(dangerColor).
@@ -128,20 +130,20 @@ func InitStyles(colorblind bool) {
 		Foreground(successColor)
 
 	DimStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8"))
+		Foreground(lipgloss.AdaptiveColor{Light: "242", Dark: "8"})
 
 	HeaderStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("14")).
+		Foreground(lipgloss.AdaptiveColor{Light: "30", Dark: "14"}).
 		BorderBottom(true).
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("8"))
+		BorderForeground(lipgloss.AdaptiveColor{Light: "242", Dark: "8"})
 
 	IllegalStyle = lipgloss.NewStyle().
 		Foreground(dangerColor)
 
 	CyanStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("14"))
+		Foreground(lipgloss.AdaptiveColor{Light: "30", Dark: "14"})
 
 	MagentaStyle = lipgloss.NewStyle().
 		Foreground(wormholeColor)
@@ -164,7 +166,8 @@ var (
 	AnimPulsePhases         int
 )
 
-var fadeStepColors = []string{"232", "236", "240", "248"}
+var fadeStepColorsDark = []string{"232", "236", "240", "248"}
+var fadeStepColorsLight = []string{"255", "252", "249", "243"}
 
 func initFadeStyles() {
 	if AnimFadeDone <= 0 {
@@ -172,16 +175,19 @@ func initFadeStyles() {
 		return
 	}
 	FadeStyles = make([]lipgloss.Style, AnimFadeDone)
-	step := len(fadeStepColors) / AnimFadeDone
+	step := len(fadeStepColorsDark) / AnimFadeDone
 	if step < 1 {
 		step = 1
 	}
 	for i := 0; i < AnimFadeDone; i++ {
 		idx := i * step
-		if idx >= len(fadeStepColors) {
-			idx = len(fadeStepColors) - 1
+		if idx >= len(fadeStepColorsDark) {
+			idx = len(fadeStepColorsDark) - 1
 		}
-		FadeStyles[i] = lipgloss.NewStyle().Foreground(lipgloss.Color(fadeStepColors[idx]))
+		FadeStyles[i] = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
+			Light: fadeStepColorsLight[idx],
+			Dark:  fadeStepColorsDark[idx],
+		})
 	}
 }
 

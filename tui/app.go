@@ -245,18 +245,20 @@ var (
 )
 
 func InitStatusStyles(colorblind bool) {
-	dangerColor := lipgloss.Color("9")
-	successColor := lipgloss.Color("10")
+	var dangerColor, successColor lipgloss.TerminalColor
 	if colorblind {
-		dangerColor = lipgloss.Color("208")
-		successColor = lipgloss.Color("14")
+		dangerColor = lipgloss.AdaptiveColor{Light: "166", Dark: "208"}
+		successColor = lipgloss.AdaptiveColor{Light: "30", Dark: "14"}
+	} else {
+		dangerColor = lipgloss.AdaptiveColor{Light: "1", Dark: "9"}
+		successColor = lipgloss.AdaptiveColor{Light: "2", Dark: "10"}
 	}
 
-	statusBarStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
-	statusDimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	statusBarStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "0", Dark: "15"}).Bold(true)
+	statusDimStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "242", Dark: "8"})
 	statusDangerStyle = lipgloss.NewStyle().Foreground(dangerColor).Bold(true)
 	statusQuestFreshStyle = lipgloss.NewStyle().Foreground(successColor).Bold(true)
-	statusQuestStaleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+	statusQuestStaleStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "130", Dark: "11"}).Bold(true)
 }
 
 func init() {
@@ -266,31 +268,39 @@ func init() {
 var pulseColorsNormal = []string{
 	"196", "203", "210", "217", "224", "231",
 }
+var pulseColorsNormalLight = []string{
+	"124", "131", "138", "145", "152", "159",
+}
 var pulseColorsCB = []string{
 	"208", "214", "220", "226", "227", "228",
+}
+var pulseColorsCBLight = []string{
+	"166", "172", "178", "136", "130", "124",
 }
 
 func pulseDangerStyle(phase int, colorblind bool) lipgloss.Style {
 	if screens.AnimPulsePhases <= 0 {
 		if colorblind {
-			return lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
+			return lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "166", Dark: "208"}).Bold(true)
 		}
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+		return lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "124", Dark: "196"}).Bold(true)
 	}
-	colors := pulseColorsNormal
+	darkColors := pulseColorsNormal
+	lightColors := pulseColorsNormalLight
 	if colorblind {
-		colors = pulseColorsCB
+		darkColors = pulseColorsCB
+		lightColors = pulseColorsCBLight
 	}
 	half := screens.AnimPulsePhases / 2
 	idx := phase
 	if idx >= half {
 		idx = screens.AnimPulsePhases - 1 - idx
 	}
-	ci := idx * (len(colors) - 1) / half
-	if ci >= len(colors) {
-		ci = len(colors) - 1
+	ci := idx * (len(darkColors) - 1) / half
+	if ci >= len(darkColors) {
+		ci = len(darkColors) - 1
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(colors[ci])).Bold(true)
+	return lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: lightColors[ci], Dark: darkColors[ci]}).Bold(true)
 }
 
 func (m Model) statusBar(width int) string {
@@ -371,7 +381,7 @@ func (m Model) View() string {
 
 	frame := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("8")).
+		BorderForeground(lipgloss.AdaptiveColor{Light: "242", Dark: "8"}).
 		Width(maxW).
 		Height(maxH).
 		Padding(0, 1)

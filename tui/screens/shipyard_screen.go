@@ -133,8 +133,9 @@ func (s *ShipyardScreen) View() string {
 	var b strings.Builder
 
 	b.WriteString(HeaderStyle.Render("  SHIPYARD  ") + "\n")
-	b.WriteString(fmt.Sprintf("  Credits: %d  |  Trade-in value: %d\n\n",
-		s.gs.Player.Credits, shipyard.TradeInValue(s.gs)))
+	shipName := s.gs.PlayerShipDef().Name
+	b.WriteString(fmt.Sprintf("  Ship: %s  |  Credits: %d  |  Trade-in: %d\n\n",
+		shipName, s.gs.Player.Credits, shipyard.TradeInValue(s.gs)))
 
 	tabs := []string{"[1] Ships", "[2] Equipment", "[3] Repair/Refuel"}
 	b.WriteString("  ")
@@ -149,10 +150,14 @@ func (s *ShipyardScreen) View() string {
 
 	switch s.tab {
 	case tabShips:
+		header := fmt.Sprintf("    %-12s %6s %5s %5s %4s %6s %6s %6s %4s",
+			"SHIP", "PRICE", "CARGO", "RANGE", "HULL", "WEAPON", "SHIELD", "GADGET", "CREW")
+		b.WriteString(DimStyle.Render(header) + "\n")
+		b.WriteString("    " + strings.Repeat("-", 61) + "\n")
 		lines := make([]string, len(s.ships))
 		for i, ship := range s.ships {
-			lines[i] = fmt.Sprintf("%-14s %6d cr  cargo:%d  range:%d  wpn:%d  shd:%d  gdt:%d  crew:%d",
-				ship.Name, ship.Price, ship.CargoBays, ship.Range,
+			lines[i] = fmt.Sprintf("%-12s %6d %5d %5d %4d %6d %6d %6d %4d",
+				ship.Name, ship.Price, ship.CargoBays, ship.Range, ship.Hull,
 				ship.WeaponSlots, ship.ShieldSlots, ship.GadgetSlots, ship.CrewQuarters-1)
 		}
 		RenderMenuItems(&b, lines, s.cursor)
