@@ -314,6 +314,10 @@ func (s *GalacticChartScreen) View() string {
 			st = styleInRange
 			ch = 'O'
 		}
+		if s.gs.Systems[i].Visited && game.IsWormholeSystem(s.gs, i) {
+			st = styleWormhole
+			ch = '%'
+		}
 		if s.gs.IsBookmarked(i) {
 			st = styleBookmarked
 			ch = '!'
@@ -414,9 +418,9 @@ func (s *GalacticChartScreen) View() string {
 		if chartHeight-s.vp.Height > 0 {
 			scrollPct = s.vp.YOffset * 100 / (chartHeight - s.vp.Height)
 		}
-		b.WriteString(DimStyle.Render(fmt.Sprintf("  @ you  + selected  ! bookmarked  O = in range  [scroll %d%%]", scrollPct)) + "\n")
+		b.WriteString(DimStyle.Render(fmt.Sprintf("  @ you  + selected  ! bookmarked  O in range  %% wormhole  [scroll %d%%]", scrollPct)) + "\n")
 	} else {
-		b.WriteString(DimStyle.Render("  @ you  + selected  ! bookmarked  O = in range") + "\n")
+		b.WriteString(DimStyle.Render("  @ you  + selected  ! bookmarked  O in range  % wormhole") + "\n")
 	}
 
 	if hasSel {
