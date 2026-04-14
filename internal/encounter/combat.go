@@ -3,6 +3,7 @@ package encounter
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
@@ -214,67 +215,75 @@ func attackRound(rng *rand.Rand, attackerName string, weapons []WeaponInfo,
 		}
 	}
 
-	weapon := weapons[rng.Intn(len(weapons))]
-
 	hitChance := fighterSkill + attackerSize
 	dodgeChance := 5 + defenderPilot/2
 	if defenderFleeing {
 		dodgeChance /= 2
 	}
 
-	hit := rng.Intn(hitChance+dodgeChance) < hitChance
+	totalRawDamage := 0
+	totalAbsorbed := 0
+	totalHullDamage := 0
+	anyHit := false
+	var hitWeapons []string
 
-	round := CombatRound{
-		AttackerName: attackerName,
-		WeaponName:   weapon.Name,
-		Hit:          hit,
-	}
-
-	if !hit {
-		round.ShieldStatus = shieldStatusStr(*defenderShields)
-		round.HullStatus = fmt.Sprintf("Hull: %d", *defenderHull)
-		return round
-	}
-
-	totalWeaponPower := weapon.Power
-	rawDamage := rng.Intn(totalWeaponPower*(100+2*engineerSkill)/100 + 1)
-	round.RawDamage = rawDamage
-
-	remaining := rawDamage
-	absorbed := 0
-	for i := range *defenderShields {
-		if remaining <= 0 {
-			break
+	for _, weapon := range weapons {
+		hit := rng.Intn(hitChance+dodgeChance) < hitChance
+		if !hit {
+			continue
 		}
-		absorb := min(remaining, (*defenderShields)[i])
-		(*defenderShields)[i] -= absorb
-		absorbed += absorb
-		remaining -= absorb
-	}
-	round.ShieldAbsorb = absorbed
+		anyHit = true
+		hitWeapons = append(hitWeapons, weapon.Name)
 
-	hullDamage := remaining
-	hullCap := hullDamageCap(defenderMaxHull, diff)
-	if hullCap > 0 && hullDamage > hullCap {
-		hullDamage = hullCap
-	}
+		rawDamage := rng.Intn(weapon.Power*(100+2*engineerSkill)/100 + 1)
+		totalRawDamage += rawDamage
 
-	if hullDamage > 0 {
-		engReduce := rng.Intn(max(1, defenderPilot))
-		hullDamage -= engReduce
-		if hullDamage < 0 {
-			hullDamage = 0
+		remaining := rawDamage
+		for i := range *defenderShields {
+			if remaining <= 0 {
+				break
+			}
+			absorb := min(remaining, (*defenderShields)[i])
+			(*defenderShields)[i] -= absorb
+			totalAbsorbed += absorb
+			remaining -= absorb
 		}
+
+		hullDamage := remaining
+		hullCap := hullDamageCap(defenderMaxHull, diff)
+		if hullCap > 0 && hullDamage > hullCap {
+			hullDamage = hullCap
+		}
+		if hullDamage > 0 {
+			engReduce := rng.Intn(max(1, defenderPilot))
+			hullDamage -= engReduce
+			if hullDamage < 0 {
+				hullDamage = 0
+			}
+		}
+		totalHullDamage += hullDamage
 	}
 
-	round.HullDamage = hullDamage
-	*defenderHull -= hullDamage
+	*defenderHull -= totalHullDamage
 	if *defenderHull < 0 {
 		*defenderHull = 0
 	}
 
-	round.ShieldStatus = shieldStatusStr(*defenderShields)
-	round.HullStatus = fmt.Sprintf("Hull: %d", *defenderHull)
+	weaponName := "all weapons"
+	if len(hitWeapons) > 0 {
+		weaponName = strings.Join(hitWeapons, " + ")
+	}
+
+	round := CombatRound{
+		AttackerName: attackerName,
+		WeaponName:   weaponName,
+		Hit:          anyHit,
+		RawDamage:    totalRawDamage,
+		ShieldAbsorb: totalAbsorbed,
+		HullDamage:   totalHullDamage,
+		ShieldStatus: shieldStatusStr(*defenderShields),
+		HullStatus:   fmt.Sprintf("Hull: %d", *defenderHull),
+	}
 
 	return round
 }
@@ -345,24 +354,48 @@ func generateLoot(rng *rand.Rand, gs *game.GameState) map[int]int {
 	return loot
 }
 
-func FormatCombatLog(rounds []CombatRound) string {
-	log := ""
+func BuildCombatLog(rounds []CombatRound) []game.CombatLogLine {
+	var lines []game.CombatLogLine
 	for _, r := range rounds {
-		if !r.Hit {
-			log += fmt.Sprintf("%s fires %s: miss!\n", r.AttackerName, r.WeaponName)
-			continue
-		}
-		line := fmt.Sprintf("%s fires %s: hit! %d damage", r.AttackerName, r.WeaponName, r.RawDamage)
-		if r.ShieldAbsorb > 0 {
-			line += fmt.Sprintf(" (shields absorb %d", r.ShieldAbsorb)
-			if r.HullDamage > 0 {
-				line += fmt.Sprintf(", hull takes %d", r.HullDamage)
-			}
-			line += ")"
-		} else if r.HullDamage > 0 {
-			line += fmt.Sprintf(" (hull takes %d)", r.HullDamage)
-		}
-		log += line + "\n"
+		lines = append(lines, game.CombatLogLine{
+			Attacker:     r.AttackerName,
+			Weapon:       r.WeaponName,
+			Hit:          r.Hit,
+			Damage:       r.RawDamage,
+			ShieldAbsorb: r.ShieldAbsorb,
+			HullDamage:   r.HullDamage,
+			IsPlayer:     r.AttackerName == "You",
+		})
+	}
+	return lines
+}
+
+func FormatCombatLog(rounds []CombatRound) string {
+	lines := BuildCombatLog(rounds)
+	log := ""
+	for _, l := range lines {
+		log += FormatCombatLine(l) + "\n"
 	}
 	return log
+}
+
+func FormatCombatLine(l game.CombatLogLine) string {
+	verb := "fires"
+	if l.IsPlayer {
+		verb = "fire"
+	}
+	if !l.Hit {
+		return fmt.Sprintf("%s %s %s: miss!", l.Attacker, verb, l.Weapon)
+	}
+	text := fmt.Sprintf("%s %s %s: hit! %d damage", l.Attacker, verb, l.Weapon, l.Damage)
+	if l.ShieldAbsorb > 0 {
+		text += fmt.Sprintf(" (shields absorb %d", l.ShieldAbsorb)
+		if l.HullDamage > 0 {
+			text += fmt.Sprintf(", hull takes %d", l.HullDamage)
+		}
+		text += ")"
+	} else if l.HullDamage > 0 {
+		text += fmt.Sprintf(" (hull takes %d)", l.HullDamage)
+	}
+	return text
 }

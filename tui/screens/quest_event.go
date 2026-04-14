@@ -10,13 +10,23 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 )
 
+type questEventPhase int
+
+const (
+	questPhaseMessage questEventPhase = iota
+	questPhaseCombat
+	questPhaseResult
+)
+
 type QuestEventScreen struct {
-	gs      *game.GameState
-	events  []game.QuestEvent
-	current int
-	cursor  int
-	result  string
-	tw      *Typewriter
+	gs         *game.GameState
+	events     []game.QuestEvent
+	current    int
+	cursor     int
+	phase      questEventPhase
+	result     string
+	combatAnim *CombatLogAnimator
+	tw         *Typewriter
 }
 
 func NewQuestEventScreen(gs *game.GameState, events []game.QuestEvent) *QuestEventScreen {
@@ -32,6 +42,9 @@ func (s *QuestEventScreen) Init() tea.Cmd { return nil }
 func (s *QuestEventScreen) advanceEvent() {
 	s.current++
 	s.cursor = 0
+	s.phase = questPhaseMessage
+	s.result = ""
+	s.combatAnim = nil
 	if s.current < len(s.events) {
 		s.tw = NewTypewriter(s.events[s.current].Message, AnimTypewriterEncounter)
 	}
@@ -44,6 +57,13 @@ func (s *QuestEventScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.tw.Start(msg.Time)
 			s.tw.Update(msg.Time)
 		}
+		if s.phase == questPhaseCombat && s.combatAnim != nil {
+			s.combatAnim.Update(msg.Time)
+			if s.combatAnim.Done() {
+				s.phase = questPhaseResult
+				s.tw = NewTypewriter(s.result, AnimTypewriterEncounter)
+			}
+		}
 		return s, nil
 	case tea.KeyMsg:
 		if s.tw != nil && !s.tw.Done() {
@@ -51,43 +71,59 @@ func (s *QuestEventScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return s, nil
 		}
 
-		if s.result != "" {
-			if key.Matches(msg, Keys.Enter) {
-				s.result = ""
-				s.advanceEvent()
-				if s.current >= len(s.events) {
-					return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
+		switch s.phase {
+		case questPhaseMessage:
+			evt := s.events[s.current]
+			if len(evt.Actions) == 0 {
+				if key.Matches(msg, Keys.Enter) || key.Matches(msg, Keys.Back) {
+					s.advanceEvent()
+					if s.current >= len(s.events) {
+						return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
+					}
 				}
 				return s, nil
 			}
-			return s, nil
-		}
-
-		evt := s.events[s.current]
-		if len(evt.Actions) == 0 {
-			if key.Matches(msg, Keys.Enter) || key.Matches(msg, Keys.Back) {
-				s.advanceEvent()
-				if s.current >= len(s.events) {
-					return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
+			switch {
+			case key.Matches(msg, Keys.Up):
+				s.cursor = wrapCursor(s.cursor, -1, len(evt.Actions))
+			case key.Matches(msg, Keys.Down):
+				s.cursor = wrapCursor(s.cursor, 1, len(evt.Actions))
+			case key.Matches(msg, Keys.Enter):
+				actionResult := game.ResolveQuestAction(s.gs, evt.Title, s.cursor)
+				if actionResult.Combat != nil {
+					combat := actionResult.Combat
+					if len(combat.Log) > 0 {
+						s.phase = questPhaseCombat
+						s.combatAnim = NewCombatLogAnimator(combat.Log)
+						s.result = combat.Result
+					} else {
+						s.phase = questPhaseResult
+						s.result = combat.Result
+						s.tw = NewTypewriter(s.result, AnimTypewriterEncounter)
+					}
+				} else if actionResult.Message != "" {
+					s.phase = questPhaseResult
+					s.result = actionResult.Message
+					s.tw = NewTypewriter(s.result, AnimTypewriterEncounter)
+				} else {
+					s.advanceEvent()
+					if s.current >= len(s.events) {
+						return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
+					}
 				}
 			}
-			return s, nil
-		}
 
-		switch {
-		case key.Matches(msg, Keys.Up):
-			s.cursor = wrapCursor(s.cursor, -1, len(evt.Actions))
-		case key.Matches(msg, Keys.Down):
-			s.cursor = wrapCursor(s.cursor, 1, len(evt.Actions))
-		case key.Matches(msg, Keys.Enter):
-			s.result = game.ResolveQuestAction(s.gs, evt.Title, s.cursor)
-			if s.result == "" {
+		case questPhaseCombat:
+			if s.combatAnim != nil && !s.combatAnim.Done() {
+				s.combatAnim.Skip()
+			}
+
+		case questPhaseResult:
+			if key.Matches(msg, Keys.Enter) {
 				s.advanceEvent()
 				if s.current >= len(s.events) {
 					return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 				}
-			} else {
-				s.tw = NewTypewriter(s.result, AnimTypewriterEncounter)
 			}
 		}
 	}
@@ -102,28 +138,35 @@ func (s *QuestEventScreen) View() string {
 	}
 
 	evt := s.events[s.current]
-
 	b.WriteString(HeaderStyle.Render(fmt.Sprintf("  %s  ", evt.Title)) + "\n\n")
-	if s.tw != nil && s.result == "" {
+
+	switch s.phase {
+	case questPhaseMessage:
 		b.WriteString("  " + s.tw.View() + "\n\n")
-	} else if s.result == "" {
-		b.WriteString("  " + evt.Message + "\n\n")
-	} else {
-		b.WriteString("  " + evt.Message + "\n\n")
-	}
-
-	twDone := s.tw == nil || s.tw.Done()
-
-	if s.result != "" {
-		b.WriteString("  " + SuccessStyle.Render(s.tw.View()) + "\n")
-		if twDone {
-			b.WriteString("\n" + DimStyle.Render("  press enter to continue"))
+		twDone := s.tw == nil || s.tw.Done()
+		if len(evt.Actions) > 0 && twDone {
+			RenderMenuItems(&b, evt.Actions, s.cursor)
+			b.WriteString("\n" + DimStyle.Render("  j/k choose, enter select"))
+		} else if len(evt.Actions) == 0 && twDone {
+			b.WriteString(SelectedStyle.Render("  press enter to continue"))
 		}
-	} else if len(evt.Actions) > 0 && twDone {
-		RenderMenuItems(&b, evt.Actions, s.cursor)
-		b.WriteString("\n" + DimStyle.Render("  j/k choose, enter select"))
-	} else if len(evt.Actions) == 0 && twDone {
-		b.WriteString(DimStyle.Render("  press enter to continue"))
+
+	case questPhaseCombat:
+		b.WriteString("  " + evt.Message + "\n\n")
+		if s.combatAnim != nil {
+			b.WriteString(s.combatAnim.View())
+		}
+
+	case questPhaseResult:
+		b.WriteString("  " + evt.Message + "\n\n")
+		if s.combatAnim != nil {
+			b.WriteString(s.combatAnim.StaticView())
+			b.WriteString("\n")
+		}
+		b.WriteString("  " + SelectedStyle.Render(s.tw.View()) + "\n")
+		if s.tw != nil && s.tw.Done() {
+			b.WriteString("\n" + SelectedStyle.Render("  press enter to continue"))
+		}
 	}
 
 	return b.String()

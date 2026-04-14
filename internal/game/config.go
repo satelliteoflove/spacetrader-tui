@@ -67,6 +67,7 @@ type Config struct {
 	EncounterEntrance AnimSpeed `json:"encounter_entrance"`
 	TypewriterSpeed   AnimSpeed `json:"typewriter_speed"`
 	PulseSpeed        AnimSpeed `json:"pulse_speed"`
+	VerboseCombat     bool      `json:"verbose_combat"`
 }
 
 func (c *Config) applyDefaults() {

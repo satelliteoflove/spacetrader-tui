@@ -7,6 +7,19 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
+type QuestCombatResult struct {
+	Log    []CombatLogLine
+	Result string
+}
+
+type QuestActionResult struct {
+	Message string
+	Combat  *QuestCombatResult
+}
+
+var JarekSkills = [formula.NumSkills]int{3, 2, 10, 4}
+var WildSkills = [formula.NumSkills]int{7, 10, 2, 5}
+
 func findSystem(gs *GameState, name string) int {
 	for i, sys := range gs.Data.Systems {
 		if sys.Name == name {
@@ -436,7 +449,7 @@ func checkWild(gs *GameState) []QuestEvent {
 			CreateZeethibal(gs)
 			return []QuestEvent{{
 				Title:   "Wild Delivered",
-				Message: "Jonathan Wild is most grateful. As a reward, he has one of his Cyber Criminals hack into the Police Database and clean up your record. He also offers you the opportunity to take his talented nephew Zeethibal along as a mercenary with no pay.",
+				Message: "Jonathan Wild is most grateful. As a reward, he has one of his Cyber Criminals hack into the Police Database and clean up your record. He also offers you the opportunity to take his talented nephew Zeethibal along as a mercenary with no pay.\n\nVisit the Personnel screen here at Kravat to hire Zeethibal.",
 			}}
 		}
 
@@ -589,19 +602,19 @@ func checkReactor(gs *GameState) []QuestEvent {
 	return nil
 }
 
-func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string {
+func resolveQuestChainAction(gs *GameState, title string, actionIdx int) QuestActionResult {
 	switch title {
 	case "Dragonfly Cornered!":
 		if actionIdx == 0 {
-			return resolveDragonflyCombat(gs)
+			return QuestActionResult{Combat: resolveDragonflyCombat(gs)}
 		}
-		return "You back off. The Dragonfly remains cornered here."
+		return QuestActionResult{Message: "You back off. The Dragonfly remains cornered here."}
 
 	case "Space Monster!":
 		if actionIdx == 0 {
-			return resolveMonsterCombat(gs)
+			return QuestActionResult{Combat: resolveMonsterCombat(gs)}
 		}
-		return "You flee from the Space Monster."
+		return QuestActionResult{Message: "You flee from the Space Monster."}
 
 	case "Scarab Found!":
 		if actionIdx == 0 {
@@ -617,42 +630,41 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 				}
 			}
 			if !hasPulse && !hasMorgans {
-				return "Your weapons bounce off the Scarab's organic hull! Only Pulse lasers can penetrate it."
+				return QuestActionResult{Message: "Your weapons bounce off the Scarab's organic hull! Only Pulse lasers can penetrate it."}
 			}
 			gs.SetQuestState(QuestScarab, QuestComplete)
 			gs.Player.Ship.HullUpgraded = true
 			shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
 			gs.Player.Ship.Hull = shipDef.Hull + ScarabHullBonus
-			return fmt.Sprintf("You destroyed the Scarab! Its hull plating was salvaged -- your hull is permanently reinforced (+%d max hull).", ScarabHullBonus)
+			return QuestActionResult{Message: fmt.Sprintf("You destroyed the Scarab! Its hull plating was salvaged -- your hull is permanently reinforced (+%d max hull).", ScarabHullBonus)}
 		}
-		return "You leave the Scarab alone."
+		return QuestActionResult{Message: "You leave the Scarab alone."}
 
 	case "Alien Artifact":
 		if actionIdx == 0 {
 			gs.SetQuestState(QuestAlienArtifact, QuestActive)
-			return "You take the alien artifact. Mantis ships may now pursue you during travel."
+			return QuestActionResult{Message: "You take the alien artifact. Mantis ships may now pursue you during travel."}
 		}
 		gs.SetQuestState(QuestAlienArtifact, QuestUnavailable)
-		return "You leave the artifact."
+		return QuestActionResult{Message: "You leave the artifact."}
 
 	case "Ambassador Jarek":
 		if actionIdx == 0 {
 			if FreeCrewQuarters(gs) <= 0 {
-				return "You don't have any crew quarters available for a passenger."
+				return QuestActionResult{Message: "You don't have any crew quarters available for a passenger."}
 			}
-			jarekSkills := [formula.NumSkills]int{3, 2, 10, 4}
-			AddQuestCrew(gs, "Jarek", jarekSkills)
+			AddQuestCrew(gs, "Jarek", JarekSkills)
 			gs.SetQuestState(QuestJarek, QuestActive)
 			gs.SetQuestProgress(QuestJarek, 0)
-			return "Ambassador Jarek boards your ship. Deliver him to Devidia."
+			return QuestActionResult{Message: "Ambassador Jarek boards your ship. Deliver him to Devidia."}
 		}
 		gs.SetQuestState(QuestJarek, QuestUnavailable)
-		return "Declined."
+		return QuestActionResult{Message: "Declined."}
 
 	case "Jonathan Wild":
 		if actionIdx == 0 {
 			if FreeCrewQuarters(gs) <= 0 {
-				return "You don't have any crew quarters available for a passenger."
+				return QuestActionResult{Message: "You don't have any crew quarters available for a passenger."}
 			}
 			hasBeamLaser := false
 			for _, wID := range gs.Player.Ship.Weapons {
@@ -663,24 +675,23 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 				}
 			}
 			if !hasBeamLaser {
-				return "Jonathan Wild isn't willing to go with you if you're not armed with at least a Beam Laser."
+				return QuestActionResult{Message: "Jonathan Wild isn't willing to go with you if you're not armed with at least a Beam Laser."}
 			}
 			if ReactorOnBoard(gs) {
-				return "Jonathan Wild doesn't like the looks of that Ion Reactor. He thinks it's too dangerous, and won't get on board."
+				return QuestActionResult{Message: "Jonathan Wild doesn't like the looks of that Ion Reactor. He thinks it's too dangerous, and won't get on board."}
 			}
-			wildSkills := [formula.NumSkills]int{7, 10, 2, 5}
-			AddQuestCrew(gs, "Wild", wildSkills)
+			AddQuestCrew(gs, "Wild", WildSkills)
 			gs.SetQuestState(QuestWild, QuestActive)
-			return "Jonathan Wild is now aboard. Deliver him to Kravat -- but watch out for police."
+			return QuestActionResult{Message: "Jonathan Wild is now aboard. Deliver him to Kravat -- but watch out for police."}
 		}
 		gs.SetQuestState(QuestWild, QuestUnavailable)
-		return "You refuse to smuggle a criminal."
+		return QuestActionResult{Message: "You refuse to smuggle a criminal."}
 
 	case "Reactor Delivery":
 		if actionIdx == 0 {
 			dp := &GameDataProvider{Data: gs.Data}
 			if gs.Player.FreeCargo(dp) < ReactorTotalBays {
-				return fmt.Sprintf("Not enough cargo space for the reactor (need %d free bays).", ReactorTotalBays)
+				return QuestActionResult{Message: fmt.Sprintf("Not enough cargo space for the reactor (need %d free bays).", ReactorTotalBays)}
 			}
 			wildWasActive := gs.QuestState(QuestWild) == QuestActive
 			if wildWasActive {
@@ -694,15 +705,15 @@ func resolveQuestChainAction(gs *GameState, title string, actionIdx int) string 
 			if wildWasActive {
 				msg += "\n\nJonathan Wild refuses to stay aboard with the reactor and has departed."
 			}
-			return msg
+			return QuestActionResult{Message: msg}
 		}
 		gs.SetQuestState(QuestReactor, QuestUnavailable)
-		return "Declined."
+		return QuestActionResult{Message: "Declined."}
 	}
-	return ""
+	return QuestActionResult{}
 }
 
-func resolveDragonflyCombat(gs *GameState) string {
+func resolveDragonflyCombat(gs *GameState) *QuestCombatResult {
 	if gs.Quests.DragonflyHull <= 0 {
 		gs.Quests.DragonflyHull = DragonflyMaxHull
 	}
@@ -715,7 +726,7 @@ func resolveDragonflyCombat(gs *GameState) string {
 		playerWeaponPower += gs.Data.Equipment[w].Power
 	}
 	if playerWeaponPower == 0 {
-		return "You have no weapons! The Dragonfly's shields hold easily."
+		return &QuestCombatResult{Result: "You have no weapons! The Dragonfly's shields hold easily."}
 	}
 
 	dfWeapon := 20
@@ -724,16 +735,20 @@ func resolveDragonflyCombat(gs *GameState) string {
 	dfEngineer := 3 + int(gs.Difficulty)
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
 
-	var log string
+	var lines []CombatLogLine
 	maxRounds := 8
 	for round := 0; round < maxRounds; round++ {
 		playerHit := gs.Rand.Intn(fighterSkill+3) >= gs.Rand.Intn(dfPilot/2+5)
 		if playerHit {
-			dmg := 1 + gs.Rand.Intn(playerWeaponPower*(100+2*engineerSkill)/100+1)
+			dmg := 1 + gs.Rand.Intn(playerWeaponPower*(100+2*engineerSkill)/100 + 1)
 			gs.Quests.DragonflyHull -= dmg
-			log += fmt.Sprintf("  You hit the Dragonfly for %d damage.\n", dmg)
+			lines = append(lines, CombatLogLine{
+				Attacker: "You", Hit: true, Damage: dmg, HullDamage: dmg, IsPlayer: true,
+			})
 		} else {
-			log += "  You fire -- the Dragonfly evades!\n"
+			lines = append(lines, CombatLogLine{
+				Attacker: "You", Hit: false, IsPlayer: true,
+			})
 		}
 
 		if gs.Quests.DragonflyHull <= 0 {
@@ -748,26 +763,35 @@ func resolveDragonflyCombat(gs *GameState) string {
 			}
 			gs.SetQuestProgress(QuestDragonfly, len(dragonflyPath))
 			gs.Player.Reputation += 3
-			return log + fmt.Sprintf("\nThe Dragonfly explodes! %s", reward)
+			return &QuestCombatResult{
+				Log:    lines,
+				Result: fmt.Sprintf("The Dragonfly explodes! %s", reward),
+			}
 		}
 
 		dfHit := gs.Rand.Intn(dfFighter+3) >= gs.Rand.Intn(EffectivePlayerSkill(gs, formula.SkillPilot)/2+5)
 		if dfHit {
-			dmg := 1 + gs.Rand.Intn(dfWeapon*(100+2*dfEngineer)/100+1)
+			dmg := 1 + gs.Rand.Intn(dfWeapon*(100+2*dfEngineer)/100 + 1)
 			dmg -= gs.Rand.Intn(max(1, EffectivePlayerSkill(gs, formula.SkillPilot)))
 			if dmg < 1 {
 				dmg = 1
 			}
 			gs.Player.Ship.Hull -= dmg
-			log += fmt.Sprintf("  Dragonfly hits you for %d hull damage.\n", dmg)
+			lines = append(lines, CombatLogLine{
+				Attacker: "Dragonfly", Hit: true, Damage: dmg, HullDamage: dmg, IsPlayer: false,
+			})
 		} else {
-			log += "  Dragonfly fires -- miss!\n"
+			lines = append(lines, CombatLogLine{
+				Attacker: "Dragonfly", Hit: false, IsPlayer: false,
+			})
 		}
 
 		if gs.Player.Ship.Hull <= 0 {
 			gs.Player.Ship.Hull = 1
-			log += fmt.Sprintf("\nYou barely escape! Dragonfly hull: %d/%d.", gs.Quests.DragonflyHull, DragonflyMaxHull)
-			return log
+			return &QuestCombatResult{
+				Log:    lines,
+				Result: fmt.Sprintf("You barely escape! Dragonfly hull: %d/%d.", gs.Quests.DragonflyHull, DragonflyMaxHull),
+			}
 		}
 	}
 
@@ -775,12 +799,14 @@ func resolveDragonflyCombat(gs *GameState) string {
 	if gs.Player.Ship.HullUpgraded {
 		maxHull += ScarabHullBonus
 	}
-	log += fmt.Sprintf("\nThe battle is inconclusive. You disengage.\n  Your hull: %d/%d  |  Dragonfly hull: %d/%d",
-		gs.Player.Ship.Hull, maxHull, gs.Quests.DragonflyHull, DragonflyMaxHull)
-	return log
+	return &QuestCombatResult{
+		Log: lines,
+		Result: fmt.Sprintf("The battle is inconclusive. You disengage.\nYour hull: %d/%d  |  Dragonfly hull: %d/%d",
+			gs.Player.Ship.Hull, maxHull, gs.Quests.DragonflyHull, DragonflyMaxHull),
+	}
 }
 
-func resolveMonsterCombat(gs *GameState) string {
+func resolveMonsterCombat(gs *GameState) *QuestCombatResult {
 	if gs.Quests.MonsterHull <= 0 {
 		gs.Quests.MonsterHull = MonsterMaxHull
 	}
@@ -793,7 +819,7 @@ func resolveMonsterCombat(gs *GameState) string {
 		playerWeaponPower += gs.Data.Equipment[w].Power
 	}
 	if playerWeaponPower == 0 {
-		return "You have no weapons! The Space Monster drives you away."
+		return &QuestCombatResult{Result: "You have no weapons! The Space Monster drives you away."}
 	}
 
 	monsterWeapon := 35
@@ -802,16 +828,20 @@ func resolveMonsterCombat(gs *GameState) string {
 	monsterEngineer := 1 + int(gs.Difficulty)
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
 
-	var log string
+	var lines []CombatLogLine
 	maxRounds := 8
 	for round := 0; round < maxRounds; round++ {
 		playerHit := gs.Rand.Intn(fighterSkill+3) >= gs.Rand.Intn(monsterPilot/2+5)
 		if playerHit {
-			dmg := 1 + gs.Rand.Intn(playerWeaponPower*(100+2*engineerSkill)/100+1)
+			dmg := 1 + gs.Rand.Intn(playerWeaponPower*(100+2*engineerSkill)/100 + 1)
 			gs.Quests.MonsterHull -= dmg
-			log += fmt.Sprintf("  You hit the Monster for %d damage.\n", dmg)
+			lines = append(lines, CombatLogLine{
+				Attacker: "You", Hit: true, Damage: dmg, HullDamage: dmg, IsPlayer: true,
+			})
 		} else {
-			log += "  You fire -- miss!\n"
+			lines = append(lines, CombatLogLine{
+				Attacker: "You", Hit: false, IsPlayer: true,
+			})
 		}
 
 		if gs.Quests.MonsterHull <= 0 {
@@ -819,26 +849,35 @@ func resolveMonsterCombat(gs *GameState) string {
 			gs.SetQuestState(QuestSpaceMonster, QuestComplete)
 			gs.Player.Credits += 10000
 			gs.Player.Reputation += 5
-			return log + "\nThe Space Monster is destroyed! 10,000 credits bounty and fame across the galaxy!"
+			return &QuestCombatResult{
+				Log:    lines,
+				Result: "The Space Monster is destroyed! 10,000 credits bounty and fame across the galaxy!",
+			}
 		}
 
 		monsterHit := gs.Rand.Intn(monsterFighter+3) >= gs.Rand.Intn(EffectivePlayerSkill(gs, formula.SkillPilot)/2+5)
 		if monsterHit {
-			dmg := 1 + gs.Rand.Intn(monsterWeapon*(100+2*monsterEngineer)/100+1)
+			dmg := 1 + gs.Rand.Intn(monsterWeapon*(100+2*monsterEngineer)/100 + 1)
 			dmg -= gs.Rand.Intn(max(1, EffectivePlayerSkill(gs, formula.SkillPilot)))
 			if dmg < 1 {
 				dmg = 1
 			}
 			gs.Player.Ship.Hull -= dmg
-			log += fmt.Sprintf("  Monster hits you for %d hull damage.\n", dmg)
+			lines = append(lines, CombatLogLine{
+				Attacker: "Monster", Hit: true, Damage: dmg, HullDamage: dmg, IsPlayer: false,
+			})
 		} else {
-			log += "  Monster attacks -- miss!\n"
+			lines = append(lines, CombatLogLine{
+				Attacker: "Monster", Hit: false, IsPlayer: false,
+			})
 		}
 
 		if gs.Player.Ship.Hull <= 0 {
 			gs.Player.Ship.Hull = 1
-			log += fmt.Sprintf("\nYou barely escape with your ship intact! Monster hull: %d/%d.", gs.Quests.MonsterHull, MonsterMaxHull)
-			return log
+			return &QuestCombatResult{
+				Log:    lines,
+				Result: fmt.Sprintf("You barely escape with your ship intact! Monster hull: %d/%d.", gs.Quests.MonsterHull, MonsterMaxHull),
+			}
 		}
 	}
 
@@ -846,7 +885,9 @@ func resolveMonsterCombat(gs *GameState) string {
 	if gs.Player.Ship.HullUpgraded {
 		maxHull += ScarabHullBonus
 	}
-	log += fmt.Sprintf("\nThe battle is inconclusive. You disengage.\n  Your hull: %d/%d  |  Monster hull: %d/%d",
-		gs.Player.Ship.Hull, maxHull, gs.Quests.MonsterHull, MonsterMaxHull)
-	return log
+	return &QuestCombatResult{
+		Log: lines,
+		Result: fmt.Sprintf("The battle is inconclusive. You disengage.\nYour hull: %d/%d  |  Monster hull: %d/%d",
+			gs.Player.Ship.Hull, maxHull, gs.Quests.MonsterHull, MonsterMaxHull),
+	}
 }

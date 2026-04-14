@@ -203,7 +203,7 @@ func TestSpaceMonsterNoWeapons(t *testing.T) {
 	if gs.Quests.MonsterHull != MonsterMaxHull {
 		t.Error("monster hull should be unchanged when player has no weapons")
 	}
-	if result == "" {
+	if result.Result == "" {
 		t.Error("expected non-empty result message")
 	}
 }
@@ -248,7 +248,7 @@ func TestScarabHullUpgrade(t *testing.T) {
 	gs.SetQuestState(QuestScarab, QuestAvailable)
 
 	result := resolveQuestChainAction(gs, "Scarab Found!", 0)
-	if result == "" {
+	if result.Message == "" && result.Combat == nil {
 		t.Fatal("expected non-empty result from scarab attack")
 	}
 
@@ -273,7 +273,7 @@ func TestScarabNoPulseLaser(t *testing.T) {
 	gs.SetQuestState(QuestScarab, QuestAvailable)
 
 	result := resolveQuestChainAction(gs, "Scarab Found!", 0)
-	if result == "" {
+	if result.Message == "" && result.Combat == nil {
 		t.Fatal("expected non-empty result")
 	}
 

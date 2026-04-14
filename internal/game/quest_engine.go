@@ -196,15 +196,15 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 	return events
 }
 
-func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string {
+func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) QuestActionResult {
 	switch questTitle {
 	case "Japori Disease":
 		if actionIdx == 0 {
 			gs.SetQuestState(QuestJapori, QuestActive)
-			return "Mission accepted. Deliver 10 medicine to Japori."
+			return QuestActionResult{Message: "Mission accepted. Deliver 10 medicine to Japori."}
 		}
 		gs.SetQuestState(QuestJapori, QuestUnavailable)
-		return "Mission declined."
+		return QuestActionResult{Message: "Mission declined."}
 
 	case "Skill Training Available":
 		if actionIdx == 0 && gs.Player.Credits >= 3000 {
@@ -215,13 +215,13 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 				gs.Player.Skills[skill] = formula.SkillMax
 			}
 			gs.SetQuestState(QuestSkillIncrease, QuestUnavailable)
-			return fmt.Sprintf("Your %s skill improved!", formula.SkillNames[skill])
+			return QuestActionResult{Message: fmt.Sprintf("Your %s skill improved!", formula.SkillNames[skill])}
 		} else if actionIdx == 0 {
 			gs.SetQuestState(QuestSkillIncrease, QuestUnavailable)
-			return "Not enough credits."
+			return QuestActionResult{Message: "Not enough credits."}
 		}
 		gs.SetQuestState(QuestSkillIncrease, QuestUnavailable)
-		return "Maybe next time."
+		return QuestActionResult{Message: "Maybe next time."}
 
 	case "Cargo for Sale":
 		if actionIdx == 0 {
@@ -231,32 +231,29 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) string 
 			price := good.BasePrice * qty / 2
 			if gs.Player.Credits < price {
 				gs.SetQuestState(QuestCargoForSale, QuestUnavailable)
-				return "Not enough credits."
+				return QuestActionResult{Message: "Not enough credits."}
 			}
 			gs.Player.Credits -= price
 			gs.Player.Cargo[goodIdx] += qty
 			gs.SetQuestState(QuestCargoForSale, QuestUnavailable)
-			return fmt.Sprintf("Bought %d %s for %d credits (half price!).", qty, good.Name, price)
+			return QuestActionResult{Message: fmt.Sprintf("Bought %d %s for %d credits (half price!).", qty, good.Name, price)}
 		}
 		gs.SetQuestState(QuestCargoForSale, QuestUnavailable)
-		return "Declined."
+		return QuestActionResult{Message: "Declined."}
 
 	case "Hacker Contact":
 		if actionIdx == 0 && gs.Player.Credits >= 5000 {
 			gs.Player.Credits -= 5000
 			gs.Player.PoliceRecord = 0
 			gs.SetQuestState(QuestEraseRecord, QuestUnavailable)
-			return "Your police record has been erased!"
+			return QuestActionResult{Message: "Your police record has been erased!"}
 		} else if actionIdx == 0 {
 			gs.SetQuestState(QuestEraseRecord, QuestUnavailable)
-			return "Not enough credits."
+			return QuestActionResult{Message: "Not enough credits."}
 		}
 		gs.SetQuestState(QuestEraseRecord, QuestUnavailable)
-		return "Declined."
+		return QuestActionResult{Message: "Declined."}
 	}
 
-	if result := resolveQuestChainAction(gs, questTitle, actionIdx); result != "" {
-		return result
-	}
-	return ""
+	return resolveQuestChainAction(gs, questTitle, actionIdx)
 }

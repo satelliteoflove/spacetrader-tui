@@ -15,9 +15,9 @@ type encounterPhase int
 
 const (
 	phaseChoose encounterPhase = iota
+	phaseCombat
 	phaseResult
 )
-
 
 type EncounterScreen struct {
 	gs            *game.GameState
@@ -25,6 +25,7 @@ type EncounterScreen struct {
 	phase         encounterPhase
 	cursor        int
 	outcome       encounter.Outcome
+	combatAnim    *CombatLogAnimator
 	entranceDelay int
 	tw            *Typewriter
 }
@@ -47,6 +48,13 @@ func (s *EncounterScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			s.tw.Start(msg.Time)
 			s.tw.Update(msg.Time)
+			if s.phase == phaseCombat && s.combatAnim != nil {
+				s.combatAnim.Update(msg.Time)
+				if s.combatAnim.Done() {
+					s.phase = phaseResult
+					s.tw = NewTypewriter(s.outcome.Message, AnimTypewriterEncounter)
+				}
+			}
 		}
 		return s, nil
 	case tea.KeyMsg:
@@ -57,23 +65,43 @@ func (s *EncounterScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.tw.Skip()
 			return s, nil
 		}
-		if s.phase == phaseResult {
+
+		switch s.phase {
+		case phaseChoose:
+			switch {
+			case key.Matches(msg, Keys.Up):
+				s.cursor = wrapCursor(s.cursor, -1, len(s.enc.Actions))
+			case key.Matches(msg, Keys.Down):
+				s.cursor = wrapCursor(s.cursor, 1, len(s.enc.Actions))
+			case key.Matches(msg, Keys.Enter):
+				action := s.enc.Actions[s.cursor]
+				s.outcome = encounter.Resolve(s.gs, s.enc, action)
+				if len(s.outcome.CombatLog) > 0 {
+					s.phase = phaseCombat
+					logLines := s.outcome.CombatLog
+					if statsLines := BuildCombatStatsLines(s.gs, s.enc.PirateShip); len(statsLines) > 0 {
+						logLines = append(statsLines, logLines...)
+					}
+					s.combatAnim = NewCombatLogAnimator(logLines)
+				} else {
+					s.phase = phaseResult
+					s.tw = NewTypewriter(s.outcome.Message, AnimTypewriterEncounter)
+				}
+			}
+
+		case phaseCombat:
+			if s.combatAnim != nil && !s.combatAnim.Done() {
+				s.combatAnim.Skip()
+			}
+
+		case phaseResult:
+			if !s.tw.Done() {
+				s.tw.Skip()
+				return s, nil
+			}
 			if key.Matches(msg, Keys.Enter) || key.Matches(msg, Keys.Back) {
 				return s, func() tea.Msg { return EncounterDoneMsg{Outcome: s.outcome} }
 			}
-			return s, nil
-		}
-
-		switch {
-		case key.Matches(msg, Keys.Up):
-			s.cursor = wrapCursor(s.cursor, -1, len(s.enc.Actions))
-		case key.Matches(msg, Keys.Down):
-			s.cursor = wrapCursor(s.cursor, 1, len(s.enc.Actions))
-		case key.Matches(msg, Keys.Enter):
-			action := s.enc.Actions[s.cursor]
-			s.outcome = encounter.Resolve(s.gs, s.enc, action)
-			s.phase = phaseResult
-			s.tw = NewTypewriter(s.outcome.Message, AnimTypewriterEncounter)
 		}
 	}
 	return s, nil
@@ -91,17 +119,14 @@ func (s *EncounterScreen) View() string {
 		style = DangerStyle.Bold(true).Padding(1, 0)
 	}
 	b.WriteString(style.Render(fmt.Sprintf("ENCOUNTER: %s", s.enc.Type)) + "\n")
-	if s.phase == phaseChoose {
-		b.WriteString("  " + s.tw.View() + "\n")
-	} else {
-		b.WriteString("  " + s.enc.Message + "\n")
-	}
-	if s.enc.ThreatNote != "" && s.phase == phaseChoose && s.tw.Done() {
-		b.WriteString("  " + DimStyle.Render(s.enc.ThreatNote) + "\n")
-	}
-	b.WriteString("\n")
 
-	if s.phase == phaseChoose {
+	switch s.phase {
+	case phaseChoose:
+		b.WriteString("  " + s.tw.View() + "\n")
+		if s.enc.ThreatNote != "" && s.tw.Done() {
+			b.WriteString("  " + DimStyle.Render(s.enc.ThreatNote) + "\n")
+		}
+		b.WriteString("\n")
 		if s.tw.Done() {
 			actionLabels := make([]string, len(s.enc.Actions))
 			for i, a := range s.enc.Actions {
@@ -121,17 +146,22 @@ func (s *EncounterScreen) View() string {
 			RenderMenuItems(&b, actionLabels, s.cursor)
 			b.WriteString("\n" + DimStyle.Render("  j/k to choose, enter to act"))
 		}
-	} else {
-		b.WriteString("  " + s.tw.View() + "\n")
+
+	case phaseCombat:
+		b.WriteString("  " + s.enc.Message + "\n\n")
+		if s.combatAnim != nil {
+			b.WriteString(s.combatAnim.View())
+		}
+
+	case phaseResult:
+		b.WriteString("  " + s.enc.Message + "\n\n")
+		if s.combatAnim != nil {
+			b.WriteString(s.combatAnim.StaticView())
+			b.WriteString("\n")
+		}
+		b.WriteString("  " + SelectedStyle.Render(s.tw.View()) + "\n")
 
 		if s.tw.Done() {
-			if s.outcome.CombatLog != "" {
-				b.WriteString("\n")
-				for _, line := range strings.Split(strings.TrimRight(s.outcome.CombatLog, "\n"), "\n") {
-					b.WriteString("  " + DimStyle.Render(line) + "\n")
-				}
-			}
-
 			if s.outcome.CreditsChange != 0 {
 				if s.outcome.CreditsChange > 0 {
 					b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Credits: +%d", s.outcome.CreditsChange)) + "\n")
@@ -153,7 +183,7 @@ func (s *EncounterScreen) View() string {
 				b.WriteString("\n" + DangerStyle.Render("  YOUR SHIP HAS BEEN DESTROYED") + "\n")
 			}
 
-			b.WriteString("\n" + DimStyle.Render("  press enter to continue"))
+			b.WriteString("\n" + SelectedStyle.Render("  press enter to continue"))
 		}
 	}
 

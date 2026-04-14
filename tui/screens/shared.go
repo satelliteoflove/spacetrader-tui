@@ -210,6 +210,8 @@ var pulseLookup = map[game.AnimSpeed]int{
 	game.AnimOff: 0, game.AnimSlow: 16, game.AnimMedium: 12, game.AnimFast: 8,
 }
 
+var VerboseCombat bool
+
 func ApplyAnimationSettings(cfg game.Config) {
 	AnimFadeDone = transitionLookup[cfg.TransitionSpeed]
 	AnimWarpMaxFrames = warpLookup[cfg.WarpSpeed]
@@ -217,6 +219,7 @@ func ApplyAnimationSettings(cfg game.Config) {
 	AnimTypewriterTitle = twTitleLookup[cfg.TypewriterSpeed]
 	AnimTypewriterEncounter = twEncounterLookup[cfg.TypewriterSpeed]
 	AnimPulsePhases = pulseLookup[cfg.PulseSpeed]
+	VerboseCombat = cfg.VerboseCombat
 	initFadeStyles()
 }
 

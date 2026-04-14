@@ -53,7 +53,7 @@ func GenerateForClick(gs *game.GameState, destIdx int) *Encounter {
 
 	if gs.Quests.States[game.QuestAlienArtifact] == game.QuestActive {
 		if gs.Rand.Intn(AlienArtifactDenom) < AlienArtifactChance {
-			enc := newPirateWithThreat(gs)
+			enc := NewPirateWithThreat(gs)
 			enc.Message = "Alien Mantis ships attack! They want the artifact!"
 			return enc
 		}
@@ -80,7 +80,7 @@ func GenerateForClick(gs *game.GameState, destIdx int) *Encounter {
 	traderStrength := polData.TraderStrength
 
 	if roll < pirateStrength {
-		return newPirateWithThreat(gs)
+		return NewPirateWithThreat(gs)
 	}
 
 	if roll < pirateStrength+policeStrength {
@@ -152,7 +152,7 @@ func newPoliceForAttitude(gs *game.GameState) *Encounter {
 	}
 }
 
-func newPirateWithThreat(gs *game.GameState) *Encounter {
+func NewPirateWithThreat(gs *game.GameState) *Encounter {
 	enc := NewPirateEncounter()
 	ship := NewPirateShip(gs)
 	enc.PirateShip = &ship

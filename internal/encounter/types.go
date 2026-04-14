@@ -1,5 +1,7 @@
 package encounter
 
+import "github.com/the4ofus/spacetrader-tui/internal/game"
+
 type EncounterType int
 
 const (
@@ -73,7 +75,7 @@ type Encounter struct {
 
 type Outcome struct {
 	Message       string
-	CombatLog     string
+	CombatLog     []game.CombatLogLine
 	CreditsChange int
 	HullDamage    int
 	CargoLost     map[int]int

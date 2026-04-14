@@ -3,7 +3,6 @@ package game
 import (
 	"testing"
 
-	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
 
@@ -57,7 +56,7 @@ func TestReactorPickup(t *testing.T) {
 	}
 
 	result := resolveQuestChainAction(gs, "Reactor Delivery", 0)
-	if result == "" {
+	if result.Message == "" && result.Combat == nil {
 		t.Fatal("expected non-empty result from reactor acceptance")
 	}
 
@@ -268,12 +267,12 @@ func TestReactorWildMutualExclusion(t *testing.T) {
 
 	gs.SetQuestState(QuestWild, QuestActive)
 	gs.Player.Crew = append(gs.Player.Crew, Mercenary{
-		Name: "Wild", Skills: [formula.NumSkills]int{7, 10, 2, 5}, SystemIdx: -1, IsQuest: true,
+		Name: "Wild", Skills: WildSkills, SystemIdx: -1, IsQuest: true,
 	})
 	gs.SetQuestState(QuestReactor, QuestAvailable)
 
 	result := resolveQuestChainAction(gs, "Reactor Delivery", 0)
-	if result == "" {
+	if result.Message == "" && result.Combat == nil {
 		t.Fatal("expected non-empty result")
 	}
 

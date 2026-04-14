@@ -77,12 +77,17 @@ func TestPirateFight(t *testing.T) {
 
 	enc := encounter.NewPirateEncounter()
 	startCredits := gs.Player.Credits
+	startHull := gs.Player.Ship.Hull
 
-	encounter.Resolve(gs, enc, encounter.ActionFight)
+	outcome := encounter.Resolve(gs, enc, encounter.ActionFight)
 
 	creditsChanged := gs.Player.Credits != startCredits
-	if !creditsChanged {
-		t.Error("credits should change after pirate fight")
+	hullChanged := gs.Player.Ship.Hull != startHull
+	if !creditsChanged && !hullChanged {
+		t.Error("credits or hull should change after pirate fight")
+	}
+	if outcome.Message == "" {
+		t.Error("expected a message from pirate fight")
 	}
 }
 

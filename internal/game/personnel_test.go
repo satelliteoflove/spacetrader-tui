@@ -160,7 +160,7 @@ func TestQuestCrewContributesSkills(t *testing.T) {
 	baseFighter := EffectivePlayerSkill(gs, formula.SkillFighter)
 
 	gs.Player.Crew = append(gs.Player.Crew, Mercenary{
-		Name: "Wild", Skills: [formula.NumSkills]int{7, 10, 2, 5}, SystemIdx: -1, IsQuest: true,
+		Name: "Wild", Skills: WildSkills, SystemIdx: -1, IsQuest: true,
 	})
 
 	withWild := EffectivePlayerSkill(gs, formula.SkillFighter)

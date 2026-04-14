@@ -217,11 +217,11 @@ func confiscateShip(gs *game.GameState) Outcome {
 func policeFight(gs *game.GameState) Outcome {
 	gs.Player.PoliceRecord -= 5
 	enemy := NewPoliceShip(gs)
-	result := RunCombat(gs, enemy, 10)
-	combatLog := FormatCombatLog(result.Rounds)
+	hullBefore := gs.Player.Ship.Hull
+	result := RunCombat(gs, enemy, 16)
+	combatLog := BuildCombatLog(result.Rounds)
 
-	startHull := gs.Data.Ships[gs.Player.Ship.TypeID].Hull
-	damage := startHull - gs.Player.Ship.Hull
+	damage := hullBefore - gs.Player.Ship.Hull
 	if damage < 0 {
 		damage = 0
 	}
@@ -275,11 +275,11 @@ func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
 	} else {
 		enemy = NewPirateShip(gs)
 	}
-	result := RunCombat(gs, enemy, 10)
-	combatLog := FormatCombatLog(result.Rounds)
+	hullBefore := gs.Player.Ship.Hull
+	result := RunCombat(gs, enemy, 16)
+	combatLog := BuildCombatLog(result.Rounds)
 
-	startHull := gs.Data.Ships[gs.Player.Ship.TypeID].Hull
-	damage := startHull - gs.Player.Ship.Hull
+	damage := hullBefore - gs.Player.Ship.Hull
 	if damage < 0 {
 		damage = 0
 	}
@@ -297,12 +297,19 @@ func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
 		}
 	}
 
-	lost := min(gs.Player.Credits, PirateLossMin+gs.Rand.Intn(PirateLossRange))
-	gs.Player.Credits -= lost
-
-	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
+	if gs.Player.Ship.Hull <= 0 {
+		lost := min(gs.Player.Credits, PirateLossMin+gs.Rand.Intn(PirateLossRange))
+		gs.Player.Credits -= lost
+		if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
+			return Outcome{
+				Message:       fmt.Sprintf("Defeated! %s", destroyMsg),
+				CombatLog:     combatLog,
+				CreditsChange: -lost,
+				HullDamage:    damage,
+			}
+		}
 		return Outcome{
-			Message:       fmt.Sprintf("Defeated! %s", destroyMsg),
+			Message:       fmt.Sprintf("Defeated! Took %d damage, lost %d cr.", damage, lost),
 			CombatLog:     combatLog,
 			CreditsChange: -lost,
 			HullDamage:    damage,
@@ -310,9 +317,8 @@ func pirateFight(gs *game.GameState, enc *Encounter) Outcome {
 	}
 
 	return Outcome{
-		Message:       fmt.Sprintf("Defeated! Took %d damage, lost %d cr.", damage, lost),
+		Message:       fmt.Sprintf("The pirate disengages after a drawn-out fight. You took %d hull damage.", damage),
 		CombatLog:     combatLog,
-		CreditsChange: -lost,
 		HullDamage:    damage,
 	}
 }
@@ -339,7 +345,7 @@ func handleFlee(gs *game.GameState, enemy EnemyShip, recordChange int) Outcome {
 	}
 
 	round := FleeDamage(gs.Rand, enemy, gs)
-	combatLog := FormatCombatLog([]CombatRound{round})
+	combatLog := BuildCombatLog([]CombatRound{round})
 
 	if destroyed, destroyMsg := checkShipDestroyed(gs); destroyed {
 		return Outcome{
@@ -401,6 +407,7 @@ func traderTrade(gs *game.GameState, enc *Encounter) Outcome {
 
 	gs.Player.Credits -= price
 	gs.Player.Cargo[goodIdx]++
+	gs.Player.CargoCost[goodIdx] += price
 
 	return Outcome{
 		Message:       fmt.Sprintf("Bought 1 %s for %d cr.", good.Name, price),
