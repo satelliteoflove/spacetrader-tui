@@ -2,12 +2,16 @@ package screens
 
 import (
 	"fmt"
+	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/the4ofus/spacetrader-tui/internal/encounter"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
 )
@@ -73,9 +77,13 @@ func (s *DebugScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			cmd := strings.TrimSpace(s.input.Value())
 			if cmd != "" {
-				result := s.execute(cmd)
+				result, teaCmd := s.execute(cmd)
 				s.output = append(s.output, "> "+cmd)
 				s.output = append(s.output, result)
+				if teaCmd != nil {
+					s.input.SetValue("")
+					return s, teaCmd
+				}
 			}
 			s.input.SetValue("")
 			return s, nil
@@ -86,55 +94,61 @@ func (s *DebugScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, cmd
 }
 
-func (s *DebugScreen) execute(cmd string) string {
+func (s *DebugScreen) execute(cmd string) (string, tea.Cmd) {
 	parts := strings.Fields(cmd)
 	if len(parts) == 0 {
-		return ""
+		return "", nil
 	}
 	verb := strings.ToLower(parts[0])
 	args := parts[1:]
 
 	switch verb {
 	case "help":
-		return s.cmdHelp()
+		return s.cmdHelp(), nil
 	case "day":
-		return s.cmdSetInt(args, "day", func(n int) { s.gs.Day = n })
+		return s.cmdSetInt(args, "day", func(n int) { s.gs.Day = n }), nil
 	case "credits":
-		return s.cmdSetInt(args, "credits", func(n int) { s.gs.Player.Credits = n })
+		return s.cmdSetInt(args, "credits", func(n int) { s.gs.Player.Credits = n }), nil
 	case "police":
-		return s.cmdSetInt(args, "police record", func(n int) { s.gs.Player.PoliceRecord = n })
+		return s.cmdSetInt(args, "police record", func(n int) { s.gs.Player.PoliceRecord = n }), nil
 	case "rep":
-		return s.cmdSetInt(args, "reputation", func(n int) { s.gs.Player.Reputation = n })
+		return s.cmdSetInt(args, "reputation", func(n int) { s.gs.Player.Reputation = n }), nil
 	case "fuel":
-		return s.cmdSetInt(args, "fuel", func(n int) { s.gs.Player.Ship.Fuel = n })
+		return s.cmdSetInt(args, "fuel", func(n int) { s.gs.Player.Ship.Fuel = n }), nil
 	case "hull":
-		return s.cmdSetInt(args, "hull", func(n int) { s.gs.Player.Ship.Hull = n })
+		return s.cmdSetInt(args, "hull", func(n int) { s.gs.Player.Ship.Hull = n }), nil
 	case "goto":
-		return s.cmdGoto(args)
+		return s.cmdGoto(args), nil
 	case "quest":
-		return s.cmdQuest(args)
+		return s.cmdQuest(args), nil
 	case "questprog":
-		return s.cmdQuestProg(args)
+		return s.cmdQuestProg(args), nil
 	case "cargo":
-		return s.cmdCargo(args)
+		return s.cmdCargo(args), nil
 	case "equip":
-		return s.cmdEquip(args)
+		return s.cmdEquip(args), nil
 	case "tribbles":
-		return s.cmdSetInt(args, "tribbles", func(n int) { s.gs.Quests.TribbleQty = n })
+		return s.cmdSetInt(args, "tribbles", func(n int) { s.gs.Quests.TribbleQty = n }), nil
 	case "singularity":
 		s.gs.Quests.HasSingularity = !s.gs.Quests.HasSingularity
-		return fmt.Sprintf("Singularity: %v", s.gs.Quests.HasSingularity)
+		return fmt.Sprintf("Singularity: %v", s.gs.Quests.HasSingularity), nil
 	case "escapepod":
 		s.gs.Player.HasEscapePod = !s.gs.Player.HasEscapePod
-		return fmt.Sprintf("Escape pod: %v", s.gs.Player.HasEscapePod)
+		return fmt.Sprintf("Escape pod: %v", s.gs.Player.HasEscapePod), nil
 	case "monsterhull":
-		return s.cmdSetInt(args, "monster hull", func(n int) { s.gs.Quests.MonsterHull = n })
+		return s.cmdSetInt(args, "monster hull", func(n int) { s.gs.Quests.MonsterHull = n }), nil
 	case "dragonflyhull":
-		return s.cmdSetInt(args, "dragonfly hull", func(n int) { s.gs.Quests.DragonflyHull = n })
+		return s.cmdSetInt(args, "dragonfly hull", func(n int) { s.gs.Quests.DragonflyHull = n }), nil
 	case "fabricrip":
-		return s.cmdSetInt(args, "fabric rip days", func(n int) { s.gs.Quests.FabricRipDays = n })
+		return s.cmdSetInt(args, "fabric rip days", func(n int) { s.gs.Quests.FabricRipDays = n }), nil
+	case "pirate":
+		saved := s.gs.Rand
+		s.gs.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+		enc := encounter.NewPirateWithThreat(s.gs)
+		s.gs.Rand = saved
+		return "Starting pirate encounter...", func() tea.Msg { return WarpEncounterMsg{Encounter: enc} }
 	default:
-		return fmt.Sprintf("Unknown command: %s", verb)
+		return fmt.Sprintf("Unknown command: %s", verb), nil
 	}
 }
 
@@ -147,6 +161,7 @@ func (s *DebugScreen) cmdHelp() string {
 		"fuel <N>         -- set ship fuel",
 		"hull <N>         -- set ship hull",
 		"goto <system>    -- teleport to system",
+		"quest list           -- show all quests and states",
 		"quest <name> <state> -- set quest state",
 		"  states: unavailable/available/active/complete",
 		"questprog <name> <N> -- set quest progress",
@@ -158,6 +173,7 @@ func (s *DebugScreen) cmdHelp() string {
 		"monsterhull <N>  -- set monster hull",
 		"dragonflyhull <N> -- set dragonfly hull",
 		"fabricrip <N>    -- set fabric rip days",
+		"pirate           -- start pirate encounter",
 	}, "\n")
 }
 
@@ -192,8 +208,24 @@ func (s *DebugScreen) cmdGoto(args []string) string {
 }
 
 func (s *DebugScreen) cmdQuest(args []string) string {
+	if len(args) == 1 && strings.ToLower(args[0]) == "list" {
+		var lines []string
+		for name, qid := range questNameMap {
+			state := s.gs.QuestState(qid)
+			stateName := "unavailable"
+			for sn, sv := range questStateMap {
+				if sv == state {
+					stateName = sn
+					break
+				}
+			}
+			lines = append(lines, fmt.Sprintf("  %-12s %s", name, stateName))
+		}
+		sort.Strings(lines)
+		return strings.Join(lines, "\n")
+	}
 	if len(args) < 2 {
-		return "Usage: quest <name> <state>"
+		return "Usage: quest <name> <state> | quest list"
 	}
 	qid, ok := s.matchQuest(args[0])
 	if !ok {
@@ -204,7 +236,23 @@ func (s *DebugScreen) cmdQuest(args []string) string {
 	if !ok {
 		return fmt.Sprintf("Unknown state: %s (use unavailable/available/active/complete)", args[1])
 	}
+	oldState := s.gs.QuestState(qid)
 	s.gs.SetQuestState(qid, state)
+
+	if qid == game.QuestJarek || qid == game.QuestWild {
+		name := "Jarek"
+		skills := game.JarekSkills
+		if qid == game.QuestWild {
+			name = "Wild"
+			skills = game.WildSkills
+		}
+		if state == game.QuestActive && oldState != game.QuestActive {
+			game.AddQuestCrew(s.gs, name, skills)
+		} else if state != game.QuestActive && oldState == game.QuestActive {
+			game.RemoveQuestCrew(s.gs, name)
+		}
+	}
+
 	return fmt.Sprintf("Set quest %s to %s", args[0], stateName)
 }
 
