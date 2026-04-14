@@ -17,8 +17,14 @@ type shipyardTab int
 const (
 	tabShips shipyardTab = iota
 	tabEquipment
+	tabSell
 	tabRepair
 )
+
+type installedItem struct {
+	category gamedata.EquipCategory
+	slotIdx  int
+}
 
 type ShipyardScreen struct {
 	gs         *game.GameState
@@ -27,15 +33,43 @@ type ShipyardScreen struct {
 	message    string
 	ships      []gamedata.ShipDef
 	equip      []gamedata.EquipDef
+	installed  []installedItem
 	confirming bool
 }
 
+func (s *ShipyardScreen) installedEquipID(item installedItem) int {
+	switch item.category {
+	case gamedata.EquipWeapon:
+		return s.gs.Player.Ship.Weapons[item.slotIdx]
+	case gamedata.EquipShield:
+		return s.gs.Player.Ship.Shields[item.slotIdx]
+	case gamedata.EquipGadget:
+		return s.gs.Player.Ship.Gadgets[item.slotIdx]
+	}
+	return 0
+}
+
+func (s *ShipyardScreen) refreshInstalled() {
+	s.installed = nil
+	for i := range s.gs.Player.Ship.Weapons {
+		s.installed = append(s.installed, installedItem{gamedata.EquipWeapon, i})
+	}
+	for i := range s.gs.Player.Ship.Shields {
+		s.installed = append(s.installed, installedItem{gamedata.EquipShield, i})
+	}
+	for i := range s.gs.Player.Ship.Gadgets {
+		s.installed = append(s.installed, installedItem{gamedata.EquipGadget, i})
+	}
+}
+
 func NewShipyardScreen(gs *game.GameState) *ShipyardScreen {
-	return &ShipyardScreen{
+	s := &ShipyardScreen{
 		gs:    gs,
 		ships: shipyard.AvailableShips(gs),
 		equip: shipyard.AvailableEquipment(gs),
 	}
+	s.refreshInstalled()
+	return s
 }
 
 func (s *ShipyardScreen) Init() tea.Cmd { return nil }
@@ -46,10 +80,19 @@ func (s *ShipyardScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "y":
 				s.confirming = false
-				if s.cursor < len(s.ships) {
+				if s.tab == tabShips && s.cursor < len(s.ships) {
 					result := shipyard.BuyShip(s.gs, s.ships[s.cursor].ID)
 					s.message = result.Message
 					s.ships = shipyard.AvailableShips(s.gs)
+					s.refreshInstalled()
+				} else if s.tab == tabSell && s.cursor < len(s.installed) {
+					item := s.installed[s.cursor]
+					result := shipyard.SellEquipment(s.gs, item.category, item.slotIdx)
+					s.message = result.Message
+					s.refreshInstalled()
+					if s.cursor >= len(s.installed) {
+						s.cursor = max(0, len(s.installed)-1)
+					}
 				}
 			default:
 				s.confirming = false
@@ -69,6 +112,10 @@ func (s *ShipyardScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.tab = tabEquipment
 			s.cursor = 0
 		case msg.String() == "3":
+			s.tab = tabSell
+			s.cursor = 0
+			s.refreshInstalled()
+		case msg.String() == "4":
 			s.tab = tabRepair
 			s.cursor = 0
 		case key.Matches(msg, Keys.Up):
@@ -90,6 +137,8 @@ func (s *ShipyardScreen) tabLen() int {
 		return len(s.ships)
 	case tabEquipment:
 		return len(s.equip)
+	case tabSell:
+		return len(s.installed)
 	case tabRepair:
 		return 4
 	}
@@ -110,6 +159,16 @@ func (s *ShipyardScreen) handleSelect() {
 			result := shipyard.BuyEquipment(s.gs, s.equip[s.cursor].ID)
 			s.message = result.Message
 			s.equip = shipyard.AvailableEquipment(s.gs)
+		}
+	case tabSell:
+		if s.cursor < len(s.installed) {
+			item := s.installed[s.cursor]
+			equipID := s.installedEquipID(item)
+			eq := s.gs.Data.Equipment[equipID]
+			sellPrice := eq.Price * 3 / 4
+			s.message = SelectedStyle.Render(fmt.Sprintf("Sell %s for %d cr? (y/n)", eq.Name, sellPrice))
+			s.confirming = true
+			return
 		}
 	case tabRepair:
 		switch s.cursor {
@@ -137,7 +196,7 @@ func (s *ShipyardScreen) View() string {
 	b.WriteString(fmt.Sprintf("  Ship: %s  |  Credits: %d  |  Trade-in: %d\n\n",
 		shipName, s.gs.Player.Credits, shipyard.TradeInValue(s.gs)))
 
-	tabs := []string{"[1] Ships", "[2] Equipment", "[3] Repair/Refuel"}
+	tabs := []string{"[1] Ships", "[2] Buy", "[3] Sell", "[4] Repair/Refuel"}
 	b.WriteString("  ")
 	for i, t := range tabs {
 		if shipyardTab(i) == s.tab {
@@ -180,6 +239,25 @@ func (s *ShipyardScreen) View() string {
 			eqLines[i] = fmt.Sprintf("%-20s %6d cr  %s", eq.Name, eq.Price, stat)
 		}
 		RenderMenuItems(&b, eqLines, s.cursor)
+	case tabSell:
+		if len(s.installed) == 0 {
+			b.WriteString("  No equipment installed.\n")
+		} else {
+			sellLines := make([]string, len(s.installed))
+			for i, item := range s.installed {
+				equipID := s.installedEquipID(item)
+				eq := s.gs.Data.Equipment[equipID]
+				sellPrice := eq.Price * 3 / 4
+				catName := "weapon"
+				if item.category == gamedata.EquipShield {
+					catName = "shield"
+				} else if item.category == gamedata.EquipGadget {
+					catName = "gadget"
+				}
+				sellLines[i] = fmt.Sprintf("%-20s  %-7s  sell for %d cr", eq.Name, catName, sellPrice)
+			}
+			RenderMenuItems(&b, sellLines, s.cursor)
+		}
 	case tabRepair:
 		repairCost := shipyard.RepairCost(s.gs)
 		refuelCost := shipyard.RefuelCost(s.gs)
@@ -204,6 +282,6 @@ func (s *ShipyardScreen) View() string {
 		b.WriteString("\n  " + s.message)
 	}
 
-	b.WriteString("\n\n" + DimStyle.Render("  1/2/3 tabs, j/k navigate, enter select, esc back"))
+	b.WriteString("\n\n" + DimStyle.Render("  1/2/3/4 tabs, j/k navigate, enter select, esc back"))
 	return b.String()
 }
