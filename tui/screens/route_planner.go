@@ -259,17 +259,34 @@ func (s *RoutePlannerScreen) View() string {
 		toName := truncate(s.gs.Data.Systems[info.ToIdx].Name, 12)
 		b.WriteString(DimStyle.Render(fmt.Sprintf("  -- %s -> %s --", fromName, toName)) + "\n")
 
-		if info.OutOfRange {
-			b.WriteString(DimStyle.Render("  No price data -- too far from current position.") + "\n")
+		if info.NoFromInfo || info.NoToInfo {
+			missing := ""
+			if info.NoFromInfo && info.NoToInfo {
+				missing = "No trade info for either system."
+			} else if info.NoFromInfo {
+				missing = fmt.Sprintf("No trade info for %s.", truncate(s.gs.Data.Systems[info.FromIdx].Name, 16))
+			} else {
+				missing = fmt.Sprintf("No trade info for %s.", truncate(s.gs.Data.Systems[info.ToIdx].Name, 16))
+			}
+			b.WriteString(DimStyle.Render("  "+missing) + "\n")
+			b.WriteString(DimStyle.Render("  Visit or purchase info (i) from Navigation.") + "\n")
 		} else if len(info.Trades) == 0 {
 			b.WriteString(DimStyle.Render("  No profitable trades for this hop.") + "\n")
 		} else {
+			staleNote := ""
+			if info.FromStale || info.ToStale {
+				staleNote = " (stale info -- estimates may be off)"
+			}
 			b.WriteString(DimStyle.Render(fmt.Sprintf("  %-12s %6s %6s %8s", "GOOD", "~BUY", "~SELL", "~PROFIT")) + "\n")
 			for _, t := range info.Trades {
 				profitStr := SuccessStyle.Render(fmt.Sprintf("~+%d/unit", t.Profit))
 				b.WriteString(fmt.Sprintf("  %-12s %6d %6d  %s\n", t.GoodName, t.BuyPrice, t.SellPrice, profitStr))
 			}
-			b.WriteString(DimStyle.Render("  prices may change on arrival") + "\n")
+			if staleNote != "" {
+				b.WriteString(DangerStyle.Render("  "+staleNote) + "\n")
+			} else {
+				b.WriteString(DimStyle.Render("  prices may change on arrival") + "\n")
+			}
 		}
 	}
 
