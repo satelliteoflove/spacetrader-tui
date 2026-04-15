@@ -45,7 +45,7 @@ func NewSystemScreenWithCursor(gs *game.GameState, cursor int) *SystemScreen {
 		menuItem{"Personnel", ScreenPersonnel},
 		menuItem{"Bank", ScreenBank},
 		menuItem{"Trader's Guide", ScreenGuide},
-		menuItem{"Ledger", ScreenLedger},
+		menuItem{"Portfolio", ScreenLedger},
 		menuItem{"Settings", ScreenSettings},
 	)
 

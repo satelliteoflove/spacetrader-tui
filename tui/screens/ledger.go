@@ -27,6 +27,11 @@ func NewLedgerScreen(gs *game.GameState) *LedgerScreen {
 	return &LedgerScreen{gs: gs, series: seriesBoth}
 }
 
+func (s *LedgerScreen) liveWorth() int {
+	dp := &game.GameDataProvider{Data: s.gs.Data}
+	return s.gs.Player.Worth(dp)
+}
+
 func (s *LedgerScreen) Init() tea.Cmd { return nil }
 
 func (s *LedgerScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -49,7 +54,7 @@ func (s *LedgerScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (s *LedgerScreen) View() string {
 	var b strings.Builder
 
-	b.WriteString(HeaderStyle.Render("  LEDGER  ") + "\n\n")
+	b.WriteString(HeaderStyle.Render("  PORTFOLIO  ") + "\n\n")
 
 	snapshots := s.gs.Ledger
 	if len(snapshots) < 2 {
@@ -93,21 +98,25 @@ func (s *LedgerScreen) View() string {
 		pad = 1
 	}
 	b.WriteString(strings.Repeat(" ", pad) + dayLabel + "\n")
+	b.WriteString(DimStyle.Render("  Chart updates on system arrival") + "\n")
+
+	liveCredits := s.gs.Player.Credits
+	liveWorth := s.liveWorth()
 
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("  Current credits:   %d cr\n", last.Credits))
-	b.WriteString(fmt.Sprintf("  Current net worth: %d cr\n", last.NetWorth))
-	credDelta := last.Credits - first.Credits
-	worthDelta := last.NetWorth - first.NetWorth
+	b.WriteString(fmt.Sprintf("  Credits:    %d cr\n", liveCredits))
+	b.WriteString(fmt.Sprintf("  Net worth:  %d cr\n", liveWorth))
+	credDelta := liveCredits - first.Credits
+	worthDelta := liveWorth - first.NetWorth
 	if credDelta >= 0 {
-		b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Credit change:     +%d cr", credDelta)) + "\n")
+		b.WriteString(SuccessStyle.Render(fmt.Sprintf("  All-time:   +%d cr earned", credDelta)) + "\n")
 	} else {
-		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Credit change:     %d cr", credDelta)) + "\n")
+		b.WriteString(DangerStyle.Render(fmt.Sprintf("  All-time:   %d cr", credDelta)) + "\n")
 	}
 	if worthDelta >= 0 {
-		b.WriteString(SuccessStyle.Render(fmt.Sprintf("  Worth change:      +%d cr", worthDelta)) + "\n")
+		b.WriteString(SuccessStyle.Render(fmt.Sprintf("  All-time:   +%d cr worth gained", worthDelta)) + "\n")
 	} else {
-		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Worth change:      %d cr", worthDelta)) + "\n")
+		b.WriteString(DangerStyle.Render(fmt.Sprintf("  All-time:   %d cr worth", worthDelta)) + "\n")
 	}
 
 	b.WriteString("\n" + DimStyle.Render("  1 credits, 2 net worth, 3 both, esc back"))
