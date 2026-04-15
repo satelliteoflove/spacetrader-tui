@@ -86,6 +86,8 @@ func (s *StatusScreen) View() string {
 	b.WriteString(fmt.Sprintf("  Name: %s\n", p.Name))
 	b.WriteString(fmt.Sprintf("  Difficulty: %s\n", s.gs.Difficulty))
 	b.WriteString(fmt.Sprintf("  Day: %d\n", s.gs.Day))
+	dp := &game.GameDataProvider{Data: s.gs.Data}
+	b.WriteString(fmt.Sprintf("  Net worth: %d cr\n", p.Worth(dp)))
 	b.WriteString(fmt.Sprintf("  Credits: %d\n", p.Credits))
 	if p.LoanBalance > 0 {
 		b.WriteString(DangerStyle.Render(fmt.Sprintf("  Debt: %d", p.LoanBalance)) + "\n")
@@ -224,6 +226,7 @@ func buildActiveQuests(gs *game.GameState) []activeQuest {
 		{game.QuestFehler, "Dr. Fehler"},
 		{game.QuestWild, "Jonathan Wild"},
 		{game.QuestReactor, "Reactor Delivery"},
+		{game.QuestMoonForSale, "Moon For Sale"},
 	}
 	var quests []activeQuest
 	for _, c := range checks {

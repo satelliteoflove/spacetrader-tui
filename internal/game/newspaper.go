@@ -195,8 +195,12 @@ func GenerateNewsBriefing(gs *GameState, entry NewsEntry) NewsBriefing {
 		}
 
 		if (good.PriceIncreaseEvent == event || good.PriceDecreaseEvent == event) && gs.Player.Cargo[g] > 0 {
-			brief.CargoAlerts = append(brief.CargoAlerts,
-				fmt.Sprintf("You have %d %s in cargo!", gs.Player.Cargo[g], good.Name))
+			msg := fmt.Sprintf("You have %d %s in cargo!", gs.Player.Cargo[g], good.Name)
+			if gs.Player.CargoCost[g] > 0 {
+				avg := gs.Player.CargoCost[g] / gs.Player.Cargo[g]
+				msg += fmt.Sprintf(" You paid %dcr each.", avg)
+			}
+			brief.CargoAlerts = append(brief.CargoAlerts, msg)
 		}
 	}
 
