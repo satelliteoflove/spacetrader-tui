@@ -20,6 +20,18 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 		dp := &GameDataProvider{Data: gs.Data}
 		if gs.Player.Worth(dp) > 400000 {
 			gs.SetQuestState(QuestMoonForSale, QuestAvailable)
+			needed := 500000 - gs.Player.Credits
+			msg := "You've amassed enough wealth that a private moon is within reach!\n\n"
+			if needed > 0 {
+				msg += fmt.Sprintf("  Save up %d more credits (500,000 total) to purchase your own moon and retire in style.", needed)
+			} else {
+				msg += "  You already have enough credits! Pay off any debts and look for the option on the system menu."
+			}
+			events = append(events, QuestEvent{
+				Title:   "A Moon For Sale!",
+				Message: msg,
+				Actions: []string{"Acknowledged"},
+			})
 		}
 	}
 

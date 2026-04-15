@@ -153,6 +153,15 @@ func (gs *GameState) QuestDescription(id QuestID) string {
 		return "Find near a wormhole exit"
 	case QuestAlienArtifact:
 		return "Deliver to a Hi-tech system"
+	case QuestMoonForSale:
+		needed := 500000 - gs.Player.Credits
+		if gs.Player.LoanBalance > 0 {
+			return fmt.Sprintf("Need %d cr and pay off debt (%d cr)", needed, gs.Player.LoanBalance)
+		}
+		if needed > 0 {
+			return fmt.Sprintf("Need %d more credits (500,000 to buy)", needed)
+		}
+		return "You can afford it! Look for it on the system menu"
 	default:
 		return ""
 	}
@@ -200,6 +209,8 @@ func (gs *GameState) QuestDestination(id QuestID) int {
 	case QuestAlienArtifact:
 		return -1
 	case QuestScarab:
+		return -1
+	case QuestMoonForSale:
 		return -1
 	}
 	return -1
