@@ -34,6 +34,8 @@ From your current system, you can:
 - **Upgrade** -- visit the Shipyard to buy better ships, weapons, shields, gadgets, repairs, and fuel.
 - **Take on quests** -- special events appear as you arrive at systems. Some offer rewards, some are urgent. Check your Status screen to see active quests and their deadlines.
 - **Plan routes** -- use the Route Planner (press `p` from Navigation) to find multi-hop paths to distant systems, with refuel costs and trade opportunities along the way.
+- **Gather intel** -- trade info is recorded when you visit a system. You can also purchase info for nearby systems from Navigation (`i`). Press `d` for a detailed price breakdown. Info goes stale after 5 days.
+- **Track your wealth** -- the Portfolio screen charts your credits and net worth over time.
 
 ### Key controls
 

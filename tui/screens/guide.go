@@ -15,6 +15,8 @@ const (
 	guideTech
 	guideGov
 	guideSpecialty
+	guideNavigation
+	guideShipCrew
 	numGuideTabs
 )
 
@@ -45,6 +47,12 @@ func (s *GuideScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.String() == "4":
 			s.tab = guideSpecialty
 			s.scroll = 0
+		case msg.String() == "5":
+			s.tab = guideNavigation
+			s.scroll = 0
+		case msg.String() == "6":
+			s.tab = guideShipCrew
+			s.scroll = 0
 		case key.Matches(msg, Keys.Up):
 			if s.scroll > 0 {
 				s.scroll--
@@ -63,7 +71,7 @@ func (s *GuideScreen) View() string {
 
 	b.WriteString(HeaderStyle.Render("  TRADER'S GUIDE  ") + "\n")
 
-	tabs := []string{"[1] Trading", "[2] Tech", "[3] Government", "[4] Specialty"}
+	tabs := []string{"[1] Trading", "[2] Tech", "[3] Gov", "[4] Specialty", "[5] Navigation", "[6] Ship/Crew"}
 	b.WriteString("  ")
 	for i, t := range tabs {
 		if guideTab(i) == s.tab {
@@ -84,6 +92,10 @@ func (s *GuideScreen) View() string {
 		content = guideGovContent()
 	case guideSpecialty:
 		content = guideSpecialtyContent()
+	case guideNavigation:
+		content = guideNavigationContent()
+	case guideShipCrew:
+		content = guideShipCrewContent()
 	}
 
 	lines := strings.Split(content, "\n")
@@ -106,7 +118,7 @@ func (s *GuideScreen) View() string {
 		b.WriteString(DimStyle.Render(fmt.Sprintf("  -- %d more lines (j to scroll) --", len(lines)-end)) + "\n")
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  1-4 tabs, j/k scroll, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  1-6 tabs, j/k scroll, esc back"))
 	return b.String()
 }
 
@@ -140,7 +152,26 @@ func guideTradingContent() string {
   %s
   Your Trader skill reduces prices by 1%% per point
   (max 10%%). Crew members with high Trader skill
-  also contribute.`,
+  also contribute.
+
+  %s
+  The Navigation list shows a GOODS column with 10
+  letters, one per commodity in fixed order:
+
+    %s
+
+  Letter colors indicate price vs galactic average:
+    %s = below average (cheap to buy)
+    %s = near average
+    %s = above average (expensive)
+    %s = not available at this system
+
+  This requires trade info (see Navigation tab).
+
+  %s
+  The Portfolio screen (from system menu) tracks your
+  credits and net worth over time as a chart. It
+  updates each time you arrive at a new system.`,
 		CyanStyle.Render("BASICS"),
 		SuccessStyle.Render("<<"),
 		SuccessStyle.Render("<"),
@@ -149,7 +180,14 @@ func guideTradingContent() string {
 		DangerStyle.Render(">>"),
 		CyanStyle.Render("TECH AND PRICES"),
 		CyanStyle.Render("ILLEGAL GOODS"),
-		CyanStyle.Render("TRADER SKILL"))
+		CyanStyle.Render("TRADER SKILL"),
+		CyanStyle.Render("GOODS COLUMN"),
+		DimStyle.Render("W=Water U=Furs F=Food O=Ore G=Games A=Firearms D=Medicine C=Machines N=Narcotics R=Robots"),
+		SuccessStyle.Render("green"),
+		"white",
+		DangerStyle.Render("red"),
+		DimStyle.Render("dim"),
+		CyanStyle.Render("PORTFOLIO"))
 }
 
 func guideTechContent() string {
@@ -245,11 +283,11 @@ func guideGovContent() string {
 func guideSpecialtyContent() string {
 	return fmt.Sprintf(`  %s
   Some systems have a specialty that affects local
-  prices. On the chart, these are marked with:
+  prices. These are shown in the system detail screen
+  (press d from Navigation):
 
     %s  Abundance -- goods are cheaper here
     %s  Scarcity -- goods cost more here
-    %s  Neutral/mixed effect
 
   %s
   %s  Water cheap here
@@ -274,7 +312,6 @@ func guideSpecialtyContent() string {
 		CyanStyle.Render("SYSTEM SPECIALTIES"),
 		SuccessStyle.Render("+"),
 		DangerStyle.Render("-"),
-		SelectedStyle.Render("~"),
 		CyanStyle.Render("ABUNDANCE (+) -- BUY HERE"),
 		SuccessStyle.Render("  +Water"),
 		SuccessStyle.Render("  +Minerals"),
@@ -294,4 +331,119 @@ func guideSpecialtyContent() string {
 		DangerStyle.Render("-"),
 		SuccessStyle.Render("+Water"),
 		DangerStyle.Render("-Desert"))
+}
+
+func guideNavigationContent() string {
+	return fmt.Sprintf(`  %s
+  The Navigation list shows all systems with distance,
+  tech level, government, and a GOODS column. Press
+  enter to travel, d for system details.
+
+  %s
+  Trade info is gathered automatically when you visit
+  a system. You can also purchase info for systems
+  within 15 parsecs by pressing i (costs 100 cr).
+
+  Trade info goes stale after 5 days. Stale data is
+  shown in grey. Visit or re-purchase to refresh.
+
+  %s
+  The system detail screen (d) shows full info about
+  a system: tech level, government, resources, events,
+  and estimated commodity prices from your trade info.
+
+  Prices are color-coded vs the galactic average:
+    %s = below average (buy opportunity)
+    %s = above average (sell opportunity)
+
+  If you are carrying cargo, profit/loss per unit is
+  shown based on your cost basis.
+
+  %s
+  The Route Planner (p from Navigation) finds multi-hop
+  paths to distant systems. It shows fuel costs, refuel
+  expenses, and trade opportunities at each hop.
+
+  Trade estimates in the route planner require trade
+  info for both systems in each hop. If you are missing
+  info, it will tell you.
+
+  Press r to set a route as active. Your active route
+  is shown on the system menu for quick access.
+
+  %s
+  Wormholes connect distant systems instantly. They
+  appear on the Navigation list and galactic map.
+  Transit costs credits (based on ship size) but
+  no fuel. Press w from Navigation when available.
+
+  %s
+  The Galaxy News screen shows recent events that
+  affect commodity prices. Watch for headlines about
+  your destination -- they can mean big profits or
+  losses depending on what you are carrying.`,
+		CyanStyle.Render("NAVIGATION"),
+		CyanStyle.Render("TRADE INFO"),
+		CyanStyle.Render("SYSTEM DETAILS"),
+		SuccessStyle.Render("green"),
+		DangerStyle.Render("red"),
+		CyanStyle.Render("ROUTE PLANNER"),
+		CyanStyle.Render("WORMHOLES"),
+		CyanStyle.Render("GALAXY NEWS"))
+}
+
+func guideShipCrewContent() string {
+	return fmt.Sprintf(`  %s
+  Visit the Shipyard to buy a new ship, equipment,
+  repairs, and fuel. Trading in your ship gives you
+  75%% of its value toward the new one.
+
+  %s
+  Equipment resells for 75%% of its purchase price.
+  Use the Sell tab in the Shipyard to offload gear
+  you no longer need.
+
+  %s
+  Weapons: Pulse Laser, Beam Laser, Military Laser
+  Shields: Energy, Reflective
+  Gadgets: Cargo Bays, Fuel Compactor, Nav System,
+           Auto-Repair, Cloaking Device
+
+  Better equipment requires higher tech level systems.
+
+  %s
+  Hire mercenaries at the Personnel screen. They add
+  their skills to yours, boosting combat, trading,
+  piloting, and repair. Each merc has a daily wage
+  based on their total skill level.
+
+  If you cannot pay wages, all crew is dismissed.
+
+  %s
+  Buy an Escape Pod to survive ship destruction.
+  Without one, losing your ship means game over.
+
+  With an Escape Pod, you can buy Insurance. If your
+  ship is destroyed, insurance pays 75%% of the ship
+  and equipment value. The premium decreases the
+  longer you go without a claim.
+
+  %s
+  Combat uses your Fighter skill for hit chance and
+  your Pilot skill for evasion. All equipped weapons
+  fire each round. Shields absorb damage before hull.
+  Engineer skill provides passive hull repair each day.
+
+  %s
+  The Bank offers loans up to 10%% of your net worth
+  (1,000 to 25,000 cr). Interest is 10%% of the
+  balance per day. Pay off debts quickly -- interest
+  compounds fast.`,
+		CyanStyle.Render("SHIPYARD"),
+		CyanStyle.Render("SELLING EQUIPMENT"),
+		CyanStyle.Render("EQUIPMENT TYPES"),
+		CyanStyle.Render("CREW"),
+		CyanStyle.Render("ESCAPE POD & INSURANCE"),
+		CyanStyle.Render("COMBAT"),
+		CyanStyle.Render("BANK & LOANS"))
 }
