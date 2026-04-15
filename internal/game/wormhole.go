@@ -98,6 +98,8 @@ func TravelWormhole(gs *GameState) (bool, string) {
 	gs.CurrentSystemID = dest
 	gs.Systems[dest].Visited = true
 	gs.Day++
+	gs.CaptureTradeInfo(dest)
+	gs.RecordSnapshot()
 
 	destName := gs.Data.Systems[dest].Name
 	return true, "Traveled through wormhole to " + destName + "!"

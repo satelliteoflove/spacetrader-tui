@@ -59,6 +59,8 @@ func NewGameWithSeed(data *gamedata.GameData, name string, skills [formula.NumSk
 	GenerateWormholes(gs)
 	GenerateEvents(gs)
 	ensureNearbyEvent(gs)
+	gs.CaptureTradeInfo(startIdx)
+	gs.RecordSnapshot()
 
 	if diff == gamedata.DiffBeginner {
 		gs.Player.Credits += 1000

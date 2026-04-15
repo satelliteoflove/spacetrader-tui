@@ -176,6 +176,16 @@ func (s *GalacticChartScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if selIdx, ok := s.selectedSystem(); ok {
 				s.gs.ToggleBookmark(selIdx, autoBookmarkNote(s.gs, selIdx))
 			}
+		case msg.String() == "i":
+			if selIdx, ok := s.selectedSystem(); ok {
+				s.message = buyTradeInfo(s.gs, selIdx)
+			}
+		case msg.String() == "d":
+			if selIdx, ok := s.selectedSystem(); ok {
+				return s, func() tea.Msg {
+					return NavigateMsg{Screen: ScreenSystemDetail, SelectedSystem: selIdx, ReturnScreen: ScreenGalacticChart}
+				}
+			}
 		case msg.String() == "/":
 			s.searchMode = true
 			s.searchInput.SetValue("")
@@ -599,6 +609,19 @@ func (s *GalacticListScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				s.gs.ToggleBookmark(entry.sysIdx, autoBookmarkNote(s.gs, entry.sysIdx))
 				s.rebuildEntries()
 			}
+		case msg.String() == "i":
+			if len(s.filtered) > 0 {
+				entry := s.filtered[s.cursor]
+				s.message = buyTradeInfo(s.gs, entry.sysIdx)
+			}
+		case msg.String() == "d":
+			if len(s.filtered) > 0 {
+				entry := s.filtered[s.cursor]
+				sysIdx := entry.sysIdx
+				return s, func() tea.Msg {
+					return NavigateMsg{Screen: ScreenSystemDetail, SelectedSystem: sysIdx, ReturnScreen: ScreenGalacticList}
+				}
+			}
 		case msg.String() == "J":
 			if s.gs.Quests.HasSingularity && len(s.filtered) > 0 {
 				entry := s.filtered[s.cursor]
@@ -728,12 +751,11 @@ func (s *GalacticListScreen) View() string {
 	distH := sortedHeader("DIST", colDist, s.sortCol, s.sortDir)
 	techH := sortedHeader("TECH", colTech, s.sortCol, s.sortDir)
 	govH := sortedHeader("GOV", colGov, s.sortCol, s.sortDir)
-	resH := sortedHeader("SPECIALTY", colResource, s.sortCol, s.sortDir)
 
-	header := fmt.Sprintf("  %-16s %5s  %-10s %-16s %-12s",
-		sysH, distH, techH, govH, resH)
+	header := fmt.Sprintf("  %-12s %5s  %-10s %-17s %s",
+		sysH, distH, techH, govH, "GOODS")
 	b.WriteString(DimStyle.Render(header) + "\n")
-	b.WriteString("  " + strings.Repeat("-", 64) + "\n")
+	b.WriteString("  " + strings.Repeat("-", 60) + "\n")
 
 	if len(s.filtered) == 0 {
 		b.WriteString("  No matching systems.\n")
@@ -764,10 +786,10 @@ func (s *GalacticListScreen) View() string {
 				marker = "*"
 			}
 
-			coloredRes := colorResource(e.resource, fmt.Sprintf("%-12s", e.resStr))
-			line := fmt.Sprintf("%-16s %5.1f  %-10s %-16s",
+			goodsCol := renderGoodsColumn(s.gs, e.sysIdx)
+			line := fmt.Sprintf("%-12s %5.1f  %-10s %-17s",
 				e.name, e.dist, e.techStr, e.govStr)
-			line += coloredRes + " " + marker
+			line += goodsCol + " " + marker
 
 			if i == s.cursor {
 				b.WriteString(SelectedStyle.Render("> ") + line + "\n")
@@ -844,7 +866,7 @@ func (s *GalacticListScreen) View() string {
 		b.WriteString("\n  " + s.message + "\n")
 	}
 
-	listHelp := "  enter travel, p plan route, f refuel, w wormhole, b bookmark"
+	listHelp := "  enter travel, p plan route, d details, f refuel, w wormhole, b bookmark, i buy info"
 	if s.gs.Quests.HasSingularity {
 		listHelp += ", J jump"
 	}
@@ -852,3 +874,28 @@ func (s *GalacticListScreen) View() string {
 	b.WriteString("\n" + DimStyle.Render("  a all/range, 1-5 sort, / filter, m map, esc back"))
 	return b.String()
 }
+
+func buyTradeInfo(gs *game.GameState, sysIdx int) string {
+	if sysIdx == gs.CurrentSystemID {
+		return DimStyle.Render("You are here -- trade info is already current.")
+	}
+	if _, ok := gs.GetTradeInfo(sysIdx); ok {
+		stale, _ := gs.IsTradeInfoStale(sysIdx)
+		if !stale {
+			return DimStyle.Render("Trade info for this system is still current.")
+		}
+	}
+	cur := gs.Data.Systems[gs.CurrentSystemID]
+	dest := gs.Data.Systems[sysIdx]
+	dist := formula.Distance(cur.X, cur.Y, dest.X, dest.Y)
+	if dist > game.TradeInfoMaxRange {
+		return DangerStyle.Render(fmt.Sprintf("Too far to purchase info (%.1f parsecs, max %.0f)", dist, game.TradeInfoMaxRange))
+	}
+	if gs.Player.Credits < game.TradeInfoBuyCost {
+		return DangerStyle.Render(fmt.Sprintf("Not enough credits (%d cr needed)", game.TradeInfoBuyCost))
+	}
+	gs.Player.Credits -= game.TradeInfoBuyCost
+	gs.CaptureTradeInfo(sysIdx)
+	return SuccessStyle.Render(fmt.Sprintf("Purchased trade info for %s (-%d cr)", dest.Name, game.TradeInfoBuyCost))
+}
+

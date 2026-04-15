@@ -9,6 +9,7 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
+	"github.com/the4ofus/spacetrader-tui/internal/market"
 )
 
 type sortColumn int
@@ -256,6 +257,45 @@ func refreshBookmarks(gs *game.GameState) {
 			gs.UpdateBookmark(bm.SystemIdx, newNote)
 		}
 	}
+}
+
+var goodLetters = [game.NumGoods]string{"W", "U", "F", "O", "G", "A", "D", "C", "N", "R"}
+
+func renderGoodsColumn(gs *game.GameState, sysIdx int) string {
+	sysState := gs.Systems[sysIdx]
+	info, hasInfo := gs.GetTradeInfo(sysIdx)
+	stale := false
+	if hasInfo {
+		stale, _ = gs.IsTradeInfoStale(sysIdx)
+	}
+
+	var result string
+	for g, good := range gs.Data.Goods {
+		available := sysState.Prices[g] > 0
+		if !available {
+			result += DimStyle.Render(goodLetters[g])
+			continue
+		}
+		if !hasInfo || stale {
+			result += goodLetters[g]
+			continue
+		}
+		avg := market.AveragePrice(good, gs.Data.Systems)
+		price := info.Prices[g]
+		if avg == 0 {
+			result += goodLetters[g]
+			continue
+		}
+		pct := (price - avg) * 100 / avg
+		if pct <= -5 {
+			result += SuccessStyle.Render(goodLetters[g])
+		} else if pct >= 5 {
+			result += DangerStyle.Render(goodLetters[g])
+		} else {
+			result += goodLetters[g]
+		}
+	}
+	return result
 }
 
 func autoBookmarkNote(gs *game.GameState, sysIdx int) string {

@@ -228,6 +228,10 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 		s = screens.NewRoutePlannerScreen(m.gs, msg.SelectedSystem, msg.ReturnScreen)
 	case screens.ScreenDebug:
 		s = screens.NewDebugScreen(m.gs)
+	case screens.ScreenSystemDetail:
+		s = screens.NewSystemDetailScreen(m.gs, msg.SelectedSystem, msg.ReturnScreen)
+	case screens.ScreenLedger:
+		s = screens.NewLedgerScreen(m.gs)
 	default:
 		return m, nil
 	}

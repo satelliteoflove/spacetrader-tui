@@ -32,6 +32,8 @@ const (
 	ScreenSettings
 	ScreenRoutePlanner
 	ScreenDebug
+	ScreenSystemDetail
+	ScreenLedger
 )
 
 type NavigateMsg struct {
