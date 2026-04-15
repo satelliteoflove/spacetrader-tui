@@ -151,9 +151,6 @@ func (gs *GameState) IsTradeInfoStale(sysIdx int) (bool, int) {
 	if age >= TradeInfoStaleDays {
 		return true, age
 	}
-	if gs.Systems[sysIdx].Event != info.Event {
-		return true, age
-	}
 	return false, age
 }
 
