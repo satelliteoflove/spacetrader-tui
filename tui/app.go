@@ -181,6 +181,7 @@ func (m Model) arriveAtSystem() (tea.Model, tea.Cmd) {
 		m.gs.HasActiveRoute = false
 	}
 	events := game.CheckQuestsOnArrival(m.gs)
+	m.gs.RecordSnapshot()
 	if len(events) > 0 {
 		s := screens.NewQuestEventScreen(m.gs, events)
 		m.screen = s

@@ -118,7 +118,11 @@ func (s *EncounterScreen) View() string {
 	if s.enc.Type == encounter.EncPirate {
 		style = DangerStyle.Bold(true).Padding(1, 0)
 	}
-	b.WriteString(style.Render(fmt.Sprintf("ENCOUNTER: %s", s.enc.Type)) + "\n")
+	encLabel := s.enc.Type.String()
+	if s.enc.PirateShip != nil {
+		encLabel = s.enc.PirateShip.Name
+	}
+	b.WriteString(style.Render(fmt.Sprintf("ENCOUNTER: %s", encLabel)) + "\n")
 
 	switch s.phase {
 	case phaseChoose:

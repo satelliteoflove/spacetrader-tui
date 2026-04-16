@@ -150,9 +150,12 @@ func CheckQuestsOnArrival(gs *GameState) []QuestEvent {
 		narcIdx := int(gamedata.GoodNarcotics)
 		if gs.Player.Cargo[narcIdx] > 0 {
 			narcQty := gs.Player.Cargo[narcIdx]
+			narcCost := gs.Player.CargoCost[narcIdx]
 			gs.Player.Cargo[narcIdx] = 0
+			gs.Player.CargoCost[narcIdx] = 0
 			fursIdx := int(gamedata.GoodFurs)
 			gs.Player.Cargo[fursIdx] += narcQty
+			gs.Player.CargoCost[fursIdx] += narcCost
 			gs.Quests.TribbleQty = 1 + gs.Rand.Intn(3)
 			events = append(events, QuestEvent{
 				Title:   "Tribbles!",
@@ -247,6 +250,7 @@ func ResolveQuestAction(gs *GameState, questTitle string, actionIdx int) QuestAc
 			}
 			gs.Player.Credits -= price
 			gs.Player.Cargo[goodIdx] += qty
+			gs.Player.CargoCost[goodIdx] += price
 			gs.SetQuestState(QuestCargoForSale, QuestUnavailable)
 			return QuestActionResult{Message: fmt.Sprintf("Bought %d %s for %d credits (half price!).", qty, good.Name, price)}
 		}

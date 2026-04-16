@@ -116,11 +116,16 @@ func (gs *GameState) ToggleBookmark(sysIdx int, note string) bool {
 
 func (gs *GameState) RecordSnapshot() {
 	dp := &GameDataProvider{Data: gs.Data}
-	gs.Ledger = append(gs.Ledger, DailySnapshot{
+	snap := DailySnapshot{
 		Day:      gs.Day,
 		Credits:  gs.Player.Credits,
 		NetWorth: gs.Player.Worth(dp),
-	})
+	}
+	if n := len(gs.Ledger); n > 0 && gs.Ledger[n-1].Day == gs.Day {
+		gs.Ledger[n-1] = snap
+	} else {
+		gs.Ledger = append(gs.Ledger, snap)
+	}
 }
 
 func (gs *GameState) CaptureTradeInfo(sysIdx int) {

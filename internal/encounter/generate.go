@@ -2,6 +2,7 @@ package encounter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
@@ -54,6 +55,7 @@ func GenerateForClick(gs *game.GameState, destIdx int) *Encounter {
 	if gs.Quests.States[game.QuestAlienArtifact] == game.QuestActive {
 		if gs.Rand.Intn(AlienArtifactDenom) < AlienArtifactChance {
 			enc := NewPirateWithThreat(gs)
+			enc.PirateShip.Name = "Mantis"
 			enc.Message = "Alien Mantis ships attack! They want the artifact!"
 			return enc
 		}
@@ -187,17 +189,18 @@ func assessThreat(gs *game.GameState, enemy *EnemyShip) string {
 		return "Both sides are unarmed."
 	}
 	ratio := float64(pirate) / float64(max(player, 1))
+	name := strings.ToLower(enemy.Name)
 	switch {
 	case ratio <= 0.5:
 		return "Your scanners detect a lightly armed vessel."
 	case ratio <= 0.8:
-		return "The pirate appears outmatched."
+		return fmt.Sprintf("The %s appears outmatched.", name)
 	case ratio <= 1.2:
-		return "The pirate appears evenly matched."
+		return fmt.Sprintf("The %s appears evenly matched.", name)
 	case ratio <= 1.8:
-		return "A heavily armed pirate -- dangerous."
+		return fmt.Sprintf("A heavily armed %s -- dangerous.", name)
 	default:
-		return "This pirate outguns you significantly."
+		return fmt.Sprintf("This %s outguns you significantly.", name)
 	}
 }
 
