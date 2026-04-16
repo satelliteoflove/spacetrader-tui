@@ -19,8 +19,10 @@ const (
 )
 
 type LedgerScreen struct {
-	gs     *game.GameState
-	series ledgerSeries
+	gs                *game.GameState
+	series            ledgerSeries
+	scroll            int
+	scrollInitialized bool
 }
 
 func NewLedgerScreen(gs *game.GameState) *LedgerScreen {
@@ -44,6 +46,10 @@ func (s *LedgerScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.series = seriesNetWorth
 		case msg.String() == "3":
 			s.series = seriesBoth
+		case msg.String() == "h" || msg.String() == "left":
+			s.scroll -= 10
+		case msg.String() == "l" || msg.String() == "right":
+			s.scroll += 10
 		case key.Matches(msg, Keys.Back):
 			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 		}
@@ -63,41 +69,58 @@ func (s *LedgerScreen) View() string {
 		return b.String()
 	}
 
-	chartWidth := 60
+	chartWidth := 65
 	chartHeight := 16
 
-	var credits, netWorth []int
-	var days []int
-	for _, snap := range snapshots {
-		credits = append(credits, snap.Credits)
-		netWorth = append(netWorth, snap.NetWorth)
-		days = append(days, snap.Day)
+	firstDay := snapshots[0].Day
+	lastDay := snapshots[len(snapshots)-1].Day
+	totalDays := lastDay - firstDay + 1
+	maxScroll := totalDays - chartWidth
+	if maxScroll < 0 {
+		maxScroll = 0
 	}
+	if !s.scrollInitialized {
+		s.scroll = maxScroll
+		s.scrollInitialized = true
+	}
+	if s.scroll > maxScroll {
+		s.scroll = maxScroll
+	}
+	if s.scroll < 0 {
+		s.scroll = 0
+	}
+	startDay := firstDay + s.scroll
+
+	credits, netWorth, valid := buildDayGrid(snapshots, startDay, chartWidth)
+
+	_, maxVal := chartMinMax(credits, netWorth, valid, s.series)
+	yAxisWidth := len(formatValue(maxVal)) + 1
 
 	switch s.series {
 	case seriesCredits:
 		b.WriteString(CyanStyle.Render("  Credits") + "\n")
-		chart := renderBrailleChart(credits, chartWidth, chartHeight)
-		b.WriteString(chart)
 	case seriesNetWorth:
 		b.WriteString(SuccessStyle.Render("  Net Worth") + "\n")
-		chart := renderBrailleChart(netWorth, chartWidth, chartHeight)
-		b.WriteString(chart)
 	case seriesBoth:
 		b.WriteString(CyanStyle.Render("  Credits") + "  " + SuccessStyle.Render("  Net Worth") + "\n")
-		chart := renderBrailleDualChart(credits, netWorth, chartWidth, chartHeight)
-		b.WriteString(chart)
 	}
 
-	first := snapshots[0]
-	last := snapshots[len(snapshots)-1]
-	b.WriteString(fmt.Sprintf("  Day %-6d", first.Day))
-	dayLabel := fmt.Sprintf("Day %d", last.Day)
-	pad := chartWidth*2 - 8 - len(dayLabel)
-	if pad < 1 {
-		pad = 1
+	chart := renderChart(credits, netWorth, valid, chartWidth, chartHeight, s.series, yAxisWidth)
+	b.WriteString(chart)
+
+	canScrollLeft := s.scroll > 0
+	canScrollRight := s.scroll < maxScroll
+	xAxis := renderXAxis(startDay, chartWidth, yAxisWidth)
+	indicator := "  "
+	if canScrollLeft {
+		indicator = "< "
 	}
-	b.WriteString(strings.Repeat(" ", pad) + dayLabel + "\n")
+	indicatorRight := ""
+	if canScrollRight {
+		indicatorRight = " >"
+	}
+	axisLine := strings.TrimRight(xAxis, "\n")
+	b.WriteString(indicator + axisLine[2:] + indicatorRight + "\n")
 	b.WriteString(DimStyle.Render("  Chart updates on system arrival") + "\n")
 
 	liveCredits := s.gs.Player.Credits
@@ -106,8 +129,8 @@ func (s *LedgerScreen) View() string {
 	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("  Credits:    %d cr\n", liveCredits))
 	b.WriteString(fmt.Sprintf("  Net worth:  %d cr\n", liveWorth))
-	credDelta := liveCredits - first.Credits
-	worthDelta := liveWorth - first.NetWorth
+	credDelta := liveCredits - snapshots[0].Credits
+	worthDelta := liveWorth - snapshots[0].NetWorth
 	if credDelta >= 0 {
 		b.WriteString(SuccessStyle.Render(fmt.Sprintf("  All-time:   +%d cr earned", credDelta)) + "\n")
 	} else {
@@ -119,40 +142,73 @@ func (s *LedgerScreen) View() string {
 		b.WriteString(DangerStyle.Render(fmt.Sprintf("  All-time:   %d cr worth", worthDelta)) + "\n")
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  1 credits, 2 net worth, 3 both, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  1 credits, 2 net worth, 3 both, h/l scroll, esc back"))
 	return b.String()
 }
 
-func renderBrailleChart(data []int, width, height int) string {
-	if len(data) == 0 {
-		return ""
+func buildDayGrid(snapshots []game.DailySnapshot, startDay, width int) (credits, netWorth []int, valid []bool) {
+	byDay := make(map[int]*game.DailySnapshot, len(snapshots))
+	for i := range snapshots {
+		byDay[snapshots[i].Day] = &snapshots[i]
 	}
-
-	samples := resample(data, width*2)
-
-	minVal, maxVal := samples[0], samples[0]
-	for _, v := range samples {
-		if v < minVal {
-			minVal = v
-		}
-		if v > maxVal {
-			maxVal = v
+	credits = make([]int, width)
+	netWorth = make([]int, width)
+	valid = make([]bool, width)
+	for col := 0; col < width; col++ {
+		day := startDay + col
+		if snap, ok := byDay[day]; ok {
+			credits[col] = snap.Credits
+			netWorth[col] = snap.NetWorth
+			valid[col] = true
 		}
 	}
-	if minVal > 0 {
-		minVal = 0
+	return
+}
+
+func chartMinMax(credits, netWorth []int, valid []bool, series ledgerSeries) (int, int) {
+	minVal := 0
+	maxVal := 0
+	for i, ok := range valid {
+		if !ok {
+			continue
+		}
+		switch series {
+		case seriesCredits:
+			if credits[i] > maxVal {
+				maxVal = credits[i]
+			}
+		case seriesNetWorth:
+			if netWorth[i] > maxVal {
+				maxVal = netWorth[i]
+			}
+		case seriesBoth:
+			if credits[i] > maxVal {
+				maxVal = credits[i]
+			}
+			if netWorth[i] > maxVal {
+				maxVal = netWorth[i]
+			}
+		}
 	}
 	if maxVal == minVal {
 		maxVal = minVal + 1
 	}
+	return minVal, maxVal
+}
 
+func renderChart(credits, netWorth []int, valid []bool, width, height int, series ledgerSeries, yAxisWidth int) string {
+	minVal, maxVal := chartMinMax(credits, netWorth, valid, series)
 	dotRows := height * 4
-	grid := make([][]bool, dotRows)
-	for i := range grid {
-		grid[i] = make([]bool, width*2)
+	dotCols := width * 2
+
+	grid1 := make([][]bool, dotRows)
+	grid2 := make([][]bool, dotRows)
+	for i := range grid1 {
+		grid1[i] = make([]bool, dotCols)
+		grid2[i] = make([]bool, dotCols)
 	}
 
-	for x, val := range samples {
+	plotPoint := func(grid [][]bool, col, val int) {
 		y := (val - minVal) * (dotRows - 1) / (maxVal - minVal)
 		if y < 0 {
 			y = 0
@@ -160,74 +216,26 @@ func renderBrailleChart(data []int, width, height int) string {
 		if y >= dotRows {
 			y = dotRows - 1
 		}
-		for fill := 0; fill <= y; fill++ {
-			grid[fill][x] = true
+		grid[y][col*2] = true
+		grid[y][col*2+1] = true
+	}
+
+	for col, ok := range valid {
+		if !ok {
+			continue
+		}
+		switch series {
+		case seriesCredits:
+			plotPoint(grid1, col, credits[col])
+		case seriesNetWorth:
+			plotPoint(grid1, col, netWorth[col])
+		case seriesBoth:
+			plotPoint(grid1, col, credits[col])
+			plotPoint(grid2, col, netWorth[col])
 		}
 	}
 
-	return renderBrailleGrid(grid, width, height, minVal, maxVal, CyanStyle.Render)
-}
-
-func renderBrailleDualChart(data1, data2 []int, width, height int) string {
-	if len(data1) == 0 || len(data2) == 0 {
-		return ""
-	}
-
-	samples1 := resample(data1, width*2)
-	samples2 := resample(data2, width*2)
-
-	minVal := samples1[0]
-	maxVal := samples1[0]
-	for _, v := range samples1 {
-		if v < minVal {
-			minVal = v
-		}
-		if v > maxVal {
-			maxVal = v
-		}
-	}
-	for _, v := range samples2 {
-		if v < minVal {
-			minVal = v
-		}
-		if v > maxVal {
-			maxVal = v
-		}
-	}
-	if minVal > 0 {
-		minVal = 0
-	}
-	if maxVal == minVal {
-		maxVal = minVal + 1
-	}
-
-	dotRows := height * 4
-	grid1 := make([][]bool, dotRows)
-	grid2 := make([][]bool, dotRows)
-	for i := range grid1 {
-		grid1[i] = make([]bool, width*2)
-		grid2[i] = make([]bool, width*2)
-	}
-
-	for x, val := range samples1 {
-		y := (val - minVal) * (dotRows - 1) / (maxVal - minVal)
-		if y >= dotRows {
-			y = dotRows - 1
-		}
-		grid1[y][x] = true
-	}
-
-	for x, val := range samples2 {
-		y := (val - minVal) * (dotRows - 1) / (maxVal - minVal)
-		if y >= dotRows {
-			y = dotRows - 1
-		}
-		grid2[y][x] = true
-	}
-
-	yAxisWidth := len(formatValue(maxVal)) + 1
 	var b strings.Builder
-
 	for row := height - 1; row >= 0; row-- {
 		label := ""
 		if row == height-1 {
@@ -242,110 +250,70 @@ func renderBrailleDualChart(data1, data2 []int, width, height int) string {
 		for col := 0; col < width; col++ {
 			dotR0 := row * 4
 			var pattern byte
+			has1 := false
+			has2 := false
 			for dr := 0; dr < 4; dr++ {
 				dotRow := dotR0 + dr
 				if dotRow >= dotRows {
 					continue
 				}
-				flippedRow := dotRows - 1 - dotRow
+				gridRow := dotRow
 				for dc := 0; dc < 2; dc++ {
 					dotCol := col*2 + dc
-					if dotCol >= width*2 {
+					if dotCol >= dotCols {
 						continue
 					}
-					has1 := grid1[flippedRow][dotCol]
-					has2 := grid2[flippedRow][dotCol]
-					if has1 || has2 {
+					if grid1[gridRow][dotCol] {
 						pattern |= brailleBit(dr, dc)
+						has1 = true
 					}
-				}
-			}
-
-			hasAny1 := false
-			hasAny2 := false
-			for dr := 0; dr < 4; dr++ {
-				dotRow := row*4 + dr
-				if dotRow >= dotRows {
-					continue
-				}
-				flippedRow := dotRows - 1 - dotRow
-				for dc := 0; dc < 2; dc++ {
-					dotCol := col*2 + dc
-					if dotCol >= width*2 {
-						continue
-					}
-					if grid1[flippedRow][dotCol] {
-						hasAny1 = true
-					}
-					if grid2[flippedRow][dotCol] {
-						hasAny2 = true
-					}
-				}
-			}
-
-			ch := brailleChar(pattern)
-			if hasAny1 && hasAny2 {
-				b.WriteString(SelectedStyle.Render(string(ch)))
-			} else if hasAny1 {
-				b.WriteString(CyanStyle.Render(string(ch)))
-			} else if hasAny2 {
-				b.WriteString(SuccessStyle.Render(string(ch)))
-			} else {
-				b.WriteString(" ")
-			}
-		}
-		b.WriteString("\n")
-	}
-
-	return b.String()
-}
-
-func renderBrailleGrid(grid [][]bool, width, height int, minVal, maxVal int, styleFn func(...string) string) string {
-	dotRows := height * 4
-	yAxisWidth := len(formatValue(maxVal)) + 1
-
-	var b strings.Builder
-
-	for row := height - 1; row >= 0; row-- {
-		label := ""
-		if row == height-1 {
-			label = formatValue(maxVal)
-		} else if row == 0 {
-			label = formatValue(minVal)
-		} else if row == height/2 {
-			label = formatValue((maxVal + minVal) / 2)
-		}
-		b.WriteString(fmt.Sprintf("  %*s|", yAxisWidth, label))
-
-		for col := 0; col < width; col++ {
-			dotR0 := row * 4
-			var pattern byte
-			for dr := 0; dr < 4; dr++ {
-				dotRow := dotR0 + dr
-				if dotRow >= dotRows {
-					continue
-				}
-				flippedRow := dotRows - 1 - dotRow
-				for dc := 0; dc < 2; dc++ {
-					dotCol := col*2 + dc
-					if dotCol >= width*2 {
-						continue
-					}
-					if grid[flippedRow][dotCol] {
+					if grid2[gridRow][dotCol] {
 						pattern |= brailleBit(dr, dc)
+						has2 = true
 					}
 				}
 			}
+
 			if pattern == 0 {
 				b.WriteString(" ")
+			} else if series == seriesBoth {
+				ch := string(brailleChar(pattern))
+				if has1 && has2 {
+					b.WriteString(SelectedStyle.Render(ch))
+				} else if has1 {
+					b.WriteString(CyanStyle.Render(ch))
+				} else {
+					b.WriteString(SuccessStyle.Render(ch))
+				}
+			} else if series == seriesCredits {
+				b.WriteString(CyanStyle.Render(string(brailleChar(pattern))))
 			} else {
-				b.WriteString(styleFn(string(brailleChar(pattern))))
+				b.WriteString(SuccessStyle.Render(string(brailleChar(pattern))))
 			}
 		}
 		b.WriteString("\n")
 	}
-
 	return b.String()
+}
+
+func renderXAxis(startDay, width, yAxisWidth int) string {
+	buf := make([]byte, width)
+	for i := range buf {
+		buf[i] = ' '
+	}
+	rightmost := 0
+	for col := 0; col < width; col++ {
+		day := startDay + col
+		if day > 0 && day%10 == 0 {
+			label := fmt.Sprintf("%d", day)
+			if col >= rightmost && col+len(label) <= width {
+				copy(buf[col:], label)
+				rightmost = col + len(label) + 1
+			}
+		}
+	}
+	prefix := strings.Repeat(" ", yAxisWidth+3)
+	return prefix + string(buf) + "\n"
 }
 
 func brailleBit(row, col int) byte {
@@ -377,29 +345,6 @@ func brailleBit(row, col int) byte {
 
 func brailleChar(pattern byte) rune {
 	return rune(0x2800 + int(pattern))
-}
-
-func resample(data []int, targetLen int) []int {
-	if len(data) <= targetLen {
-		return data
-	}
-	result := make([]int, targetLen)
-	for i := 0; i < targetLen; i++ {
-		srcStart := i * len(data) / targetLen
-		srcEnd := (i + 1) * len(data) / targetLen
-		if srcEnd <= srcStart {
-			srcEnd = srcStart + 1
-		}
-		if srcEnd > len(data) {
-			srcEnd = len(data)
-		}
-		sum := 0
-		for j := srcStart; j < srcEnd; j++ {
-			sum += data[j]
-		}
-		result[i] = sum / (srcEnd - srcStart)
-	}
-	return result
 }
 
 func formatValue(v int) string {
