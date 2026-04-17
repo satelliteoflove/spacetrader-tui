@@ -2,6 +2,7 @@ package shipyard
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
@@ -10,6 +11,23 @@ import (
 type Result struct {
 	Success bool
 	Message string
+}
+
+type EquipSummary struct {
+	Kept      []int
+	Sold      []int
+	SoldValue int
+}
+
+type ShipPurchasePreview struct {
+	NewShip     gamedata.ShipDef
+	HullTradeIn int
+	Weapons     EquipSummary
+	Shields     EquipSummary
+	Gadgets     EquipSummary
+	CrewMustCut int
+	NetCost     int
+	Error       string
 }
 
 func AvailableShips(gs *game.GameState) []gamedata.ShipDef {
@@ -34,89 +52,189 @@ func AvailableEquipment(gs *game.GameState) []gamedata.EquipDef {
 	return equip
 }
 
-func TradeInValue(gs *game.GameState) int {
+func ShipHullTradeIn(gs *game.GameState) int {
 	shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
-
-	shipMultNum := 3
+	mult := 3
 	if gs.Quests.TribbleQty > 0 {
-		shipMultNum = 1
+		mult = 1
 	}
-	value := shipDef.Price * shipMultNum / 4
-
-	for _, wID := range gs.Player.Ship.Weapons {
-		value += gs.Data.Equipment[wID].Price * 2 / 3
-	}
-	for _, sID := range gs.Player.Ship.Shields {
-		value += gs.Data.Equipment[sID].Price * 2 / 3
-	}
-	for _, gID := range gs.Player.Ship.Gadgets {
-		value += gs.Data.Equipment[gID].Price * 2 / 3
-	}
-
-	return value
+	return shipDef.Price * mult / 4
 }
 
-func BuyShip(gs *game.GameState, shipTypeID int) Result {
+func splitEquipment(equipped []int, maxSlots int, data *gamedata.GameData) (EquipSummary, string) {
+	if len(equipped) == 0 {
+		return EquipSummary{}, ""
+	}
+
+	questCount := 0
+	for _, eid := range equipped {
+		if data.Equipment[eid].QuestReward {
+			questCount++
+		}
+	}
+	if questCount > maxSlots {
+		return EquipSummary{}, "New ship can't hold your quest equipment."
+	}
+
+	if len(equipped) <= maxSlots {
+		kept := make([]int, len(equipped))
+		copy(kept, equipped)
+		return EquipSummary{Kept: kept}, ""
+	}
+
+	var quest, nonQuest []int
+	for _, eid := range equipped {
+		if data.Equipment[eid].QuestReward {
+			quest = append(quest, eid)
+		} else {
+			nonQuest = append(nonQuest, eid)
+		}
+	}
+
+	sort.Slice(nonQuest, func(a, b int) bool {
+		return data.Equipment[nonQuest[a]].Price > data.Equipment[nonQuest[b]].Price
+	})
+
+	remaining := maxSlots - len(quest)
+	kept := make([]int, 0, maxSlots)
+	kept = append(kept, quest...)
+
+	var sold []int
+	var soldValue int
+
+	for i, eid := range nonQuest {
+		if i < remaining {
+			kept = append(kept, eid)
+		} else {
+			sold = append(sold, eid)
+			soldValue += data.Equipment[eid].Price * 3 / 4
+		}
+	}
+
+	return EquipSummary{Kept: kept, Sold: sold, SoldValue: soldValue}, ""
+}
+
+func PreviewShipPurchase(gs *game.GameState, shipTypeID int) ShipPurchasePreview {
 	if shipTypeID < 0 || shipTypeID >= len(gs.Data.Ships) {
-		return Result{Message: "Invalid ship type."}
+		return ShipPurchasePreview{Error: "Invalid ship type."}
 	}
 	if game.ReactorOnBoard(gs) {
-		return Result{Message: "Can't trade ships while carrying the Ion Reactor. Deliver it first."}
+		return ShipPurchasePreview{Error: "Can't trade ships while carrying the Ion Reactor. Deliver it first."}
 	}
 
 	newShip := gs.Data.Ships[shipTypeID]
 	sys := gs.Data.Systems[gs.CurrentSystemID]
 	if newShip.MinTech > sys.TechLevel {
-		return Result{Message: "Ship not available at this tech level."}
-	}
-
-	tradeIn := TradeInValue(gs)
-	cost := newShip.Price - tradeIn
-
-	if cost > gs.Player.Credits {
-		return Result{Message: fmt.Sprintf("Not enough credits. Need %d more.", cost-gs.Player.Credits)}
+		return ShipPurchasePreview{Error: "Ship not available at this tech level."}
 	}
 
 	cargoCount := gs.Player.TotalCargo()
 	if cargoCount > newShip.CargoBays {
-		return Result{Message: "New ship doesn't have enough cargo bays for your current cargo."}
+		return ShipPurchasePreview{Error: "New ship doesn't have enough cargo bays for your current cargo."}
+	}
+
+	hullTradeIn := ShipHullTradeIn(gs)
+
+	weapons, errMsg := splitEquipment(gs.Player.Ship.Weapons, newShip.WeaponSlots, gs.Data)
+	if errMsg != "" {
+		return ShipPurchasePreview{Error: errMsg}
+	}
+	shields, errMsg := splitEquipment(gs.Player.Ship.Shields, newShip.ShieldSlots, gs.Data)
+	if errMsg != "" {
+		return ShipPurchasePreview{Error: errMsg}
+	}
+	gadgets, errMsg := splitEquipment(gs.Player.Ship.Gadgets, newShip.GadgetSlots, gs.Data)
+	if errMsg != "" {
+		return ShipPurchasePreview{Error: errMsg}
 	}
 
 	newMaxCrew := newShip.CrewQuarters - 1
-	hasQuestCrew := false
+	questCrewCount := 0
+	nonQuestCount := 0
 	for _, m := range gs.Player.Crew {
 		if m.IsQuest {
-			hasQuestCrew = true
-			break
+			questCrewCount++
+		} else {
+			nonQuestCount++
 		}
 	}
-	if hasQuestCrew && newMaxCrew < 1 {
-		return Result{Message: "New ship has no quarters for your passenger."}
+	if questCrewCount > newMaxCrew {
+		return ShipPurchasePreview{Error: "New ship has no quarters for your passenger."}
+	}
+	crewMustCut := 0
+	availableForNonQuest := newMaxCrew - questCrewCount
+	if nonQuestCount > availableForNonQuest {
+		crewMustCut = nonQuestCount - availableForNonQuest
 	}
 
-	gs.Player.Credits -= cost
+	equipSoldValue := weapons.SoldValue + shields.SoldValue + gadgets.SoldValue
+	netCost := newShip.Price - hullTradeIn - equipSoldValue
 
-	for len(gs.Player.Crew) > newMaxCrew {
-		for i := len(gs.Player.Crew) - 1; i >= 0; i-- {
-			if !gs.Player.Crew[i].IsQuest {
-				game.FireMercenary(gs, i)
-				break
-			}
+	if netCost > gs.Player.Credits {
+		return ShipPurchasePreview{Error: fmt.Sprintf("Not enough credits. Need %d more.", netCost-gs.Player.Credits)}
+	}
+
+	return ShipPurchasePreview{
+		NewShip:     newShip,
+		HullTradeIn: hullTradeIn,
+		Weapons:     weapons,
+		Shields:     shields,
+		Gadgets:     gadgets,
+		CrewMustCut: crewMustCut,
+		NetCost:     netCost,
+	}
+}
+
+func BuyShip(gs *game.GameState, shipTypeID int, dismissCrew []int) Result {
+	preview := PreviewShipPurchase(gs, shipTypeID)
+	if preview.Error != "" {
+		return Result{Message: preview.Error}
+	}
+
+	if len(dismissCrew) != preview.CrewMustCut {
+		return Result{Message: fmt.Sprintf("Must dismiss exactly %d crew members.", preview.CrewMustCut)}
+	}
+	for _, idx := range dismissCrew {
+		if idx < 0 || idx >= len(gs.Player.Crew) {
+			return Result{Message: "Invalid crew member."}
 		}
+		if gs.Player.Crew[idx].IsQuest {
+			return Result{Message: "Cannot dismiss quest crew."}
+		}
+	}
+
+	gs.Player.Credits -= preview.NetCost
+
+	sort.Sort(sort.Reverse(sort.IntSlice(dismissCrew)))
+	for _, idx := range dismissCrew {
+		game.FireMercenary(gs, idx)
+	}
+
+	weapons := preview.Weapons.Kept
+	if weapons == nil {
+		weapons = []int{}
+	}
+	shields := preview.Shields.Kept
+	if shields == nil {
+		shields = []int{}
+	}
+	gadgets := preview.Gadgets.Kept
+	if gadgets == nil {
+		gadgets = []int{}
 	}
 
 	gs.Player.Ship = game.Ship{
 		TypeID:  shipTypeID,
-		Hull:    newShip.Hull,
-		Fuel:    newShip.Range,
-		Weapons: []int{},
-		Shields: []int{},
-		Gadgets: []int{},
+		Hull:    preview.NewShip.Hull,
+		Fuel:    preview.NewShip.Range,
+		Weapons: weapons,
+		Shields: shields,
+		Gadgets: gadgets,
 	}
 
 	return Result{
 		Success: true,
-		Message: fmt.Sprintf("Purchased %s! Trade-in: %d, Cost: %d.", newShip.Name, tradeIn, cost),
+		Message: fmt.Sprintf("Purchased %s!", preview.NewShip.Name),
 	}
 }
 

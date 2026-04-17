@@ -51,16 +51,14 @@ func TestAvailableEquipment(t *testing.T) {
 	}
 }
 
-func TestTradeInValue(t *testing.T) {
+func TestShipHullTradeIn(t *testing.T) {
 	gs := newTestGame(t)
-	value := shipyard.TradeInValue(gs)
+	value := shipyard.ShipHullTradeIn(gs)
 
 	gnatPrice := gs.Data.Ships[int(gamedata.ShipGnat)].Price
-	pulsePrice := gs.Data.Equipment[0].Price
-
-	expected := gnatPrice*3/4 + pulsePrice*2/3
+	expected := gnatPrice * 3 / 4
 	if value != expected {
-		t.Errorf("trade-in: got %d, want %d", value, expected)
+		t.Errorf("hull trade-in: got %d, want %d", value, expected)
 	}
 }
 
@@ -81,7 +79,7 @@ func TestBuyShip(t *testing.T) {
 		}
 	}
 
-	result := shipyard.BuyShip(gs, target.ID)
+	result := shipyard.BuyShip(gs, target.ID, nil)
 	if !result.Success {
 		t.Fatalf("BuyShip failed: %s", result.Message)
 	}
@@ -94,9 +92,96 @@ func TestBuyShipInsufficientCredits(t *testing.T) {
 	gs := newTestGame(t)
 	gs.Player.Credits = 0
 
-	result := shipyard.BuyShip(gs, int(gamedata.ShipWasp))
+	result := shipyard.BuyShip(gs, int(gamedata.ShipWasp), nil)
 	if result.Success {
 		t.Error("should fail with 0 credits for Wasp")
+	}
+}
+
+func TestBuyShipTransfersEquipment(t *testing.T) {
+	gs := newTestGame(t)
+	gs.Player.Credits = 200000
+
+	gs.Player.Ship.Weapons = []int{0}
+
+	fireflyDef := gs.Data.Ships[int(gamedata.ShipFirefly)]
+	if fireflyDef.WeaponSlots < 1 {
+		t.Skip("Firefly has no weapon slots")
+	}
+
+	result := shipyard.BuyShip(gs, int(gamedata.ShipFirefly), nil)
+	if !result.Success {
+		t.Fatalf("BuyShip failed: %s", result.Message)
+	}
+	if len(gs.Player.Ship.Weapons) != 1 {
+		t.Errorf("weapons: got %d, want 1 (pulse laser should transfer)", len(gs.Player.Ship.Weapons))
+	}
+	if gs.Player.Ship.Weapons[0] != 0 {
+		t.Errorf("weapon ID: got %d, want 0 (pulse laser)", gs.Player.Ship.Weapons[0])
+	}
+}
+
+func TestBuyShipSellsExcessEquipment(t *testing.T) {
+	gs := newTestGame(t)
+	gs.Player.Credits = 200000
+
+	gs.Player.Ship.TypeID = int(gamedata.ShipHornet)
+	gs.Player.Ship.Weapons = []int{0, 1, 2}
+
+	creditsBefore := gs.Player.Credits
+
+	fireflyDef := gs.Data.Ships[int(gamedata.ShipFirefly)]
+	if fireflyDef.WeaponSlots >= 3 {
+		t.Skip("Firefly has enough weapon slots for all 3 weapons")
+	}
+
+	preview := shipyard.PreviewShipPurchase(gs, int(gamedata.ShipFirefly))
+	if preview.Error != "" {
+		t.Fatalf("preview error: %s", preview.Error)
+	}
+
+	if len(preview.Weapons.Kept) != fireflyDef.WeaponSlots {
+		t.Errorf("kept weapons: got %d, want %d", len(preview.Weapons.Kept), fireflyDef.WeaponSlots)
+	}
+	expectedSold := 3 - fireflyDef.WeaponSlots
+	if len(preview.Weapons.Sold) != expectedSold {
+		t.Errorf("sold weapons: got %d, want %d", len(preview.Weapons.Sold), expectedSold)
+	}
+
+	result := shipyard.BuyShip(gs, int(gamedata.ShipFirefly), nil)
+	if !result.Success {
+		t.Fatalf("BuyShip failed: %s", result.Message)
+	}
+	if len(gs.Player.Ship.Weapons) != fireflyDef.WeaponSlots {
+		t.Errorf("weapons after: got %d, want %d", len(gs.Player.Ship.Weapons), fireflyDef.WeaponSlots)
+	}
+
+	expectedCredits := creditsBefore - preview.NetCost
+	if gs.Player.Credits != expectedCredits {
+		t.Errorf("credits: got %d, want %d", gs.Player.Credits, expectedCredits)
+	}
+}
+
+func TestBuyShipKeepsMostValuable(t *testing.T) {
+	gs := newTestGame(t)
+	gs.Player.Credits = 200000
+
+	gs.Player.Ship.TypeID = int(gamedata.ShipHornet)
+	gs.Player.Ship.Weapons = []int{0, 1, 2}
+
+	fireflyDef := gs.Data.Ships[int(gamedata.ShipFirefly)]
+	if fireflyDef.WeaponSlots != 1 {
+		t.Skipf("Firefly has %d weapon slots, test expects 1", fireflyDef.WeaponSlots)
+	}
+
+	preview := shipyard.PreviewShipPurchase(gs, int(gamedata.ShipFirefly))
+	if preview.Error != "" {
+		t.Fatalf("preview error: %s", preview.Error)
+	}
+
+	militaryLaserID := 2
+	if len(preview.Weapons.Kept) != 1 || preview.Weapons.Kept[0] != militaryLaserID {
+		t.Errorf("should keep most expensive weapon (Military Laser, ID 2): got kept=%v", preview.Weapons.Kept)
 	}
 }
 
