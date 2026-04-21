@@ -124,12 +124,6 @@ func ExecuteJump(gs *game.GameState, destIdx int) TravelResult {
 	}
 }
 
-const (
-	BaseInsurancePremium = 100
-	MaxNoClaimDiscount   = 90
-	MinInsurancePremium  = 10
-)
-
 func applyDailyCosts(gs *game.GameState) {
 	applyCrewWages(gs)
 	applyLoanInterest(gs)
@@ -160,18 +154,12 @@ func applyInsurancePremium(gs *game.GameState) {
 		return
 	}
 	gs.Player.InsuranceDays++
-	noClaimDiscount := gs.Player.InsuranceDays
-	if noClaimDiscount > MaxNoClaimDiscount {
-		noClaimDiscount = MaxNoClaimDiscount
-	}
-	premium := BaseInsurancePremium * (100 - noClaimDiscount) / 100
-	if premium < MinInsurancePremium {
-		premium = MinInsurancePremium
-	}
+	premium := game.InsuranceDailyPremium(gs)
 	gs.Player.Credits -= premium
 	if gs.Player.Credits < 0 {
 		gs.Player.Credits = 0
 		gs.Player.HasInsurance = false
+		gs.Player.InsuranceDays = 0
 	}
 }
 

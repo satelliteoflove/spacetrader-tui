@@ -41,6 +41,11 @@ type crewOption struct {
 	merc    game.Mercenary
 }
 
+type extraService struct {
+	line string
+	buy  func(*game.GameState) shipyard.Result
+}
+
 type ShipyardScreen struct {
 	gs            *game.GameState
 	tab           shipyardTab
@@ -234,13 +239,39 @@ func (s *ShipyardScreen) tabLen() int {
 	case tabShips:
 		return len(s.ships)
 	case tabEquipment:
-		return len(s.equip)
+		return len(s.equip) + len(s.extraServices())
 	case tabSell:
 		return len(s.installed)
 	case tabRepair:
-		return 4
+		return 2
 	}
 	return 0
+}
+
+func (s *ShipyardScreen) extraServices() []extraService {
+	var podLine string
+	if s.gs.Player.HasEscapePod {
+		podLine = fmt.Sprintf("%-32s[installed]", "Escape pod")
+	} else {
+		podLine = fmt.Sprintf("%-20s %6d cr  survive if ship destroyed", "Escape pod", shipyard.EscapePodPrice)
+	}
+
+	insuranceDesc := "recover 75% of ship value"
+	if !s.gs.Player.HasEscapePod {
+		insuranceDesc = "recover 75%; needs pod"
+	}
+	var insuranceLine string
+	if s.gs.Player.HasInsurance {
+		insuranceLine = fmt.Sprintf("%-32s[active]", "Insurance")
+	} else {
+		premium := game.InsuranceBasePremium(s.gs)
+		insuranceLine = fmt.Sprintf("%-20s %5d cr/d  %s", "Insurance", premium, insuranceDesc)
+	}
+
+	return []extraService{
+		{line: podLine, buy: shipyard.BuyEscapePod},
+		{line: insuranceLine, buy: shipyard.BuyInsurance},
+	}
 }
 
 func (s *ShipyardScreen) handleSelect() {
@@ -262,6 +293,13 @@ func (s *ShipyardScreen) handleSelect() {
 			result := shipyard.BuyEquipment(s.gs, s.equip[s.cursor].ID)
 			s.message = result.Message
 			s.equip = shipyard.AvailableEquipment(s.gs)
+		} else {
+			services := s.extraServices()
+			idx := s.cursor - len(s.equip)
+			if idx >= 0 && idx < len(services) {
+				result := services[idx].buy(s.gs)
+				s.message = result.Message
+			}
 		}
 	case tabSell:
 		if s.cursor < len(s.installed) {
@@ -279,12 +317,6 @@ func (s *ShipyardScreen) handleSelect() {
 			s.message = result.Message
 		case 1:
 			result := shipyard.Refuel(s.gs)
-			s.message = result.Message
-		case 2:
-			result := shipyard.BuyEscapePod(s.gs)
-			s.message = result.Message
-		case 3:
-			result := shipyard.BuyInsurance(s.gs)
 			s.message = result.Message
 		}
 	}
@@ -343,8 +375,9 @@ func (s *ShipyardScreen) renderTab(b *strings.Builder) {
 		}
 		RenderMenuItems(b, lines, s.cursor)
 	case tabEquipment:
-		eqLines := make([]string, len(s.equip))
-		for i, eq := range s.equip {
+		services := s.extraServices()
+		eqLines := make([]string, 0, len(s.equip)+len(services))
+		for _, eq := range s.equip {
 			var stat string
 			switch eq.Category {
 			case gamedata.EquipWeapon:
@@ -358,7 +391,10 @@ func (s *ShipyardScreen) renderTab(b *strings.Builder) {
 					stat = fmt.Sprintf("+%s", eq.SkillBonus)
 				}
 			}
-			eqLines[i] = fmt.Sprintf("%-20s %6d cr  %s", eq.Name, eq.Price, stat)
+			eqLines = append(eqLines, fmt.Sprintf("%-20s %6d cr  %s", eq.Name, eq.Price, stat))
+		}
+		for _, svc := range services {
+			eqLines = append(eqLines, svc.line)
 		}
 		RenderMenuItems(b, eqLines, s.cursor)
 	case tabSell:
@@ -386,16 +422,6 @@ func (s *ShipyardScreen) renderTab(b *strings.Builder) {
 		items := []string{
 			fmt.Sprintf("Repair hull (%d credits)", repairCost),
 			fmt.Sprintf("Refuel (%d credits)", refuelCost),
-		}
-		if s.gs.Player.HasEscapePod {
-			items = append(items, "Escape pod [installed]")
-		} else {
-			items = append(items, fmt.Sprintf("Buy escape pod (%d credits)", shipyard.EscapePodPrice))
-		}
-		if s.gs.Player.HasInsurance {
-			items = append(items, "Insurance [active]")
-		} else {
-			items = append(items, fmt.Sprintf("Buy insurance (%d credits)", shipyard.InsurancePrice))
 		}
 		RenderMenuItems(b, items, s.cursor)
 	}

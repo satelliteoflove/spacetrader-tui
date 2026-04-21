@@ -351,7 +351,6 @@ func Repair(gs *game.GameState) Result {
 }
 
 const EscapePodPrice = 2000
-const InsurancePrice = 1000
 
 func BuyEscapePod(gs *game.GameState) Result {
 	if gs.Player.HasEscapePod {
@@ -372,13 +371,14 @@ func BuyInsurance(gs *game.GameState) Result {
 	if gs.Player.HasInsurance {
 		return Result{Message: "Already insured."}
 	}
-	if gs.Player.Credits < InsurancePrice {
+	gs.Player.InsuranceDays = 0
+	cost := game.InsuranceDailyPremium(gs)
+	if gs.Player.Credits < cost {
 		return Result{Message: "Not enough credits."}
 	}
-	gs.Player.Credits -= InsurancePrice
+	gs.Player.Credits -= cost
 	gs.Player.HasInsurance = true
-	gs.Player.InsuranceDays = 0
-	return Result{Success: true, Message: fmt.Sprintf("Insurance purchased for %d credits.", InsurancePrice)}
+	return Result{Success: true, Message: fmt.Sprintf("Insurance purchased for %d credits.", cost)}
 }
 
 func RefuelCost(gs *game.GameState) int {

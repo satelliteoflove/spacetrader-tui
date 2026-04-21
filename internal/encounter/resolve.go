@@ -535,20 +535,10 @@ func checkShipDestroyed(gs *game.GameState) (destroyed bool, message string) {
 
 		insurancePayout := 0
 		if gs.Player.HasInsurance {
-			shipDef := gs.Data.Ships[gs.Player.Ship.TypeID]
-			insurancePayout = shipDef.Price
-			for _, w := range gs.Player.Ship.Weapons {
-				insurancePayout += gs.Data.Equipment[w].Price
-			}
-			for _, s := range gs.Player.Ship.Shields {
-				insurancePayout += gs.Data.Equipment[s].Price
-			}
-			for _, g := range gs.Player.Ship.Gadgets {
-				insurancePayout += gs.Data.Equipment[g].Price
-			}
-			insurancePayout = insurancePayout * 3 / 4
+			insurancePayout = game.InsurableValue(gs) * 3 / 4
 			gs.Player.Credits += insurancePayout
 			gs.Player.HasInsurance = false
+			gs.Player.InsuranceDays = 0
 		}
 
 		gnatID := game.ShipGnat

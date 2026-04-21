@@ -133,7 +133,14 @@ func (s *StatusScreen) View() string {
 	if p.HasEscapePod {
 		b.WriteString("  Escape pod: installed")
 		if p.HasInsurance {
-			b.WriteString("  |  Insurance: active")
+			premium := game.InsuranceDailyPremium(s.gs)
+			base := game.InsuranceBasePremium(s.gs)
+			discount := game.InsuranceNoClaimDiscount(s.gs)
+			if discount > 0 {
+				b.WriteString(fmt.Sprintf("  |  Insurance: %d cr/day (base %d, %d%% no-claim)", premium, base, discount))
+			} else {
+				b.WriteString(fmt.Sprintf("  |  Insurance: %d cr/day", premium))
+			}
 		}
 		b.WriteString("\n")
 	}

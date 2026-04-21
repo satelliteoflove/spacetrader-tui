@@ -164,3 +164,28 @@ func TestTravelCrewFiredWhenBroke(t *testing.T) {
 		t.Error("crew should be dismissed when can't pay wages")
 	}
 }
+
+func TestInsuranceLapseResetsNoClaimDays(t *testing.T) {
+	gs := newTestGame(t)
+	gs.Player.Credits = 0
+	gs.Player.HasEscapePod = true
+	gs.Player.HasInsurance = true
+	gs.Player.InsuranceDays = 50
+
+	reachable := travel.ReachableSystems(gs)
+	if len(reachable) == 0 {
+		t.Skip("no reachable systems")
+	}
+
+	result := travel.ExecuteTravel(gs, reachable[0].Index)
+	if !result.Success {
+		t.Fatalf("travel failed: %s", result.Message)
+	}
+
+	if gs.Player.HasInsurance {
+		t.Error("insurance should lapse when premium can't be paid")
+	}
+	if gs.Player.InsuranceDays != 0 {
+		t.Errorf("no-claim days must reset on lapse to prevent carryover: got %d", gs.Player.InsuranceDays)
+	}
+}
