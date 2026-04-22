@@ -22,7 +22,9 @@ type EncounterDoneMsg struct {
 	Outcome encounter.Outcome
 }
 
-type LoadGameMsg struct{}
+type LoadGameMsg struct {
+	FromAutosave bool
+}
 
 type TickMsg struct {
 	Time time.Time

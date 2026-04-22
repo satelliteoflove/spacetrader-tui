@@ -107,7 +107,16 @@ func (s *BankScreen) View() string {
 	b.WriteString(fmt.Sprintf("  Credits: %d\n", s.gs.Player.Credits))
 	b.WriteString(fmt.Sprintf("  Loan balance: %d\n", s.gs.Player.LoanBalance))
 	b.WriteString(fmt.Sprintf("  Max loan: %d\n", economy.MaxLoanAmount(s.gs)))
-	b.WriteString(fmt.Sprintf("  Interest rate: 10%% per warp\n\n"))
+	b.WriteString(fmt.Sprintf("  Interest rate: 10%% per warp\n"))
+
+	if s.gs.Player.LoanBalance > 0 {
+		bal := s.gs.Player.LoanBalance
+		b.WriteString(DimStyle.Render("  Projected if unpaid:") + "\n")
+		b.WriteString(DimStyle.Render(fmt.Sprintf("    After 1 warp:   %d cr", economy.ProjectLoan(bal, 1))) + "\n")
+		b.WriteString(DimStyle.Render(fmt.Sprintf("    After 5 warps:  %d cr", economy.ProjectLoan(bal, 5))) + "\n")
+		b.WriteString(DimStyle.Render(fmt.Sprintf("    After 10 warps: %d cr", economy.ProjectLoan(bal, 10))) + "\n")
+	}
+	b.WriteString("\n")
 
 	items := []string{"Borrow credits", "Repay loan"}
 	RenderMenuItems(&b, items, s.cursor)
@@ -124,6 +133,27 @@ func (s *BankScreen) View() string {
 		b.WriteString("\n  " + s.message)
 	}
 
-	b.WriteString("\n\n" + DimStyle.Render("  j/k navigate, enter select, esc back"))
+	b.WriteString("\n\n" + DimStyle.Render("  j/k navigate, enter select, esc back, ? help"))
 	return b.String()
+}
+
+func (s *BankScreen) HelpTitle() string { return "Bank" }
+
+func (s *BankScreen) HelpGroups() []KeyGroup {
+	return []KeyGroup{
+		{
+			Title: "Actions",
+			Bindings: []KeyBinding{
+				{Keys: "j/k or arrows", Desc: "Move cursor"},
+				{Keys: "enter", Desc: "Borrow or repay"},
+			},
+		},
+		{
+			Title: "Notes",
+			Bindings: []KeyBinding{
+				{Keys: "", Desc: "Interest is 10% per warp, compounded."},
+				{Keys: "", Desc: "Projected debt is shown when a loan is active."},
+			},
+		},
+	}
 }

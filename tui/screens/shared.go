@@ -34,6 +34,7 @@ const (
 	ScreenDebug
 	ScreenSystemDetail
 	ScreenLedger
+	ScreenTradeAnalyzer
 )
 
 type NavigateMsg struct {

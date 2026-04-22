@@ -125,3 +125,21 @@ func TestApplyInterestNoLoan(t *testing.T) {
 		t.Errorf("interest: got %d, want 0", interest)
 	}
 }
+
+func TestProjectLoanMatchesIteratedInterest(t *testing.T) {
+	balance := 10000
+	want := balance
+	for i := 0; i < 5; i++ {
+		want += economy.LoanInterest(want)
+	}
+	got := economy.ProjectLoan(10000, 5)
+	if got != want {
+		t.Errorf("ProjectLoan(10000, 5) = %d, want %d", got, want)
+	}
+	if economy.ProjectLoan(0, 5) != 0 {
+		t.Error("ProjectLoan with zero balance should return zero")
+	}
+	if economy.ProjectLoan(500, 0) != 500 {
+		t.Error("ProjectLoan with zero warps should return original balance")
+	}
+}

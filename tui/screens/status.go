@@ -64,7 +64,7 @@ func (s *StatusScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			q := s.quests[s.cursor]
 			if q.destID >= 0 {
 				destIdx := q.destID
-				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: destIdx} }
+				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenRoutePlanner, SelectedSystem: destIdx, ReturnScreen: ScreenStatus} }
 			}
 			s.message = DimStyle.Render("No fixed destination for this quest.")
 		case key.Matches(msg, Keys.Back):

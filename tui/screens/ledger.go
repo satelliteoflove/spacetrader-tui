@@ -16,7 +16,12 @@ const (
 	seriesCredits ledgerSeries = iota
 	seriesNetWorth
 	seriesBoth
+	seriesAll
 )
+
+func (s ledgerSeries) includesDebt() bool {
+	return s == seriesAll
+}
 
 type LedgerScreen struct {
 	gs                *game.GameState
@@ -46,6 +51,8 @@ func (s *LedgerScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.series = seriesNetWorth
 		case msg.String() == "3":
 			s.series = seriesBoth
+		case msg.String() == "4":
+			s.series = seriesAll
 		case msg.String() == "h" || msg.String() == "left":
 			s.scroll -= 10
 		case msg.String() == "l" || msg.String() == "right":
@@ -91,9 +98,9 @@ func (s *LedgerScreen) View() string {
 	}
 	startDay := firstDay + s.scroll
 
-	credits, netWorth, valid := buildDayGrid(snapshots, startDay, chartWidth)
+	credits, netWorth, debt, valid := buildDayGrid(snapshots, startDay, chartWidth)
 
-	_, maxVal := chartMinMax(credits, netWorth, valid, s.series)
+	_, maxVal := chartMinMax(credits, netWorth, debt, valid, s.series)
 	yAxisWidth := len(formatValue(maxVal)) + 1
 
 	switch s.series {
@@ -103,9 +110,11 @@ func (s *LedgerScreen) View() string {
 		b.WriteString(SuccessStyle.Render("  Net Worth") + "\n")
 	case seriesBoth:
 		b.WriteString(CyanStyle.Render("  Credits") + "  " + SuccessStyle.Render("  Net Worth") + "\n")
+	case seriesAll:
+		b.WriteString(CyanStyle.Render("  Credits") + "  " + SuccessStyle.Render("  Net Worth") + "  " + DangerStyle.Render("  Debt") + "\n")
 	}
 
-	chart := renderChart(credits, netWorth, valid, chartWidth, chartHeight, s.series, yAxisWidth)
+	chart := renderChart(credits, netWorth, debt, valid, chartWidth, chartHeight, s.series, yAxisWidth)
 	b.WriteString(chart)
 
 	canScrollLeft := s.scroll > 0
@@ -142,30 +151,55 @@ func (s *LedgerScreen) View() string {
 		b.WriteString(DangerStyle.Render(fmt.Sprintf("  All-time:   %d cr worth", worthDelta)) + "\n")
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  1 credits, 2 net worth, 3 both, h/l scroll, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  1 credits, 2 net worth, 3 both, 4 with debt"))
+	b.WriteString("\n" + DimStyle.Render("  h/l scroll, esc back, ? help"))
 	return b.String()
 }
 
-func buildDayGrid(snapshots []game.DailySnapshot, startDay, width int) (credits, netWorth []int, valid []bool) {
+func (s *LedgerScreen) HelpTitle() string { return "Portfolio" }
+
+func (s *LedgerScreen) HelpGroups() []KeyGroup {
+	return []KeyGroup{
+		{
+			Title: "Series",
+			Bindings: []KeyBinding{
+				{Keys: "1", Desc: "Credits only"},
+				{Keys: "2", Desc: "Net worth only"},
+				{Keys: "3", Desc: "Credits + net worth"},
+				{Keys: "4", Desc: "Add debt overlay"},
+			},
+		},
+		{
+			Title: "Navigation",
+			Bindings: []KeyBinding{
+				{Keys: "h/l or arrows", Desc: "Scroll 10 days"},
+			},
+		},
+	}
+}
+
+func buildDayGrid(snapshots []game.DailySnapshot, startDay, width int) (credits, netWorth, debt []int, valid []bool) {
 	byDay := make(map[int]*game.DailySnapshot, len(snapshots))
 	for i := range snapshots {
 		byDay[snapshots[i].Day] = &snapshots[i]
 	}
 	credits = make([]int, width)
 	netWorth = make([]int, width)
+	debt = make([]int, width)
 	valid = make([]bool, width)
 	for col := 0; col < width; col++ {
 		day := startDay + col
 		if snap, ok := byDay[day]; ok {
 			credits[col] = snap.Credits
 			netWorth[col] = snap.NetWorth
+			debt[col] = snap.LoanBalance
 			valid[col] = true
 		}
 	}
 	return
 }
 
-func chartMinMax(credits, netWorth []int, valid []bool, series ledgerSeries) (int, int) {
+func chartMinMax(credits, netWorth, debt []int, valid []bool, series ledgerSeries) (int, int) {
 	minVal := 0
 	maxVal := 0
 	for i, ok := range valid {
@@ -188,6 +222,16 @@ func chartMinMax(credits, netWorth []int, valid []bool, series ledgerSeries) (in
 			if netWorth[i] > maxVal {
 				maxVal = netWorth[i]
 			}
+		case seriesAll:
+			if credits[i] > maxVal {
+				maxVal = credits[i]
+			}
+			if netWorth[i] > maxVal {
+				maxVal = netWorth[i]
+			}
+			if debt[i] > maxVal {
+				maxVal = debt[i]
+			}
 		}
 	}
 	if maxVal == minVal {
@@ -196,16 +240,18 @@ func chartMinMax(credits, netWorth []int, valid []bool, series ledgerSeries) (in
 	return minVal, maxVal
 }
 
-func renderChart(credits, netWorth []int, valid []bool, width, height int, series ledgerSeries, yAxisWidth int) string {
-	minVal, maxVal := chartMinMax(credits, netWorth, valid, series)
+func renderChart(credits, netWorth, debt []int, valid []bool, width, height int, series ledgerSeries, yAxisWidth int) string {
+	minVal, maxVal := chartMinMax(credits, netWorth, debt, valid, series)
 	dotRows := height * 4
 	dotCols := width * 2
 
 	grid1 := make([][]bool, dotRows)
 	grid2 := make([][]bool, dotRows)
+	grid3 := make([][]bool, dotRows)
 	for i := range grid1 {
 		grid1[i] = make([]bool, dotCols)
 		grid2[i] = make([]bool, dotCols)
+		grid3[i] = make([]bool, dotCols)
 	}
 
 	plotPoint := func(grid [][]bool, col, val int) {
@@ -232,6 +278,10 @@ func renderChart(credits, netWorth []int, valid []bool, width, height int, serie
 		case seriesBoth:
 			plotPoint(grid1, col, credits[col])
 			plotPoint(grid2, col, netWorth[col])
+		case seriesAll:
+			plotPoint(grid1, col, credits[col])
+			plotPoint(grid2, col, netWorth[col])
+			plotPoint(grid3, col, debt[col])
 		}
 	}
 
@@ -252,6 +302,7 @@ func renderChart(credits, netWorth []int, valid []bool, width, height int, serie
 			var pattern byte
 			has1 := false
 			has2 := false
+			has3 := false
 			for dr := 0; dr < 4; dr++ {
 				dotRow := dotR0 + dr
 				if dotRow >= dotRows {
@@ -271,13 +322,24 @@ func renderChart(credits, netWorth []int, valid []bool, width, height int, serie
 						pattern |= brailleBit(dr, dc)
 						has2 = true
 					}
+					if grid3[gridRow][dotCol] {
+						pattern |= brailleBit(dr, dc)
+						has3 = true
+					}
 				}
 			}
 
 			if pattern == 0 {
 				b.WriteString(" ")
-			} else if series == seriesBoth {
-				ch := string(brailleChar(pattern))
+				continue
+			}
+			ch := string(brailleChar(pattern))
+			switch series {
+			case seriesCredits:
+				b.WriteString(CyanStyle.Render(ch))
+			case seriesNetWorth:
+				b.WriteString(SuccessStyle.Render(ch))
+			case seriesBoth:
 				if has1 && has2 {
 					b.WriteString(SelectedStyle.Render(ch))
 				} else if has1 {
@@ -285,10 +347,16 @@ func renderChart(credits, netWorth []int, valid []bool, width, height int, serie
 				} else {
 					b.WriteString(SuccessStyle.Render(ch))
 				}
-			} else if series == seriesCredits {
-				b.WriteString(CyanStyle.Render(string(brailleChar(pattern))))
-			} else {
-				b.WriteString(SuccessStyle.Render(string(brailleChar(pattern))))
+			case seriesAll:
+				if has3 {
+					b.WriteString(DangerStyle.Render(ch))
+				} else if has1 && has2 {
+					b.WriteString(SelectedStyle.Render(ch))
+				} else if has1 {
+					b.WriteString(CyanStyle.Render(ch))
+				} else {
+					b.WriteString(SuccessStyle.Render(ch))
+				}
 			}
 		}
 		b.WriteString("\n")

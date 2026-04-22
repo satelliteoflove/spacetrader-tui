@@ -6,6 +6,17 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 )
 
+const TradeAnalyzerName = "Trade Analyzer"
+
+func HasTradeAnalyzer(gs *GameState) bool {
+	for _, gID := range gs.Player.Ship.Gadgets {
+		if gs.Data.Equipment[gID].Name == TradeAnalyzerName {
+			return true
+		}
+	}
+	return false
+}
+
 func GadgetSkillBonus(gs *GameState, skillIdx int) int {
 	skillName := strings.ToLower(formula.SkillNames[skillIdx])
 	bonus := 0

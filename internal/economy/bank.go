@@ -96,3 +96,13 @@ func ApplyInterest(gs *game.GameState) int {
 	gs.Player.LoanBalance += interest
 	return interest
 }
+
+func ProjectLoan(balance, warps int) int {
+	if balance <= 0 || warps <= 0 {
+		return balance
+	}
+	for i := 0; i < warps; i++ {
+		balance += LoanInterest(balance)
+	}
+	return balance
+}

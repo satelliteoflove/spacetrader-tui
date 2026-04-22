@@ -478,8 +478,45 @@ func (s *GalacticChartScreen) View() string {
 		helpLine += ", J jump (singularity)"
 	}
 	b.WriteString("\n" + DimStyle.Render(helpLine))
-	b.WriteString("\n" + DimStyle.Render("  b bookmark, L list, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  b bookmark, L list, ? help, esc back"))
 	return b.String()
+}
+
+func (s *GalacticChartScreen) HelpTitle() string { return "Galactic Chart" }
+
+func (s *GalacticChartScreen) HelpGroups() []KeyGroup {
+	groups := []KeyGroup{
+		{
+			Title: "Navigation",
+			Bindings: []KeyBinding{
+				{Keys: "arrows / hjkl", Desc: "Move cursor on map"},
+				{Keys: "/", Desc: "Search by system name"},
+				{Keys: "enter", Desc: "Travel to selected"},
+				{Keys: "p", Desc: "Plan route"},
+			},
+		},
+		{
+			Title: "Markers",
+			Bindings: []KeyBinding{
+				{Keys: "@", Desc: "You are here"},
+				{Keys: "+", Desc: "Selected"},
+				{Keys: "!", Desc: "Bookmarked"},
+				{Keys: "O", Desc: "In range"},
+				{Keys: "%", Desc: "Wormhole"},
+			},
+		},
+		{
+			Title: "Other",
+			Bindings: []KeyBinding{
+				{Keys: "b", Desc: "Toggle bookmark"},
+				{Keys: "L", Desc: "Switch to list view"},
+			},
+		},
+	}
+	if s.gs.Quests.HasSingularity {
+		groups[0].Bindings = append(groups[0].Bindings, KeyBinding{Keys: "J", Desc: "Jump via Portable Singularity"})
+	}
+	return groups
 }
 
 type GalacticListScreen struct {
@@ -866,12 +903,13 @@ func (s *GalacticListScreen) View() string {
 		b.WriteString("\n  " + s.message + "\n")
 	}
 
-	listHelp := "  enter travel, p plan route, d details, f refuel, w wormhole, b bookmark, i buy info"
+	listHelp2 := "  w wormhole, b bookmark, i buy info"
 	if s.gs.Quests.HasSingularity {
-		listHelp += ", J jump"
+		listHelp2 += ", J jump"
 	}
-	b.WriteString("\n" + DimStyle.Render(listHelp))
-	b.WriteString("\n" + DimStyle.Render("  a all/range, 1-5 sort, / filter, m map, esc back"))
+	b.WriteString("\n" + DimStyle.Render("  enter travel, p plan route, d details, f refuel"))
+	b.WriteString("\n" + DimStyle.Render(listHelp2))
+	b.WriteString("\n" + DimStyle.Render("  a all/range, 1-5 sort, / filter, m map, esc back, ? help"))
 	return b.String()
 }
 

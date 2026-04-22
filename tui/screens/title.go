@@ -1,11 +1,14 @@
 package screens
 
 import (
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/the4ofus/spacetrader-tui/internal/game"
 )
 
 const asciiTitle = `   _____                          ______               __
@@ -30,9 +33,30 @@ type titleMenuItem struct {
 }
 
 type TitleScreen struct {
-	cursor int
-	items  []titleMenuItem
-	tw     *Typewriter
+	cursor        int
+	items         []titleMenuItem
+	tw            *Typewriter
+	autosaveNewer bool
+}
+
+func autosaveIsNewer() bool {
+	autoPath, err := game.AutosavePath()
+	if err != nil {
+		return false
+	}
+	autoStat, err := os.Stat(autoPath)
+	if err != nil {
+		return false
+	}
+	savePath, err := game.DefaultSavePath()
+	if err != nil {
+		return true
+	}
+	saveStat, err := os.Stat(savePath)
+	if err != nil {
+		return true
+	}
+	return autoStat.ModTime().After(saveStat.ModTime())
 }
 
 func NewTitleScreen() *TitleScreen {
@@ -49,8 +73,9 @@ func NewTitleScreenWithConfig(colorblind bool, hasSave bool) *TitleScreen {
 	items = append(items, titleMenuItem{"Quit", actionQuit})
 
 	return &TitleScreen{
-		items: items,
-		tw:    NewTypewriter(asciiTitle, AnimTypewriterTitle),
+		items:         items,
+		tw:            NewTypewriter(asciiTitle, AnimTypewriterTitle),
+		autosaveNewer: hasSave && autosaveIsNewer(),
 	}
 }
 
@@ -76,7 +101,7 @@ func (s *TitleScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case actionNewGame:
 				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenNewGame} }
 			case actionLoadGame:
-				return s, func() tea.Msg { return LoadGameMsg{} }
+				return s, func() tea.Msg { return LoadGameMsg{FromAutosave: s.autosaveNewer} }
 			case actionSettings:
 				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSettings} }
 			case actionQuit:

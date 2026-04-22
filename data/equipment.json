@@ -8,5 +8,6 @@
   {"name": "Auto-Repair System", "type": "gadget", "bonus": "engineer", "tech_level": "Industrial", "price": 7500},
   {"name": "Navigation System", "type": "gadget", "bonus": "pilot", "tech_level": "Post-industrial", "price": 15000},
   {"name": "Targeting System", "type": "gadget", "bonus": "fighter", "tech_level": "Post-industrial", "price": 25000},
-  {"name": "Cloaking Device", "type": "gadget", "bonus": "pilot", "tech_level": "Hi-tech", "price": 100000}
+  {"name": "Cloaking Device", "type": "gadget", "bonus": "pilot", "tech_level": "Hi-tech", "price": 100000},
+  {"name": "Trade Analyzer", "type": "gadget", "tech_level": "Post-industrial", "price": 5000}
 ]

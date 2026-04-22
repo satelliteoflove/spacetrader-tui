@@ -28,6 +28,14 @@ func DefaultSavePath() (string, error) {
 	return filepath.Join(dir, "save.json"), nil
 }
 
+func AutosavePath() (string, error) {
+	dir, err := DefaultSaveDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "autosave.json"), nil
+}
+
 func Save(gs *GameState, path string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -38,6 +46,26 @@ func Save(gs *GameState, path string) error {
 		return err
 	}
 	return os.WriteFile(path, b, 0644)
+}
+
+func Autosave(gs *GameState) error {
+	path, err := AutosavePath()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(gs, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func Load(path string, data *gamedata.GameData) (*GameState, error) {

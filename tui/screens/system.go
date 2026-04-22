@@ -147,6 +147,27 @@ func (s *SystemScreen) View() string {
 		b.WriteString("\n  " + s.message)
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  j/k navigate, enter select, f refuel, s save, ctrl+c quit"))
+	b.WriteString("\n" + DimStyle.Render("  j/k navigate, enter select, f refuel, s save, ? help"))
 	return b.String()
+}
+
+func (s *SystemScreen) HelpTitle() string { return "System Hub" }
+
+func (s *SystemScreen) HelpGroups() []KeyGroup {
+	return []KeyGroup{
+		{
+			Title: "Navigation",
+			Bindings: []KeyBinding{
+				{Keys: "j/k or arrows", Desc: "Move cursor"},
+				{Keys: "enter", Desc: "Open selected screen"},
+			},
+		},
+		{
+			Title: "Actions",
+			Bindings: []KeyBinding{
+				{Keys: "f", Desc: "Refuel ship"},
+				{Keys: "s", Desc: "Save game"},
+			},
+		},
+	}
 }

@@ -48,6 +48,8 @@ type TravelResult struct {
 	DaysElapsed int
 }
 
+var AutosaveEnabled bool
+
 func ExecuteTravel(gs *game.GameState, destIdx int) TravelResult {
 	if destIdx < 0 || destIdx >= len(gs.Data.Systems) {
 		return TravelResult{Message: "Invalid destination."}
@@ -63,6 +65,10 @@ func ExecuteTravel(gs *game.GameState, destIdx int) TravelResult {
 
 	if fuelNeeded > gs.Player.Ship.Fuel {
 		return TravelResult{Message: "Not enough fuel."}
+	}
+
+	if AutosaveEnabled {
+		_ = game.Autosave(gs)
 	}
 
 	gs.Player.Ship.Fuel -= fuelNeeded

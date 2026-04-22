@@ -60,6 +60,7 @@ func NewSettingsScreen(cfg game.Config, inGame bool) *SettingsScreen {
 		{"Typewriter Text", settingSpeed, &s.config.TypewriterSpeed, nil},
 		{"Status Pulse", settingSpeed, &s.config.PulseSpeed, nil},
 		{"Verbose Combat", settingBool, nil, &s.config.VerboseCombat},
+		{"Autosave Before Warp", settingBool, nil, &s.config.AutosaveOnWarp},
 	}
 	return s
 }

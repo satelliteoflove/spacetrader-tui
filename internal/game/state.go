@@ -37,9 +37,10 @@ type TradeInfoEntry struct {
 }
 
 type DailySnapshot struct {
-	Day      int `json:"day"`
-	Credits  int `json:"credits"`
-	NetWorth int `json:"net_worth"`
+	Day         int `json:"day"`
+	Credits     int `json:"credits"`
+	NetWorth    int `json:"net_worth"`
+	LoanBalance int `json:"loan_balance,omitempty"`
 }
 
 const TradeInfoStaleDays = 5
@@ -117,9 +118,10 @@ func (gs *GameState) ToggleBookmark(sysIdx int, note string) bool {
 func (gs *GameState) RecordSnapshot() {
 	dp := &GameDataProvider{Data: gs.Data}
 	snap := DailySnapshot{
-		Day:      gs.Day,
-		Credits:  gs.Player.Credits,
-		NetWorth: gs.Player.Worth(dp),
+		Day:         gs.Day,
+		Credits:     gs.Player.Credits,
+		NetWorth:    gs.Player.Worth(dp),
+		LoanBalance: gs.Player.LoanBalance,
 	}
 	if n := len(gs.Ledger); n > 0 && gs.Ledger[n-1].Day == gs.Day {
 		gs.Ledger[n-1] = snap

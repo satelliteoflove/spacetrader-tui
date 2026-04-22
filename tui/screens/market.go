@@ -99,6 +99,10 @@ func (s *MarketScreen) updateBrowse(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return s, textinput.Blink
 				}
 			}
+		case msg.String() == "t":
+			if game.HasTradeAnalyzer(s.gs) {
+				return s, func() tea.Msg { return NavigateMsg{Screen: ScreenTradeAnalyzer} }
+			}
 		case key.Matches(msg, Keys.Back):
 			return s, func() tea.Msg { return NavigateMsg{Screen: ScreenSystem} }
 		}
@@ -253,6 +257,40 @@ func (s *MarketScreen) View() string {
 		b.WriteString("  " + s.message + "\n")
 	}
 
-	b.WriteString("\n" + DimStyle.Render("  b buy  s sell  ! illegal  esc back"))
+	hint := "  b buy  s sell  ! illegal  esc back  ? help"
+	if game.HasTradeAnalyzer(s.gs) {
+		hint = "  b buy  s sell  t analyzer  ! illegal  esc back  ? help"
+	}
+	b.WriteString("\n" + DimStyle.Render(hint))
 	return b.String()
+}
+
+func (s *MarketScreen) HelpTitle() string { return "Market" }
+
+func (s *MarketScreen) HelpGroups() []KeyGroup {
+	groups := []KeyGroup{
+		{
+			Title: "Trade",
+			Bindings: []KeyBinding{
+				{Keys: "j/k or arrows", Desc: "Move cursor"},
+				{Keys: "b", Desc: "Buy selected good"},
+				{Keys: "s", Desc: "Sell selected good"},
+			},
+		},
+	}
+	if game.HasTradeAnalyzer(s.gs) {
+		groups = append(groups, KeyGroup{
+			Title: "Analyzer",
+			Bindings: []KeyBinding{
+				{Keys: "t", Desc: "Open Trade Analyzer"},
+			},
+		})
+	}
+	groups = append(groups, KeyGroup{
+		Title: "Indicators",
+		Bindings: []KeyBinding{
+			{Keys: "!", Desc: "Illegal good"},
+		},
+	})
+	return groups
 }

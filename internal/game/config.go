@@ -61,6 +61,7 @@ func (a AnimSpeed) Prev() AnimSpeed {
 }
 
 type Config struct {
+	ConfigVersion     int       `json:"config_version"`
 	ColorblindMode    bool      `json:"colorblind_mode"`
 	TransitionSpeed   AnimSpeed `json:"transition_speed"`
 	WarpSpeed         AnimSpeed `json:"warp_speed"`
@@ -68,6 +69,7 @@ type Config struct {
 	TypewriterSpeed   AnimSpeed `json:"typewriter_speed"`
 	PulseSpeed        AnimSpeed `json:"pulse_speed"`
 	VerboseCombat     bool      `json:"verbose_combat"`
+	AutosaveOnWarp    bool      `json:"autosave_on_warp"`
 }
 
 func (c *Config) applyDefaults() {
@@ -86,6 +88,10 @@ func (c *Config) applyDefaults() {
 	if c.PulseSpeed == 0 {
 		c.PulseSpeed = AnimMedium
 	}
+	if c.ConfigVersion < 1 {
+		c.AutosaveOnWarp = true
+		c.ConfigVersion = 1
+	}
 }
 
 func DefaultConfigPath() (string, error) {
@@ -97,15 +103,17 @@ func DefaultConfigPath() (string, error) {
 }
 
 func LoadConfig() Config {
+	var cfg Config
 	path, err := DefaultConfigPath()
 	if err != nil {
-		return Config{}
+		cfg.applyDefaults()
+		return cfg
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return Config{}
+		cfg.applyDefaults()
+		return cfg
 	}
-	var cfg Config
 	json.Unmarshal(b, &cfg)
 	cfg.applyDefaults()
 	return cfg

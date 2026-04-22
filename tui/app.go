@@ -12,6 +12,7 @@ import (
 	"github.com/the4ofus/spacetrader-tui/internal/formula"
 	"github.com/the4ofus/spacetrader-tui/internal/game"
 	"github.com/the4ofus/spacetrader-tui/internal/gamedata"
+	"github.com/the4ofus/spacetrader-tui/internal/travel"
 	"github.com/the4ofus/spacetrader-tui/tui/screens"
 )
 
@@ -45,9 +46,11 @@ type Model struct {
 	colorblind      bool
 	fadeFrame       int
 	pulsePhase      int
+	helpActive      bool
 }
 
 func NewModel(data *gamedata.GameData, cfg game.Config) Model {
+	travel.AutosaveEnabled = cfg.AutosaveOnWarp
 	return Model{
 		data:            data,
 		config:          cfg,
@@ -67,6 +70,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+		if m.helpActive {
+			switch msg.String() {
+			case "?", "esc", "q":
+				m.helpActive = false
+			}
+			return m, nil
+		}
+		if msg.String() == "?" {
+			m.helpActive = true
+			return m, nil
+		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -79,7 +93,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.navigate(msg)
 	case screens.LoadGameMsg:
-		path, err := game.DefaultSavePath()
+		var path string
+		var err error
+		if msg.FromAutosave {
+			path, err = game.AutosavePath()
+		} else {
+			path, err = game.DefaultSavePath()
+		}
 		if err != nil {
 			return m, nil
 		}
@@ -167,6 +187,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			InitStatusStyles(m.colorblind)
 		}
 		screens.ApplyAnimationSettings(m.config)
+		travel.AutosaveEnabled = m.config.AutosaveOnWarp
 		return m, nil
 	}
 
@@ -233,6 +254,8 @@ func (m Model) navigate(msg screens.NavigateMsg) (tea.Model, tea.Cmd) {
 		s = screens.NewSystemDetailScreen(m.gs, msg.SelectedSystem, msg.ReturnScreen)
 	case screens.ScreenLedger:
 		s = screens.NewLedgerScreen(m.gs)
+	case screens.ScreenTradeAnalyzer:
+		s = screens.NewTradeAnalyzerScreen(m.gs)
 	default:
 		return m, nil
 	}
@@ -312,6 +335,10 @@ func (m Model) statusBar(width int) string {
 	if m.gs == nil {
 		return ""
 	}
+	switch m.screen.(type) {
+	case *screens.TitleScreen, *screens.NewGameScreen, *screens.GameOverScreen, *screens.SettingsScreen, *screens.GuideScreen:
+		return ""
+	}
 	shipDef := m.gs.PlayerShipDef()
 	cargo := m.gs.Player.TotalCargo()
 	dp := &game.GameDataProvider{Data: m.gs.Data}
@@ -337,6 +364,11 @@ func (m Model) statusBar(width int) string {
 		parts = append(parts, pulseDangerStyle(m.pulsePhase, m.colorblind).Render(fmt.Sprintf("Debt:%d", m.gs.Player.LoanBalance)))
 	}
 
+	cost := travel.NextDayCost(m.gs)
+	if total := cost.Total(); total > m.gs.Player.Credits {
+		parts = append(parts, pulseDangerStyle(m.pulsePhase, m.colorblind).Render(fmt.Sprintf("Warn:-%d next warp", total)))
+	}
+
 	switch m.gs.QuestUrgency() {
 	case game.QuestUrgencyFresh:
 		parts = append(parts, statusQuestFreshStyle.Render("Quest:*"))
@@ -350,7 +382,18 @@ func (m Model) statusBar(width int) string {
 }
 
 func (m Model) View() string {
-	content := m.screen.View()
+	var content string
+	if m.helpActive {
+		title := "Space Trader"
+		var groups []screens.KeyGroup
+		if h, ok := m.screen.(screens.Helpable); ok {
+			title = h.HelpTitle()
+			groups = h.HelpGroups()
+		}
+		content = screens.RenderHelpOverlay(title, groups)
+	} else {
+		content = m.screen.View()
+	}
 
 	w := m.width
 	h := m.height

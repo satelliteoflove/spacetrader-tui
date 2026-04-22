@@ -27,8 +27,8 @@ func TestLoadAllCounts(t *testing.T) {
 	if got := len(gd.Ships); got != 10 {
 		t.Errorf("expected 10 ships, got %d", got)
 	}
-	if got := len(gd.Equipment); got != 13 {
-		t.Errorf("expected 13 equipment (10 base + 3 quest), got %d", got)
+	if got := len(gd.Equipment); got != 14 {
+		t.Errorf("expected 14 equipment (11 base + 3 quest), got %d", got)
 	}
 }
 
@@ -94,8 +94,8 @@ func TestEquipmentCategories(t *testing.T) {
 	if shields != 3 {
 		t.Errorf("expected 3 shields (2 base + Lightning Shield), got %d", shields)
 	}
-	if gadgets != 6 {
-		t.Errorf("expected 6 gadgets (5 base + Fuel Compactor), got %d", gadgets)
+	if gadgets != 7 {
+		t.Errorf("expected 7 gadgets (5 base + Trade Analyzer + Fuel Compactor), got %d", gadgets)
 	}
 }
 

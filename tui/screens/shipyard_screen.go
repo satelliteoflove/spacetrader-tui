@@ -307,7 +307,13 @@ func (s *ShipyardScreen) handleSelect() {
 			equipID := s.installedEquipID(item)
 			eq := s.gs.Data.Equipment[equipID]
 			sellPrice := eq.Price * 3 / 4
-			s.message = SelectedStyle.Render(fmt.Sprintf("Sell %s for %d cr? (y/n)", eq.Name, sellPrice))
+			prompt := SelectedStyle.Render(fmt.Sprintf("Sell %s for %d cr? (y/n)", eq.Name, sellPrice))
+			if item.category == gamedata.EquipWeapon && len(s.gs.Player.Ship.Weapons) == 1 {
+				prompt = DangerStyle.Render("Warning: this is your last weapon.") + "\n  " + prompt
+			} else if item.category == gamedata.EquipShield && len(s.gs.Player.Ship.Shields) == 1 {
+				prompt = DangerStyle.Render("Warning: this is your last shield.") + "\n  " + prompt
+			}
+			s.message = prompt
 			s.phase = phaseSellEquip
 		}
 	case tabRepair:
@@ -354,7 +360,7 @@ func (s *ShipyardScreen) View() string {
 		if s.message != "" {
 			b.WriteString("\n  " + s.message)
 		}
-		b.WriteString("\n\n" + DimStyle.Render("  1/2/3/4 tabs, j/k navigate, enter select, esc back"))
+		b.WriteString("\n\n" + DimStyle.Render("  1/2/3/4 tabs, j/k navigate, enter select, esc back, ? help"))
 	}
 
 	return b.String()
@@ -526,5 +532,29 @@ func (s *ShipyardScreen) renderCrewPick(b *strings.Builder) {
 		b.WriteString("\n" + SelectedStyle.Render("  Press y to confirm, esc to cancel"))
 	} else {
 		b.WriteString("\n" + DimStyle.Render("  space toggle, j/k navigate, esc cancel"))
+	}
+}
+
+func (s *ShipyardScreen) HelpTitle() string { return "Shipyard" }
+
+func (s *ShipyardScreen) HelpGroups() []KeyGroup {
+	return []KeyGroup{
+		{
+			Title: "Tabs",
+			Bindings: []KeyBinding{
+				{Keys: "1", Desc: "Ships (buy new ship)"},
+				{Keys: "2", Desc: "Buy equipment"},
+				{Keys: "3", Desc: "Sell equipment"},
+				{Keys: "4", Desc: "Repair / refuel"},
+			},
+		},
+		{
+			Title: "Navigation",
+			Bindings: []KeyBinding{
+				{Keys: "j/k or arrows", Desc: "Move cursor"},
+				{Keys: "enter", Desc: "Select / confirm"},
+				{Keys: "y / n", Desc: "Confirm prompts"},
+			},
+		},
 	}
 }
